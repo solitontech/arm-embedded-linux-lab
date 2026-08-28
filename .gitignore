@@ -1,0 +1,30 @@
+﻿# Build & Binary Artifacts
+*.o
+*.ko
+*.so
+*.a
+*.bin
+*.elf
+*.img
+*.dtb
+*.dtbo
+
+# Linux / Kernel / U-Boot build trees
+build/
+output/
+.config
+.config.old
+*.cmd
+modules.order
+Module.symvers
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Temporary & Log files
+*.log
+*.tmp
