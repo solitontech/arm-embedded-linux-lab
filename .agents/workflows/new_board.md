@@ -5,48 +5,65 @@ description: how to add a new hardware board profile to the monorepo
 # Add a New Board Profile
 
 ## When to Use This Workflow
-Use this workflow when adding support for a new hardware controller (e.g., Raspberry Pi 3, BeagleBone Black) that will be physically connected to the Ubuntu lab host.
+Use this workflow when adding support for a new hardware platform or controller (e.g. Raspberry Pi 5, NXP i.MX8, STM32MP1, RISC-V) to the monorepo.
 
 ## Prerequisites
-- The board is physically connected to the Ubuntu lab host via a USB-to-Serial cable
-- You know the board's serial port device (e.g., `/dev/ttyUSB1`) and baud rate
+- Knowledge of the CPU architecture (e.g. ARMv8-A Cortex-A76, ARMv7-A Cortex-A9), toolchain prefix (`CROSS_COMPILE`), and required compiler tuning flags.
+- Physical connection / lab host details (Serial device, IP, baud rate, reset method).
 
 ## Steps
 
-1. **Create the board profile from the example**
-   ```bash
-   cp tools/deploy/boards/rpi4.env.example tools/deploy/boards/<board-name>.env
+1. **Create the hardware architecture profile (Committed)**
+   Create `shared/build_system/boards/<board-name>.mk`:
+   ```makefile
+   BOARD_NAME     := <board-name>
+   BOARD_DESC     := My Board Name (SoC / CPU Description)
+   ARCH           := arm64   # arm64, arm, riscv64, x86_64
+   CROSS_COMPILE  ?= aarch64-linux-gnu-
+
+   # CPU architecture optimization flags
+   CPU_FLAGS      := -mcpu=cortex-a72
+   BOARD_CFLAGS   := $(CPU_FLAGS)
+   BOARD_CXXFLAGS := $(CPU_FLAGS)
+   BOARD_LDFLAGS  := 
+
+   DEFAULT_DEPLOY := ssh     # ssh | tftp | nfs
    ```
 
-2. **Fill in the board-specific values**
-   Edit `tools/deploy/boards/<board-name>.env`:
-   - `BOARD_SERIAL_PORT` — the `/dev/ttyUSBx` device on the Ubuntu host
-   - `BOARD_SERIAL_BAUD` — typically `115200`
-   - `BOARD_RESET_CMD` — U-Boot reset command (usually `reset\r`)
-
-3. **Create a committed example file**
-   Copy the filled-in values (with placeholder substitutions) to an `.env.example`:
+2. **Create the committed lab environment template**
+   Create `tools/deploy/boards/<board-name>.env.example`:
    ```bash
-   cp tools/deploy/boards/<board-name>.env tools/deploy/boards/<board-name>.env.example
-   # Then replace real values with placeholders in the .example file
+   TARGET_IP="192.168.1.xxx"
+   TARGET_USER="root"
+   TARGET_PORT="22"
+   TARGET_DEST_DIR="/usr/local/bin"
+
+   BOARD_SERIAL_PORT="/dev/ttyUSB0"
+   BOARD_SERIAL_BAUD="115200"
+   BOARD_RESET_METHOD="uboot_serial"   # uboot_serial | ssh | sysrq_serial | power_relay
+   BOARD_RESET_CMD="reset\r"
+
+   BOARD_TFTP_SUBDIR="<board-name>"
+   BOARD_NFS_ROOTFS="<board-name>/rootfs"
    ```
 
-4. **Verify the serial connection**
-   From the Ubuntu lab host:
+3. **Create your local lab environment file (Git-Ignored)**
    ```bash
-   picocom -b 115200 /dev/ttyUSB<N>
+   cp tools/deploy/boards/<board-name>.env.example tools/deploy/boards/<board-name>.env
    ```
-   You should see the board's boot output.
+   Fill in your actual lab IP and `/dev/ttyUSB*` port.
 
-5. **Test the deployment script**
+4. **Verify board registration**
    ```bash
-   ./tools/deploy/trigger_tftp_boot.sh --board=<board-name>
+   make list-boards
+   ```
+
+5. **Test building and deploying a project**
+   ```bash
+   make info BOARD=<board-name>
    ```
 
 ## Files Touched
-- `[CREATE]` `tools/deploy/boards/<board-name>.env` (git-ignored, stays local)
-- `[CREATE]` `tools/deploy/boards/<board-name>.env.example` (committed to repo)
-
-## Notes
-- The `*.env` files are listed in `.gitignore` — never commit them as they contain real lab IP addresses.
-- Only the `*.env.example` counterpart should be committed.
+- `[CREATE]` `shared/build_system/boards/<board-name>.mk` (Committed)
+- `[CREATE]` `tools/deploy/boards/<board-name>.env.example` (Committed)
+- `[CREATE]` `tools/deploy/boards/<board-name>.env` (Git-ignored, local only)

@@ -1,4 +1,4 @@
-﻿# ARM Embedded Linux Lab 🤼
+# ARM Embedded Linux Lab 🤼
 
 Welcome to the **ARM Embedded Linux Lab** – the central repo and workspace for the Soliton Embedded Crew!
 
@@ -22,6 +22,30 @@ This repository contains our learning tracks, shared build tools, scripts, and e
 
 2. **Workspace Setup:**
    Follow setup guides in docs/ to configure your development environment.
+
+   **Option A — Docker (recommended for any OS):**
+   ```bash
+   ./tools/docker/run.sh build   # build the image once
+   ./tools/docker/run.sh run     # enter the container (repo mounted at /workspace)
+   ./lab doctor                  # verify toolchains inside the container
+   ```
+   See [`.agents/skills/docker-setup/SKILL.md`](.agents/skills/docker-setup/SKILL.md) for full details.
+
+   **Option B — Native install:**
+   Install cross-compilers and tools manually, then run `./lab doctor` to verify.
+
+3. **Build a project:**
+   ```bash
+   ./lab new hello --type app --board rpi4   # scaffold
+   ./lab build hello --board rpi4            # compile
+   ./lab deploy hello --board rpi4 --dry-run # preview deployment
+   ```
+
+4. **Explore available commands:**
+   ```bash
+   ./lab --help
+   ./lab list
+   ```
 
 ---
 *Maintained by Soliton Embedded Crew. All skill levels welcome. Let the wrestling begin. 💪*

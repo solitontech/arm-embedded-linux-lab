@@ -4,9 +4,9 @@
 # ==============================================================================
 
 # Project identity
-PROJECT_NAME    := my-project
+PROJECT_NAME    := mytest
 PROJECT_TYPE    := app            # app | lib_static | lib_shared | raw
-DEFAULT_BOARD   := rpi4
+DEFAULT_BOARD   := host
 
 # Custom build flags (optional)
 # CXXFLAGS_EXTRA  += -std=c++20
