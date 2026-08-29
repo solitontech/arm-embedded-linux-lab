@@ -1,4 +1,4 @@
-﻿# Project VisionEdge: Industrial Inspection & Safety Platform
+# Project VisionEdge: Industrial Inspection & Safety Platform
 
 > **Flagship Platform Engineering Project | ARM Embedded Linux Lab**  
 > **Target Hardware:** Raspberry Pi 4 (Broadcom BCM2711 / Quad-Core ARM Cortex-A72 @ 1.5GHz / AArch64) + Camera Module / USB UVC  
