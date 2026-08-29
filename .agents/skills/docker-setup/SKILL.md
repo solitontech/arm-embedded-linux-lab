@@ -33,7 +33,16 @@ Provide a reproducible cross-compilation environment without requiring developer
 
 ## Instructions
 
-### Step 1: Build the Image
+### Step 1: Install Docker on Host (If Not Already Installed)
+If Docker is not installed on the workstation, run the automated installer:
+```bash
+./tools/docker/run.sh install-docker
+```
+- On **macOS**: Installs Docker Desktop via Homebrew Cask and launches it.
+- On **Linux**: Installs Docker via the official Docker convenience script and adds the current user to the `docker` group.
+- On **Windows**: Installs Docker Desktop via `winget`.
+
+### Step 2: Build the Lab Docker Image
 From the repository root:
 ```bash
 ./tools/docker/run.sh build
@@ -41,13 +50,13 @@ From the repository root:
 This reads `tools/docker/Dockerfile` and builds an image tagged `arm-embedded-linux-lab:latest`.
 The host UID/GID are passed as build args to avoid file permission issues.
 
-### Step 2: Start an Interactive Container
+### Step 3: Start an Interactive Container
 ```bash
 ./tools/docker/run.sh run
 ```
 The repository root is bind-mounted at `/workspace` inside the container. All source edits on the host are immediately visible inside the container and vice-versa.
 
-### Step 3: Use the `lab` CLI Inside the Container
+### Step 4: Use the `lab` CLI Inside the Container
 Inside the container shell:
 ```bash
 ./lab doctor            # verify all toolchains are present
@@ -56,12 +65,12 @@ Inside the container shell:
 ./lab deploy myproject --board rpi4 --dry-run
 ```
 
-### Step 4: Run a Single Command Without an Interactive Shell
+### Step 5: Run a Single Command Without an Interactive Shell
 ```bash
 ./tools/docker/run.sh exec ./lab build myproject --board rpi4
 ```
 
-### Step 5: Push Image to Registry (CI / Team Use)
+### Step 6: Push Image to Registry (CI / Team Use)
 ```bash
 REGISTRY=ghcr.io/your-org ./tools/docker/run.sh push
 ```

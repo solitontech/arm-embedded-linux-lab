@@ -25,9 +25,10 @@ This repository contains our learning tracks, shared build tools, scripts, and e
 
    **Option A — Docker (recommended for any OS):**
    ```bash
-   ./tools/docker/run.sh build   # build the image once
-   ./tools/docker/run.sh run     # enter the container (repo mounted at /workspace)
-   ./lab doctor                  # verify toolchains inside the container
+   ./tools/docker/run.sh install-docker # installs Docker on host if not present
+   ./tools/docker/run.sh build          # build the image once
+   ./tools/docker/run.sh run            # enter container (repo mounted at /workspace)
+   ./lab doctor                         # verify toolchains inside container
    ```
    See [`.agents/skills/docker-setup/SKILL.md`](.agents/skills/docker-setup/SKILL.md) for full details.
 

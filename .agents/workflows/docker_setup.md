@@ -23,13 +23,19 @@ git clone <repo-url>
 cd arm-embedded-linux-lab
 ```
 
-### 2. Build the Docker image
+### 2. Install Docker (if not already installed)
+```bash
+./tools/docker/run.sh install-docker
+```
+Auto-detects host OS and runs the appropriate installer (macOS Homebrew, Linux script, Windows winget).
+
+### 3. Build the Docker image
 ```bash
 ./tools/docker/run.sh build
 ```
 This compiles an Ubuntu 22.04 image with all required toolchains. Takes ~2–5 minutes on first run; cached on subsequent runs.
 
-### 3. Verify the environment
+### 4. Verify the environment
 ```bash
 ./tools/docker/run.sh run
 # Inside the container:
@@ -37,19 +43,19 @@ This compiles an Ubuntu 22.04 image with all required toolchains. Takes ~2–5 m
 ```
 All toolchains (`aarch64-linux-gnu-gcc`, `gdb-multiarch`, `picocom`, etc.) should show ✔.
 
-### 4. Build a project inside the container
+### 5. Build a project inside the container
 ```bash
 # Still inside the container:
 ./lab build myproject --board rpi4
 ```
 
-### 5. Exit and re-enter as needed
+### 6. Exit and re-enter as needed
 ```bash
 exit   # leave the container (--rm removes it automatically)
 ./tools/docker/run.sh run   # re-enter anytime; your source edits are preserved on the host
 ```
 
-### 6. (Optional) Push to registry for CI/team use
+### 7. (Optional) Push to registry for CI/team use
 ```bash
 REGISTRY=ghcr.io/your-org ./tools/docker/run.sh push
 ```
