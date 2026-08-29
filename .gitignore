@@ -1,4 +1,4 @@
-﻿# Build & Binary Artifacts
+# Build & Binary Artifacts
 *.o
 *.ko
 *.so
@@ -28,3 +28,10 @@ Module.symvers
 # Temporary & Log files
 *.log
 *.tmp
+
+# Lab environment secrets (real IPs, SSH key paths — copy from *.env.example)
+tools/deploy/lab_host.env
+tools/deploy/boards/*.env
+
+# Buildroot & large output trees
+buildroot/output/
