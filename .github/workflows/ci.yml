@@ -1,0 +1,44 @@
+name: CI — Cross-Compile Smoke Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  cross-compile-smoke-test:
+    name: AArch64 Cross-Compile Smoke Test
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install ARM cross-compile toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc-aarch64-linux-gnu \
+            g++-aarch64-linux-gnu \
+            build-essential
+
+      - name: Install Easymake
+        run: |
+          git clone https://github.com/roxma/easymake.git /tmp/easymake
+          sudo ln -s /tmp/easymake/easymake /usr/local/bin/easymake
+
+      - name: Verify toolchain
+        run: aarch64-linux-gnu-g++ --version
+
+      - name: Compile project scaffold smoke test
+        run: |
+          aarch64-linux-gnu-g++ \
+            -std=c++20 \
+            -mcpu=cortex-a72 \
+            -Wall -Wextra \
+            shared/templates/new_project/src/main.cpp \
+            -o /tmp/visiond_smoke_test
+
+      - name: Verify ELF is AArch64 binary
+        run: file /tmp/visiond_smoke_test | grep -q "aarch64" && echo "✅ AArch64 binary confirmed."

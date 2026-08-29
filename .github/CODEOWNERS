@@ -1,0 +1,13 @@
+# CODEOWNERS
+# These owners are automatically requested for review when their paths are changed.
+# Format: <path_pattern>  <owner_github_username>
+
+# Shared infrastructure — requires deliberate review before changes land
+/shared/           @solitontech/embedded-leads
+/tools/            @solitontech/embedded-leads
+/.devcontainer/    @solitontech/embedded-leads
+/.github/          @solitontech/embedded-leads
+/AGENTS.md         @solitontech/embedded-leads
+
+# Project directories — owned by the project team
+/projects/vision-edge/   @solitontech/embedded-leads
