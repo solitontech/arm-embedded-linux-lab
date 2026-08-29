@@ -14,39 +14,14 @@ This repository contains our learning tracks, shared build tools, scripts, and e
 
 ## 🚀 Getting Started
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repo-url>
-   cd arm-embedded-linux-lab
-   ```
+1. **Workspace Setup:**
+   - **Docker Setup (recommended for any OS):** Follow the [`docker-setup` Skill](.agents/skills/docker-setup/SKILL.md) / [Workflow](.agents/workflows/docker_setup.md) to set up and run the containerized development environment.
+   - **Native Setup:** Install toolchains natively and run `./lab doctor` to verify environment health.
 
-2. **Workspace Setup:**
-   Follow setup guides in docs/ to configure your development environment.
-
-   **Option A — Docker (recommended for any OS):**
-   ```bash
-   ./tools/docker/run.sh install-docker # installs Docker on host if not present
-   ./tools/docker/run.sh build          # build the image once
-   ./tools/docker/run.sh run            # enter container (repo mounted at /workspace)
-   ./lab doctor                         # verify toolchains inside container
-   ```
-   See [`.agents/skills/docker-setup/SKILL.md`](.agents/skills/docker-setup/SKILL.md) for full details.
-
-   **Option B — Native install:**
-   Install cross-compilers and tools manually, then run `./lab doctor` to verify.
-
-3. **Build a project:**
-   ```bash
-   ./lab new hello --type app --board rpi4   # scaffold
-   ./lab build hello --board rpi4            # compile
-   ./lab deploy hello --board rpi4 --dry-run # preview deployment
-   ```
-
-4. **Explore available commands:**
-   ```bash
-   ./lab --help
-   ./lab list
-   ```
+2. **Core Development Workflow:**
+   - **Primary CLI:** Use `./lab <command>` for all tasks. See available commands with `./lab list` or `./lab --help`.
+   - **Creating Projects:** Follow the [New Project Workflow](.agents/workflows/new_project.md).
+   - **Building & Deploying:** Follow the [Deploy and Run Skill](.agents/skills/deploy-and-run/SKILL.md).
 
 ---
 *Maintained by Soliton Embedded Crew. All skill levels welcome. Let the wrestling begin. 💪*

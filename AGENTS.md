@@ -8,6 +8,13 @@ This is a professional embedded Linux monorepo supporting multiple projects and 
 
 **Separate concerns cleanly:** Each top-level directory has a single purpose — respect those boundaries. Don't put infrastructure in project space. Don't put application logic in shared space.
 
+## README Principles
+
+**Keep `README.md` concise, high-level, and clean.**
+- Never duplicate multi-step operational procedures, granular terminal commands, or setup walkthroughs in `README.md`.
+- Always delegate task-specific workflows to their corresponding **Skill** (`.agents/skills/`) or **Workflow** (`.agents/workflows/`).
+- `README.md` should serve only as a welcoming entry point with high-level summaries and direct links to the relevant skills/workflows.
+
 ## How to Operate in This Repo
 
 Before starting any task, check `.agents/workflows/` for a workflow matching your task. If one exists, follow it. If not, complete your task and create a new workflow using `.agents/workflows/WORKFLOW_TEMPLATE.md` so future agents can benefit.
