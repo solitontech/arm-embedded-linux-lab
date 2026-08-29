@@ -382,13 +382,14 @@ def cmd_reboot(args: argparse.Namespace):
     
     method = args.method or env.get("BOARD_RESET_METHOD", "uboot_serial")
     
+    reset_cmd = env.get("BOARD_RESET_CMD", "reset\\r")
     cmd = [
         str(reboot_script),
         f"--board={board}",
         f"--method={method}",
         f"--serial-port={env.get('BOARD_SERIAL_PORT', '')}",
         f"--serial-baud={env.get('BOARD_SERIAL_BAUD', '115200')}",
-        f"--reset-cmd={env.get('BOARD_RESET_CMD', 'reset\\r')}",
+        f"--reset-cmd={reset_cmd}",
         f"--target-ip={env.get('TARGET_IP', '')}",
         f"--target-user={env.get('TARGET_USER', 'root')}"
     ]

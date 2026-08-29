@@ -29,9 +29,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     picocom \
     minicom \
     # Deploy / network tools
-    ssh \
+    openssh-client \
     rsync \
-    scp \
     iputils-ping \
     # Utilities
     curl \
@@ -43,8 +42,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Pass --build-arg UID=$(id -u) GID=$(id -g) when building
 ARG UID=1000
 ARG GID=1000
-RUN groupadd -g ${GID} labuser \
-    && useradd -m -u ${UID} -g ${GID} -s /bin/bash labuser
+RUN (getent group ${GID} || groupadd -g ${GID} labuser) \
+    && (getent passwd ${UID} || useradd -m -u ${UID} -g ${GID} -s /bin/bash labuser)
 
 # Set working directory — the repo is bind-mounted here at runtime
 WORKDIR /workspace
