@@ -129,14 +129,37 @@ cmd_run() {
     local full_name="${IMAGE_NAME}:${IMAGE_TAG}"
     [[ -n "$REGISTRY" ]] && full_name="${REGISTRY}/${full_name}"
 
+    # ── Serial device passthrough ──────────────────────────────────────────
+    # Enumerate all /dev/ttyUSB* and /dev/ttyACM* character devices present
+    # on the host and pass each one into the container via --device so serial
+    # consoles (picocom/minicom) work out-of-the-box without manual flags.
+    # --group-add dialout grants the non-root labuser permission to open them.
+    local device_flags=()
+    local detected_devices=()
+    for dev in /dev/ttyUSB* /dev/ttyACM*; do
+        if [[ -c "$dev" ]]; then
+            device_flags+=(--device "${dev}:${dev}")
+            detected_devices+=("$dev")
+        fi
+    done
+
+    if [[ ${#detected_devices[@]} -gt 0 ]]; then
+        ok "Passing serial devices into container: ${detected_devices[*]}"
+    else
+        warn "No /dev/ttyUSB* or /dev/ttyACM* devices found on host."
+        warn "Plug in your USB-serial adapter and re-run to get serial access."
+    fi
+
     info "Starting container '${CONTAINER_NAME}' with repo mounted at /workspace..."
     docker run \
         --rm \
         -it \
         --name "${CONTAINER_NAME}" \
         --user "$(id -u):$(id -g)" \
+        --group-add dialout \
         -v "${REPO_ROOT}:/workspace" \
         -w /workspace \
+        "${device_flags[@]}" \
         "${full_name}"
 }
 

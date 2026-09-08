@@ -77,5 +77,5 @@ REGISTRY=ghcr.io/your-org ./tools/docker/run.sh push
 
 ## Notes
 - The container runs as a non-root user (`labuser`) matching the host UID/GID.
-- Serial ports (`/dev/ttyUSB*`, `/dev/ttyACM*`) must be passed to the container explicitly using `--device` if needed for console access.
+- **Serial ports are passed in automatically.** When `./tools/docker/run.sh run` starts, it enumerates all `/dev/ttyUSB*` and `/dev/ttyACM*` character devices present on the host and passes each one into the container via `--device`. The container also receives `--group-add dialout` so `picocom`/`minicom` can open the ports without `sudo`. If no adapters are plugged in at startup, a warning is printed but the container starts normally — just re-run after plugging in the adapter.
 - To use a custom image tag: `IMAGE_TAG=v1.2 ./tools/docker/run.sh build`.
