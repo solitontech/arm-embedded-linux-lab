@@ -27,9 +27,13 @@ Provide a reproducible cross-compilation environment without requiring developer
 |---|---|
 | `gcc`, `g++`, `clang` | Native host compilation |
 | `gcc-aarch64-linux-gnu`, `g++-aarch64-linux-gnu` | ARM64 cross-compiler (RPi4, RPi3, QEMU) |
+| `gcc-arm-linux-gnueabihf`, `g++-arm-linux-gnueabihf` | ARM32 cross-compiler (BeagleBone Black) |
 | `gdb-multiarch` | Multi-arch GDB debugger |
 | `picocom`, `minicom` | Serial UART console |
+| `nano` | Terminal text editor |
 | `ssh`, `rsync`, `scp` | Remote deploy utilities |
+| `tftpd-hpa`, `tftp-hpa` | TFTP server & client utilities for network boot/deploy |
+| `iproute2` | Advanced IP networking tools (`ip`, `ss`, etc.) |
 
 ## Instructions
 
@@ -79,3 +83,30 @@ REGISTRY=ghcr.io/your-org ./tools/docker/run.sh push
 - The container runs as a non-root user (`labuser`) matching the host UID/GID.
 - **Serial ports are passed in automatically.** When `./tools/docker/run.sh run` starts, it enumerates all `/dev/ttyUSB*` and `/dev/ttyACM*` character devices present on the host and passes each one into the container via `--device`. The container also receives `--group-add dialout` so `picocom`/`minicom` can open the ports without `sudo`. If no adapters are plugged in at startup, a warning is printed but the container starts normally — just re-run after plugging in the adapter.
 - To use a custom image tag: `IMAGE_TAG=v1.2 ./tools/docker/run.sh build`.
+
+## Reproducible TFTP Server & Host Networking
+
+The Docker container runs with `--network host` to expose the TFTP server on UDP port 69 directly on the host PC's LAN IP.
+
+- **Persistent TFTP Directory**: The TFTP root is pre-configured to `/workspace/tftp` (bind-mounted from the host repository). Files like `test.txt` or kernel/bootloader images remain persistent across container recreations.
+- **Automated Container Entrypoint**: `/usr/local/bin/entrypoint.sh` automatically configures `/etc/default/tftpd-hpa`, fixes read permissions (`chmod -R a+rX /workspace/tftp`), starts `in.tftpd` on container startup, and executes commands as `labuser`.
+- **Host Firewall (UFW) Requirement**: If UFW firewall is active on the host PC, allow incoming UDP TFTP requests by running on host:
+  ```bash
+  sudo ufw allow 69/udp
+  ```
+- **Board Verification (Target / Raspberry Pi)**:
+  From target board or network client:
+  ```bash
+  tftp <HOST_LAN_IP> -c get test.txt
+  ```
+
+## Docker Layer Caching & Dockerfile Modifications
+
+To ensure fast rebuild times when adding or updating packages:
+
+- **Modular `RUN` Layers**: The `Dockerfile` is structured into ordered `RUN` steps:
+  1. **Layer 1 (Core Host Tools)**: `build-essential`, `gcc`, `g++`, `clang`, `git`, `cmake`
+  2. **Layer 2 (Heavy Cross-Compilers)**: `gcc-aarch64-linux-gnu`, `gcc-arm-linux-gnueabihf` (takes ~90% of total build time)
+  3. **Layer 3 (Peripheral Utilities & Network Tools)**: `gdb-multiarch`, `picocom`, `minicom`, `nano`, `iproute2`, `tftp-hpa`, `tftpd-hpa`
+- **Adding New Packages**: Always add new packages to **Layer 3** (or append a new `RUN apt-get update && apt-get install ...` layer at the end).
+- **Cache Preservation**: When modifying Layer 3, Docker reuses cached layers for Layer 1 and Layer 2 (`---> Using cache`), allowing the build to complete in seconds rather than rebuilding heavy cross-compiler toolchains from scratch.

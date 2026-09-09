@@ -9,49 +9,69 @@ FROM ubuntu:22.04
 # Suppress interactive prompts during apt
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install all required packages
+# Layer 1: Core build tools & host compilers (rarely changes)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Core build tools
     build-essential \
     git \
     cmake \
     python3 \
     python3-pip \
-    # Host compilers
     gcc \
     g++ \
     clang \
-    # ARM64 cross-compiler (RPi4, RPi3, QEMU — currently used targets)
-    gcc-aarch64-linux-gnu \
-    g++-aarch64-linux-gnu \
-    # Debug & serial tools
-    gdb-multiarch \
-    picocom \
-    minicom \
-    # Deploy / network tools
-    openssh-client \
-    rsync \
-    iputils-ping \
-    # Utilities
     curl \
     wget \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Layer 2: Heavy cross-compiler toolchains (rarely changes)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc-aarch64-linux-gnu \
+    g++-aarch64-linux-gnu \
+    gcc-arm-linux-gnueabihf \
+    g++-arm-linux-gnueabihf \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Layer 3: Serial, debug, deploy & network tools (easier to add/modify without invalidating compiler cache)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gdb-multiarch \
+    picocom \
+    minicom \
+    nano \
+    sudo \
+    openssh-client \
+    rsync \
+    iputils-ping \
+    iproute2 \
+    net-tools \
+    ufw \
+    tftp-hpa \
+    tftpd-hpa \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Pre-configure /etc/default/tftpd-hpa to serve /workspace/tftp
+RUN echo 'TFTP_USERNAME="tftp"' > /etc/default/tftpd-hpa && \
+    echo 'TFTP_DIRECTORY="/workspace/tftp"' >> /etc/default/tftpd-hpa && \
+    echo 'TFTP_ADDRESS=":69"' >> /etc/default/tftpd-hpa && \
+    echo 'TFTP_OPTIONS="--secure"' >> /etc/default/tftpd-hpa
 
 # Create a non-root user matching the host UID/GID to avoid permission issues
 # Pass --build-arg UID=$(id -u) GID=$(id -g) when building
 ARG UID=1000
 ARG GID=1000
 RUN (getent group ${GID} || groupadd -g ${GID} labuser) \
-    && (getent passwd ${UID} || useradd -m -u ${UID} -g ${GID} -s /bin/bash labuser)
+    && (getent passwd ${UID} || useradd -m -u ${UID} -g ${GID} -s /bin/bash labuser) \
+    && echo "labuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/labuser \
+    && chmod 0440 /etc/sudoers.d/labuser
+
+# Copy container entrypoint script
+COPY tools/docker/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Set working directory — the repo is bind-mounted here at runtime
 WORKDIR /workspace
 
-# Ensure lab CLI is executable when mounted
-# (The actual ./lab symlink is provided via the bind mount)
-
-USER labuser
-
-# Default: open an interactive bash shell
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["/bin/bash"]

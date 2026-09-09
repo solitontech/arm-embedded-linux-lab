@@ -504,6 +504,56 @@ def cmd_doctor(args: argparse.Namespace):
         else:
             print(f"  {Style.DIM}• [{b_name:<10}] <IP not configured in tools/deploy/boards/{b_name}.env>{Style.RESET}")
 
+    # 5. TFTP Server & Firewall Diagnostics
+    print(f"\n{Style.BOLD}5. TFTP Server & Network Diagnostics:{Style.RESET}")
+    tftp_dir = Path("/workspace/tftp")
+    
+    # 5.1 Directory & test file check
+    if tftp_dir.exists():
+        test_file = tftp_dir / "test.txt"
+        if test_file.exists():
+            print(f"  {Style.B_GREEN}✔{Style.RESET} TFTP Root: {tftp_dir} (test.txt present)")
+        else:
+            print(f"  {Style.B_YELLOW}⚠{Style.RESET} TFTP Root: {tftp_dir} (test.txt missing)")
+    else:
+        print(f"  {Style.B_RED}✖{Style.RESET} TFTP Root: {tftp_dir} does not exist!")
+
+    # 5.2 Service / Process Check
+    in_tftpd_running = False
+    try:
+        res = subprocess.run(["ps", "aux"], capture_output=True, text=True, check=False)
+        if "in.tftpd" in res.stdout:
+            in_tftpd_running = True
+            print(f"  {Style.B_GREEN}✔{Style.RESET} TFTP Server Process: in.tftpd is running")
+        else:
+            print(f"  {Style.B_YELLOW}⚠{Style.RESET} TFTP Server Process: in.tftpd is NOT running")
+    except Exception:
+        print(f"  {Style.DIM}• Could not query process list for in.tftpd{Style.RESET}")
+
+    # 5.3 Local UDP 69 listening check
+    udp_69_listening = False
+    try:
+        res = subprocess.run(["ss", "-ulpn"], capture_output=True, text=True, check=False)
+        if ":69" in res.stdout or "*:69" in res.stdout:
+            udp_69_listening = True
+            print(f"  {Style.B_GREEN}✔{Style.RESET} UDP Port 69: Listening for TFTP clients")
+        else:
+            print(f"  {Style.B_YELLOW}⚠{Style.RESET} UDP Port 69: Not listening (run: sudo service tftpd-hpa start)")
+    except Exception:
+        print(f"  {Style.DIM}• Could not query socket status via ss -ulpn{Style.RESET}")
+
+    # 5.4 UFW Host Firewall Warning
+    try:
+        res = subprocess.run(["sudo", "ufw", "status"], capture_output=True, text=True, check=False)
+        if "Status: active" in res.stdout:
+            if "69/udp" in res.stdout:
+                print(f"  {Style.B_GREEN}✔{Style.RESET} Host UFW Firewall: 69/udp ALLOWED")
+            else:
+                print(f"  {Style.B_RED}✖{Style.RESET} Host UFW Firewall: ACTIVE but 69/udp BLOCKED")
+                print(f"    {Style.B_YELLOW}Run on host PC:{Style.RESET} {Style.BOLD}sudo ufw allow 69/udp{Style.RESET}")
+    except Exception:
+        pass
+
     print(f"\n{Style.BOLD}{Style.B_GREEN}Diagnostics complete.{Style.RESET}\n")
 
 def cmd_completion(args: argparse.Namespace):

@@ -25,9 +25,10 @@ Module.symvers
 *~
 .DS_Store
 
-# Temporary & Log files
-*.log
-*.tmp
+# Local TFTP staging/server directory
+tftp/*
+!tftp/.gitkeep
+!tftp/test.txt
 
 # Lab environment secrets (real IPs, SSH key paths — copy from *.env.example)
 tools/deploy/lab_host.env

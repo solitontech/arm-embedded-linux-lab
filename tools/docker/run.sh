@@ -154,6 +154,7 @@ cmd_run() {
     docker run \
         --rm \
         -it \
+        --network host \
         --name "${CONTAINER_NAME}" \
         --user "$(id -u):$(id -g)" \
         --group-add dialout \

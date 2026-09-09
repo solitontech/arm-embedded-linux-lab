@@ -54,3 +54,4 @@ lab reboot --board <board-name>
 - Use `lab` as the primary CLI entry point for all build, deploy, and run operations — prefer `./lab <command>` over raw `make` calls.
 - To simulate without modifying physical boards or networks, pass `--dry-run`: `lab deploy <project> --board <board> --dry-run` or `lab reboot --board <board> --dry-run`.
 - All object files and binaries are segregated under `projects/<project>/build/<board>/`.
+- **TFTP Deployment**: TFTP deployment copies target boot files into `/workspace/tftp`. Ensure host firewall allows UDP port 69 (`sudo ufw allow 69/udp`) if UFW is active.
