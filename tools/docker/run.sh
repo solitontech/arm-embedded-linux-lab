@@ -36,6 +36,19 @@ Or install manually:
   Linux   → https://docs.docker.com/engine/install/ (or: curl -fsSL https://get.docker.com | sh)
   Windows → https://docs.docker.com/desktop/windows/install/ (enable WSL2 backend)"
     fi
+
+    if ! docker info &>/dev/null; then
+        local err_msg
+        err_msg="$(docker info 2>&1 || true)"
+        if echo "$err_msg" | grep -qi "permission denied"; then
+            err "Permission denied while connecting to Docker daemon socket.
+To fix this permission issue on Linux, run:
+  sudo usermod -aG docker \$USER && newgrp docker
+
+Or run with sudo:
+  sudo ./tools/docker/run.sh <command>"
+        fi
+    fi
 }
 
 cmd_install_docker() {
