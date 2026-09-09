@@ -60,7 +60,14 @@ The host UID/GID are passed as build args to avoid file permission issues.
 ```
 The repository root is bind-mounted at `/workspace` inside the container. All source edits on the host are immediately visible inside the container and vice-versa.
 
-### Step 4: Use the `lab` CLI Inside the Container
+### Step 4: Reconnect to a Running Container Session
+If your terminal disconnects or times out while the container is running:
+```bash
+./tools/docker/run.sh attach
+```
+This re-opens an interactive shell inside the existing container without losing state or restarting the TFTP server daemon.
+
+### Step 5: Use the `lab` CLI Inside the Container
 Inside the container shell:
 ```bash
 ./lab doctor            # verify all toolchains are present
@@ -69,7 +76,7 @@ Inside the container shell:
 ./lab deploy myproject --board rpi4 --dry-run
 ```
 
-### Step 5: Run a Single Command Without an Interactive Shell
+### Step 6: Run a Single Command Without an Interactive Shell
 ```bash
 ./tools/docker/run.sh exec ./lab build myproject --board rpi4
 ```

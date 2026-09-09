@@ -171,6 +171,17 @@ cmd_exec() {
     docker exec -it "${CONTAINER_NAME}" "$@"
 }
 
+cmd_attach() {
+    check_docker
+    if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        info "Attaching new shell session to running container '${CONTAINER_NAME}'..."
+        docker exec -it "${CONTAINER_NAME}" /bin/bash
+    else
+        warn "Container '${CONTAINER_NAME}' is not currently running. Starting a new container..."
+        cmd_run
+    fi
+}
+
 cmd_push() {
     [[ -z "$REGISTRY" ]] && err "Set REGISTRY env var before pushing (e.g. REGISTRY=ghcr.io/your-org)"
     cmd_build  # ensure latest build
@@ -188,6 +199,7 @@ case "$COMMAND" in
     install-docker|install) cmd_install_docker ;;
     build)  cmd_build ;;
     run)    cmd_run ;;
+    attach) cmd_attach ;;
     exec)   cmd_exec "$@" ;;
     push)   cmd_push ;;
     help|--help|-h)
@@ -197,6 +209,7 @@ case "$COMMAND" in
         echo "  install-docker  Install Docker on the host PC (macOS, Linux, Windows)"
         echo "  build           Build the development Docker image"
         echo "  run             Start an interactive container (repo mounted at /workspace)"
+        echo "  attach          Reconnect/open a shell into the already running container"
         echo "  exec <cmd>      Run a command inside the running container"
         echo "  push            Push the image to \$REGISTRY (set REGISTRY env var)"
         echo ""
