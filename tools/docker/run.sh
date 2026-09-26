@@ -173,7 +173,7 @@ cmd_run() {
         --group-add dialout \
         -v "${REPO_ROOT}:/workspace" \
         -w /workspace \
-        "${device_flags[@]}" \
+        ${device_flags[@]+"${device_flags[@]}"} \
         "${full_name}"
 }
 
