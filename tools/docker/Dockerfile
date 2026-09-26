@@ -38,6 +38,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gdb-multiarch \
     picocom \
     minicom \
+    socat \
     nano \
     sudo \
     openssh-client \
@@ -63,6 +64,7 @@ ARG UID=1000
 ARG GID=1000
 RUN (getent group ${GID} || groupadd -g ${GID} labuser) \
     && (getent passwd ${UID} || useradd -m -u ${UID} -g ${GID} -s /bin/bash labuser) \
+    && usermod -aG dialout labuser \
     && echo "labuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/labuser \
     && chmod 0440 /etc/sudoers.d/labuser
 

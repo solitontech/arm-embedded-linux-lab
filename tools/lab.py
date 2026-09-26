@@ -472,7 +472,7 @@ def cmd_doctor(args: argparse.Namespace):
 
     # 3. Detect Connected USB Serial Adapters
     print(f"\n{Style.BOLD}3. Detected Host Serial Ports:{Style.RESET}")
-    dev_patterns = ["/dev/ttyUSB*", "/dev/ttyACM*", "/dev/cu.usb*", "/dev/cu.SLAB*"]
+    dev_patterns = ["/dev/ttyUSB*", "/dev/ttyACM*", "/dev/ttyVUSB*", "/dev/cu.usb*", "/dev/cu.SLAB*"]
     found_devices = []
     for pat in dev_patterns:
         found_devices.extend(Path("/dev").glob(pat.split("/")[-1]))

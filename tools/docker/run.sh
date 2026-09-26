@@ -4,6 +4,7 @@
 # Usage:
 #   ./tools/docker/run.sh build          Build the Docker image
 #   ./tools/docker/run.sh run            Start an interactive container
+#   ./tools/docker/run.sh stop           Stop and remove the running container
 #   ./tools/docker/run.sh exec <cmd>     Run a command inside a running container
 #   ./tools/docker/run.sh push           Push image to registry (set REGISTRY env var)
 # ==============================================================================
@@ -142,13 +143,32 @@ cmd_run() {
     local full_name="${IMAGE_NAME}:${IMAGE_TAG}"
     [[ -n "$REGISTRY" ]] && full_name="${REGISTRY}/${full_name}"
 
+    # If already running, seamlessly attach instead of failing with a name conflict
+    if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        info "Container '${CONTAINER_NAME}' is already running. Attaching to existing session..."
+        docker exec -it "${CONTAINER_NAME}" /bin/bash
+        return 0
+    fi
+
+    # Clean up any stopped or stale container with the same name
+    if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        docker rm -f "${CONTAINER_NAME}" &>/dev/null || true
+    fi
+
     # ── Serial device passthrough ──────────────────────────────────────────
-    # Enumerate all /dev/ttyUSB* and /dev/ttyACM* character devices present
-    # on the host and pass each one into the container via --device so serial
-    # consoles (picocom/minicom) work out-of-the-box without manual flags.
-    # --group-add dialout grants the non-root labuser permission to open them.
+    # Linux host: pass /dev/ttyUSB* and /dev/ttyACM* directly via --device.
+    #
+    # macOS host: Docker Desktop runs in a Linux VM and cannot forward
+    # /dev/cu.* paths. Instead we start a socat TCP listener on the host for
+    # each serial device, then the container entrypoint connects back via
+    # TCP and creates a PTY at /dev/ttyVUSB<N> so picocom works normally.
     local device_flags=()
     local detected_devices=()
+    local serial_proxy_ports=""   # "port:origdev,..." passed as env var
+    local socat_pids=()
+    local SOCAT_PID_FILE="/tmp/.arm-lab-socat-pids"
+
+    # Linux-style devices (direct passthrough)
     for dev in /dev/ttyUSB* /dev/ttyACM*; do
         if [[ -c "$dev" ]]; then
             device_flags+=(--device "${dev}:${dev}")
@@ -156,10 +176,50 @@ cmd_run() {
         fi
     done
 
+    # macOS-style devices — bridge each one via socat TCP
+    local macos_devices=()
+    for dev in /dev/cu.usbserial* /dev/cu.usbmodem*; do
+        [[ -c "$dev" ]] && macos_devices+=("$dev")
+    done
+
     if [[ ${#detected_devices[@]} -gt 0 ]]; then
         ok "Passing serial devices into container: ${detected_devices[*]}"
+
+    elif [[ ${#macos_devices[@]} -gt 0 ]]; then
+        # Ensure socat is available on the host
+        if ! command -v socat &>/dev/null; then
+            warn "socat not found — installing via Homebrew for serial bridging..."
+            HOMEBREW_NO_INTERACTIVE=1 brew install socat || err "Could not install socat. Run: brew install socat"
+        fi
+
+        # Ensure any leftover socat instances from previous sessions are killed
+        if [[ -f "${SOCAT_PID_FILE}" ]]; then
+            while IFS= read -r pid; do
+                kill "$pid" 2>/dev/null || true
+            done < "${SOCAT_PID_FILE}"
+            rm -f "${SOCAT_PID_FILE}"
+        fi
+
+        local port=54320
+        local entries=()
+        for dev in "${macos_devices[@]}"; do
+            info "Bridging ${dev} → TCP 0.0.0.0:${port} → /dev/ttyVUSB${#entries[@]} in container"
+            socat TCP-LISTEN:${port},reuseaddr,fork \
+                  OPEN:"${dev}",ispeed=115200,ospeed=115200,raw,echo=0 &>/dev/null &
+            socat_pids+=($!)
+            entries+=("${port}:${dev}")
+            port=$(( port + 1 ))
+        done
+
+        # Save socat PIDs so cmd_stop can clean them up
+        printf '%s\n' "${socat_pids[@]}" > "${SOCAT_PID_FILE}"
+
+        # Build comma-separated env var for the container entrypoint
+        serial_proxy_ports="$(IFS=','; echo "${entries[*]}")"
+        ok "Serial bridge(s) ready. Inside container: picocom -b 115200 /dev/ttyVUSB0"
+
     else
-        warn "No /dev/ttyUSB* or /dev/ttyACM* devices found on host."
+        warn "No USB-serial adapter detected on host (/dev/ttyUSB*, /dev/ttyACM*, /dev/cu.*)."
         warn "Plug in your USB-serial adapter and re-run to get serial access."
     fi
 
@@ -169,12 +229,19 @@ cmd_run() {
         -it \
         --network host \
         --name "${CONTAINER_NAME}" \
-        --user "$(id -u):$(id -g)" \
-        --group-add dialout \
         -v "${REPO_ROOT}:/workspace" \
         -w /workspace \
+        ${serial_proxy_ports:+-e "SERIAL_PROXY_PORTS=${serial_proxy_ports}"} \
         ${device_flags[@]+"${device_flags[@]}"} \
         "${full_name}"
+
+    # Container exited — clean up any host socat bridges
+    if [[ -f "${SOCAT_PID_FILE}" ]]; then
+        while IFS= read -r pid; do
+            kill "$pid" 2>/dev/null || true
+        done < "${SOCAT_PID_FILE}"
+        rm -f "${SOCAT_PID_FILE}"
+    fi
 }
 
 cmd_exec() {
@@ -195,6 +262,28 @@ cmd_attach() {
     fi
 }
 
+cmd_stop() {
+    check_docker
+    info "Stopping container '${CONTAINER_NAME}' (if running)..."
+    docker stop "${CONTAINER_NAME}" &>/dev/null || true
+    local rm_out
+    rm_out=$(docker rm -f "${CONTAINER_NAME}" 2>&1) && \
+        ok "Container '${CONTAINER_NAME}' stopped and removed." || \
+        { echo "$rm_out" | grep -qi "no such container" && \
+            ok "Container '${CONTAINER_NAME}' is not running." || \
+            err "Failed to remove container: ${rm_out}"; }
+
+    # Kill any host socat serial bridge processes
+    local SOCAT_PID_FILE="/tmp/.arm-lab-socat-pids"
+    if [[ -f "${SOCAT_PID_FILE}" ]]; then
+        while IFS= read -r pid; do
+            kill "$pid" 2>/dev/null || true
+        done < "${SOCAT_PID_FILE}"
+        rm -f "${SOCAT_PID_FILE}"
+        ok "Host serial bridge(s) stopped."
+    fi
+}
+
 cmd_push() {
     [[ -z "$REGISTRY" ]] && err "Set REGISTRY env var before pushing (e.g. REGISTRY=ghcr.io/your-org)"
     cmd_build  # ensure latest build
@@ -212,6 +301,7 @@ case "$COMMAND" in
     install-docker|install) cmd_install_docker ;;
     build)  cmd_build ;;
     run)    cmd_run ;;
+    stop)   cmd_stop ;;
     attach) cmd_attach ;;
     exec)   cmd_exec "$@" ;;
     push)   cmd_push ;;
@@ -222,6 +312,7 @@ case "$COMMAND" in
         echo "  install-docker  Install Docker on the host PC (macOS, Linux, Windows)"
         echo "  build           Build the development Docker image"
         echo "  run             Start an interactive container (repo mounted at /workspace)"
+        echo "  stop            Stop and remove the running container"
         echo "  attach          Reconnect/open a shell into the already running container"
         echo "  exec <cmd>      Run a command inside the running container"
         echo "  push            Push the image to \$REGISTRY (set REGISTRY env var)"

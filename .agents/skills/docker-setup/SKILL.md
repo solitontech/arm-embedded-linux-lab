@@ -29,7 +29,7 @@ Provide a reproducible cross-compilation environment without requiring developer
 | `gcc-aarch64-linux-gnu`, `g++-aarch64-linux-gnu` | ARM64 cross-compiler (RPi4, RPi3, QEMU) |
 | `gcc-arm-linux-gnueabihf`, `g++-arm-linux-gnueabihf` | ARM32 cross-compiler (BeagleBone Black) |
 | `gdb-multiarch` | Multi-arch GDB debugger |
-| `picocom`, `minicom` | Serial UART console |
+| `picocom`, `minicom`, `socat` | Serial UART console & bridging tools |
 | `nano` | Terminal text editor |
 | `ssh`, `rsync`, `scp` | Remote deploy utilities |
 | `tftpd-hpa`, `tftp-hpa` | TFTP server & client utilities for network boot/deploy |
@@ -60,14 +60,21 @@ The host UID/GID are passed as build args to avoid file permission issues.
 ```
 The repository root is bind-mounted at `/workspace` inside the container. All source edits on the host are immediately visible inside the container and vice-versa.
 
-### Step 4: Reconnect to a Running Container Session
+### Step 4: Stop or Close Existing Container Environments
+To kill or close existing running container sessions and clean up host bridges:
+```bash
+./tools/docker/run.sh stop
+```
+This gracefully stops and removes `arm-lab-dev` and terminates any host-side `socat` serial bridges.
+
+### Step 5: Reconnect to a Running Container Session
 If your terminal disconnects or times out while the container is running:
 ```bash
 ./tools/docker/run.sh attach
 ```
 This re-opens an interactive shell inside the existing container without losing state or restarting the TFTP server daemon.
 
-### Step 5: Use the `lab` CLI Inside the Container
+### Step 6: Use the `lab` CLI Inside the Container
 Inside the container shell:
 ```bash
 ./lab doctor            # verify all toolchains are present
@@ -76,19 +83,21 @@ Inside the container shell:
 ./lab deploy myproject --board rpi4 --dry-run
 ```
 
-### Step 6: Run a Single Command Without an Interactive Shell
+### Step 7: Run a Single Command Without an Interactive Shell
 ```bash
 ./tools/docker/run.sh exec ./lab build myproject --board rpi4
 ```
 
-### Step 6: Push Image to Registry (CI / Team Use)
+### Step 8: Push Image to Registry (CI / Team Use)
 ```bash
 REGISTRY=ghcr.io/your-org ./tools/docker/run.sh push
 ```
 
 ## Notes
-- The container runs as a non-root user (`labuser`) matching the host UID/GID.
-- **Serial ports are passed in automatically.** When `./tools/docker/run.sh run` starts, it enumerates all `/dev/ttyUSB*` and `/dev/ttyACM*` character devices present on the host and passes each one into the container via `--device`. The container also receives `--group-add dialout` so `picocom`/`minicom` can open the ports without `sudo`. If no adapters are plugged in at startup, a warning is printed but the container starts normally — just re-run after plugging in the adapter.
+- The container runs as a non-root user (`labuser`) matching the host UID/GID, with passwordless `sudo` and membership in `dialout`.
+- **Serial ports are detected and passed in automatically across platforms:**
+  - **Linux host**: Directly enumerates all `/dev/ttyUSB*` and `/dev/ttyACM*` devices and passes them via `--device`.
+  - **macOS host**: Docker Desktop runs in a virtual machine and cannot directly mount `/dev/cu.*` character devices via `--device`. `run.sh` automatically detects macOS serial adapters (`/dev/cu.usbserial*`, `/dev/cu.usbmodem*`), launches background host `socat` TCP listeners, and the container entrypoint creates corresponding `/dev/ttyVUSB<N>` PTY devices and `/dev/ttyUSB<N>` compatibility symlinks. `picocom`, `minicom`, and `./lab console` work directly out of the box.
 - To use a custom image tag: `IMAGE_TAG=v1.2 ./tools/docker/run.sh build`.
 
 ## Reproducible TFTP Server & Host Networking
