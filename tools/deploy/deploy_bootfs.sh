@@ -9,8 +9,11 @@ fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BOOT_BUILD_DIR="$REPO_ROOT/shared/boot/build/$BOARD"
-FIRMWARE_DIR="$REPO_ROOT/shared/boot/firmware/$BOARD"
+# BSP dir: committed firmware blobs (start4.elf, fixup4.dat, DTB)
+BSP_DIR="$REPO_ROOT/shared/bsp/$BOARD"
 CONFIG_DIR="$REPO_ROOT/shared/boot/configs/$BOARD"
+# Kernel Image: built locally, not committed (too large)
+KERNEL_IMAGE="$REPO_ROOT/shared/kernel/rpi-linux/arch/arm64/boot/Image"
 
 # Detect OS
 OS_NAME="$(uname -s)"
@@ -52,14 +55,26 @@ else
     echo "Warning: Mount point does not end with /bootfs or /BOOT. Skipping cleanup for safety."
 fi
 
+# Copy pre-built U-Boot binary (built in Docker)
 if [ -f "$BOOT_BUILD_DIR/u-boot.bin" ]; then
     cp "$BOOT_BUILD_DIR/u-boot.bin" "$MOUNT_POINT/"
     echo "  -> Copied u-boot.bin"
 fi
 
-if [ -d "$FIRMWARE_DIR" ]; then
-    cp -r "$FIRMWARE_DIR"/* "$MOUNT_POINT/"
-    echo "  -> Copied firmware files"
+# Copy committed BSP blobs: GPU firmware + DTB
+if [ -d "$BSP_DIR" ]; then
+    cp -r "$BSP_DIR"/* "$MOUNT_POINT/"
+    echo "  -> Copied BSP files (start4.elf, fixup4.dat, DTB)"
+else
+    echo "  [WARN] BSP directory not found: $BSP_DIR"
+fi
+
+# Copy locally-built kernel Image (must be built first in Docker)
+if [ -f "$KERNEL_IMAGE" ]; then
+    cp "$KERNEL_IMAGE" "$MOUNT_POINT/"
+    echo "  -> Copied kernel Image"
+else
+    echo "  [WARN] Kernel Image not found at $KERNEL_IMAGE — build it first in Docker"
 fi
 
 if [ -d "$CONFIG_DIR" ]; then

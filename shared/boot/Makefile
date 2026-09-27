@@ -74,7 +74,10 @@ else
 endif
 
 
-deploy-sd: build
+# deploy-sd: Copies pre-built boot artifacts to the mounted SD card.
+# Does NOT depend on 'build' — U-Boot is always compiled inside Docker.
+# Safe to run on macOS, Linux, or Windows (Git Bash) without a cross-toolchain.
+deploy-sd:
 	@$(REPO_ROOT)/tools/deploy/deploy_bootfs.sh $(BOARD)
 
 $(BUILD_DIR):
