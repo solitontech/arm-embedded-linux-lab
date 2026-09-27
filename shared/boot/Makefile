@@ -59,6 +59,23 @@ help:
 	@echo "  make menuconfig [BOARD=<board_name>] Run interactive ncurses menuconfig"
 	@echo "  make clean [BOARD=<board_name>]     Clean build artifacts for target board"
 	@echo "  make distclean                      Clean all target board build directories"
+	@echo "  make fetch-firmware [BOARD=<board>] Fetch binary firmware files for board"
+	@echo "  make deploy-sd [BOARD=<board>]      Deploy boot artifacts to mounted SD card"
+
+fetch-firmware:
+	@echo "==> Fetching firmware for $(BOARD)..."
+	@mkdir -p $(REPO_ROOT)/shared/boot/firmware/$(BOARD)
+ifeq ($(BOARD),rpi4)
+	@curl -s -L -o $(REPO_ROOT)/shared/boot/firmware/$(BOARD)/start4.elf https://raw.githubusercontent.com/raspberrypi/firmware/master/boot/start4.elf
+	@curl -s -L -o $(REPO_ROOT)/shared/boot/firmware/$(BOARD)/fixup4.dat https://raw.githubusercontent.com/raspberrypi/firmware/master/boot/fixup4.dat
+	@curl -s -L -o $(REPO_ROOT)/shared/boot/firmware/$(BOARD)/bcm2711-rpi-4-b.dtb https://raw.githubusercontent.com/raspberrypi/firmware/master/boot/bcm2711-rpi-4-b.dtb
+else
+	@echo "No firmware fetch defined for $(BOARD)"
+endif
+
+
+deploy-sd: build
+	@$(REPO_ROOT)/tools/deploy/deploy_bootfs.sh $(BOARD)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -87,12 +104,13 @@ defconfig: $(BUILD_DIR)/.config
 
 build: $(BUILD_DIR)/.config
 	@echo "==> Compiling U-Boot for $(BOARD)..."
-	$(UBOOT_MAKE) -j$$(nproc)
+	$(UBOOT_MAKE) -j$$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
 	@echo ""
 	@echo "=========================================================="
 	@echo "✔ U-Boot build completed for $(BOARD)!"
 	@echo "  Binary: $(BUILD_DIR)/u-boot.bin"
 	@echo "=========================================================="
+
 
 menuconfig: $(BUILD_DIR)/.config
 	$(UBOOT_MAKE) menuconfig

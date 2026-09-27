@@ -1,0 +1,7 @@
+arm_64bit=1
+enable_uart=1
+uart_2ndstage=1
+
+# Tell VideoCore GPU to load U-Boot instead of Linux kernel
+kernel=u-boot.bin
+device_tree=bcm2711-rpi-4-b.dtb

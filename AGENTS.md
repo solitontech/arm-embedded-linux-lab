@@ -8,6 +8,8 @@ This is a professional embedded Linux monorepo supporting multiple projects and 
 
 **Separate concerns cleanly:** Each top-level directory has a single purpose — respect those boundaries. Don't put infrastructure in project space. Don't put application logic in shared space.
 
+**Generic OS/Cross-platform Support:** Always consider Windows, macOS, and Linux when developing generic approaches or infrastructure. Scripts and workflows should ideally support all OS environments. Avoid hardcoding OS-specific paths (like `/Volumes/bootfs` for macOS) when a cross-platform solution (e.g. dynamic mount detection) is possible.
+
 ## README Principles
 
 **Keep `README.md` concise, high-level, and clean.**
@@ -36,6 +38,8 @@ For reusable atomic operations (e.g., cross-compiling, deploying to a board), ch
 
 **This is a hard rule that applies to every skill and workflow in this repo.**
 Whenever any infrastructure file changes, the corresponding skill and/or workflow documentation must be updated in the same commit or task. No gap is acceptable.
+
+**Crucially, while creating scalable or infra-level architectures (e.g., U-Boot builds, deploy scripts, cross-platform helpers), always ensure you add a skill or workflow so that a new agent can pick it up and use it.**
 
 > **Do NOT duplicate this rule inside individual skill files.** This section in `AGENTS.md` is the single authoritative reminder. Skill files should stay focused on their instructions only.
 
