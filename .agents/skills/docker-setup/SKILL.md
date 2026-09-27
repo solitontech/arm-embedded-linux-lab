@@ -34,6 +34,9 @@ Provide a reproducible cross-compilation environment without requiring developer
 | `ssh`, `rsync`, `scp` | Remote deploy utilities |
 | `tftpd-hpa`, `tftp-hpa` | TFTP server & client utilities for network boot/deploy |
 | `iproute2` | Advanced IP networking tools (`ip`, `ss`, etc.) |
+| `bison`, `flex`, `bc` | Parser generators and math utilities for kernel & U-Boot |
+| `libssl-dev`, `swig` | Cryptographic and interface compiler libraries |
+| `device-tree-compiler` | `dtc` for compiling Device Tree blobs (`.dtb`) and overlays |
 
 ## Instructions
 
