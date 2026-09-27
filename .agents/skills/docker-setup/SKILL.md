@@ -37,6 +37,7 @@ Provide a reproducible cross-compilation environment without requiring developer
 | `bison`, `flex`, `bc` | Parser generators and math utilities for kernel & U-Boot |
 | `libssl-dev`, `swig` | Cryptographic and interface compiler libraries |
 | `device-tree-compiler` | `dtc` for compiling Device Tree blobs (`.dtb`) and overlays |
+| `lld` | High-performance LLVM linker (avoids binutils ld.bfd emulation bugs on Apple Silicon) |
 
 ## Instructions
 

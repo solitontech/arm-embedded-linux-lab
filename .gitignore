@@ -12,6 +12,7 @@
 # Linux / Kernel / U-Boot build trees
 build/
 output/
+shared/boot/build/
 .config
 .config.old
 *.cmd
