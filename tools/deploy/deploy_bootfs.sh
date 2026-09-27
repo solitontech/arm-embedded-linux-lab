@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -e
+
+BOARD=$1
+if [ -z "$BOARD" ]; then
+    echo "Usage: $0 <board>"
+    exit 1
+fi
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+BOOT_BUILD_DIR="$REPO_ROOT/shared/boot/build/$BOARD"
+FIRMWARE_DIR="$REPO_ROOT/shared/boot/firmware/$BOARD"
+CONFIG_DIR="$REPO_ROOT/shared/boot/configs/$BOARD"
+
+# Detect OS
+OS_NAME="$(uname -s)"
+MOUNT_POINT=""
+
+if [ "$OS_NAME" = "Darwin" ]; then
+    if [ -d "/Volumes/bootfs" ]; then
+        MOUNT_POINT="/Volumes/bootfs"
+    elif [ -d "/Volumes/BOOT" ]; then
+        MOUNT_POINT="/Volumes/BOOT"
+    fi
+elif [ "$OS_NAME" = "Linux" ]; then
+    # Typical auto-mount locations for Linux
+    if [ -d "/media/$USER/BOOT" ]; then
+        MOUNT_POINT="/media/$USER/BOOT"
+    elif [ -d "/media/$USER/bootfs" ]; then
+        MOUNT_POINT="/media/$USER/bootfs"
+    elif [ -d "/mnt/bootfs" ]; then
+        MOUNT_POINT="/mnt/bootfs"
+    fi
+elif [[ "$OS_NAME" == MINGW* ]] || [[ "$OS_NAME" == CYGWIN* ]]; then
+    # Windows fallback
+    echo "Windows detected. Please copy the files manually or specify mount point."
+    exit 1
+fi
+
+if [ -z "$MOUNT_POINT" ]; then
+    echo "Error: Could not find boot volume. Please ensure SD card is mounted."
+    exit 1
+fi
+
+echo "==> Deploying boot artifacts to $MOUNT_POINT"
+
+# Clean the boot partition safely
+if [[ "$MOUNT_POINT" == *"/bootfs" ]] || [[ "$MOUNT_POINT" == *"/BOOT" ]]; then
+    echo "  -> Cleaning existing files in $MOUNT_POINT"
+    rm -rf "${MOUNT_POINT:?}/"*
+else
+    echo "Warning: Mount point does not end with /bootfs or /BOOT. Skipping cleanup for safety."
+fi
+
+if [ -f "$BOOT_BUILD_DIR/u-boot.bin" ]; then
+    cp "$BOOT_BUILD_DIR/u-boot.bin" "$MOUNT_POINT/"
+    echo "  -> Copied u-boot.bin"
+fi
+
+if [ -d "$FIRMWARE_DIR" ]; then
+    cp -r "$FIRMWARE_DIR"/* "$MOUNT_POINT/"
+    echo "  -> Copied firmware files"
+fi
+
+if [ -d "$CONFIG_DIR" ]; then
+    cp "$CONFIG_DIR"/* "$MOUNT_POINT/"
+    echo "  -> Copied configuration files"
+fi
+
+# Sync the filesystem
+sync
+
+echo "==> Deploy complete!"
