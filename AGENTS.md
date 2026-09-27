@@ -15,6 +15,17 @@ This is a professional embedded Linux monorepo supporting multiple projects and 
 - Always delegate task-specific workflows to their corresponding **Skill** (`.agents/skills/`) or **Workflow** (`.agents/workflows/`).
 - `README.md` should serve only as a welcoming entry point with high-level summaries and direct links to the relevant skills/workflows.
 
+## Documentation & Relative Linking Standards
+
+**Always use relative links in repository documentation (`.md` files):**
+- Never commit absolute filesystem URIs (e.g. `file:///...` or hardcoded host paths like `/Users/...` or `/home/...`) in committed markdown documentation, READMEs, skills, or workflows.
+- All internal links between documentation files, code files, and projects must use relative markdown paths (e.g. `[guide](manual_boot_guide.md)` or `[rpi4.mk](../../shared/build_system/boards/rpi4.mk)`).
+- This ensures documentation renders and navigates correctly across all developer workstations, Docker containers, CI/CD, and GitHub.
+
+**Strict Dependency Direction (Docs vs Projects):**
+- **`docs/` must NEVER link to specific `projects/`:** Documentation in `docs/` and infrastructure in `shared/` are generic, board-level, or curriculum-wide assets. Linking from `docs/` to specific projects violates clean separation of concerns and breaks portability.
+- **Projects link to docs, never the reverse:** Projects consume `docs/`, `shared/`, and `tools/`. A project README may link to any document in `docs/`, but files in `docs/` must remain completely decoupled from specific projects.
+
 ## How to Operate in This Repo
 
 Before starting any task, check `.agents/workflows/` for a workflow matching your task. If one exists, follow it. If not, complete your task and create a new workflow using `.agents/workflows/WORKFLOW_TEMPLATE.md` so future agents can benefit.
