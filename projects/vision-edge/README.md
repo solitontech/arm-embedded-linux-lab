@@ -137,7 +137,8 @@ flowchart TD
 
 ### Phase 1 - Boot Architecture & Cross-Compilation Foundations (Weeks 1-5)
 - **Week 1: Boot Architecture & GPU-First Bringup**
-  - Trace Raspberry Pi 4 multi-stage boot sequence (`bootcode.bin` / EEPROM $\rightarrow$ `start4.elf` $\rightarrow$ `kernel8.img`).
+  - *(Step-by-step guide: [docs/raspi4/manual_boot_guide.md](../../docs/raspi4/manual_boot_guide.md))*
+  - Trace Raspberry Pi 4 multi-stage boot sequence (EEPROM $\rightarrow$ `start4.elf` $\rightarrow$ `Image` / `kernel8.img`).
   - Configure UART serial console (`enable_uart=1`) and establish 115200 baud debug session.
 - **Week 2: U-Boot & Network Booting (TFTP/NFS)**
   - Cross-compile Das U-Boot (`u-boot.bin`) for `rpi_4_defconfig`.
