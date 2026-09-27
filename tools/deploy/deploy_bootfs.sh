@@ -9,10 +9,10 @@ fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BOOT_BUILD_DIR="$REPO_ROOT/shared/boot/build/$BOARD"
-# BSP dir: committed firmware blobs (start4.elf, fixup4.dat, DTB)
+# BSP dir: committed firmware blobs, DTB, config.txt, cmdline.txt
 BSP_DIR="$REPO_ROOT/shared/bsp/$BOARD"
-CONFIG_DIR="$REPO_ROOT/shared/boot/configs/$BOARD"
 # Kernel Image: built locally, not committed (too large)
+
 KERNEL_IMAGE="$REPO_ROOT/shared/kernel/rpi-linux/arch/arm64/boot/Image"
 
 # Detect OS
@@ -61,10 +61,10 @@ if [ -f "$BOOT_BUILD_DIR/u-boot.bin" ]; then
     echo "  -> Copied u-boot.bin"
 fi
 
-# Copy committed BSP blobs: GPU firmware + DTB
+# Copy committed BSP: GPU firmware, DTB, config.txt, cmdline.txt
 if [ -d "$BSP_DIR" ]; then
     cp -r "$BSP_DIR"/* "$MOUNT_POINT/"
-    echo "  -> Copied BSP files (start4.elf, fixup4.dat, DTB)"
+    echo "  -> Copied BSP files (firmware, DTB, config.txt, cmdline.txt)"
 else
     echo "  [WARN] BSP directory not found: $BSP_DIR"
 fi
@@ -75,11 +75,6 @@ if [ -f "$KERNEL_IMAGE" ]; then
     echo "  -> Copied kernel Image"
 else
     echo "  [WARN] Kernel Image not found at $KERNEL_IMAGE — build it first in Docker"
-fi
-
-if [ -d "$CONFIG_DIR" ]; then
-    cp "$CONFIG_DIR"/* "$MOUNT_POINT/"
-    echo "  -> Copied configuration files"
 fi
 
 # Sync the filesystem
