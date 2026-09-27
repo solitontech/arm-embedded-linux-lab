@@ -14,5 +14,8 @@ BOARD_CFLAGS      := $(CPU_FLAGS)
 BOARD_CXXFLAGS    := $(CPU_FLAGS)
 BOARD_LDFLAGS     := 
 
+# Bootloader Configuration
+UBOOT_DEFCONFIG   := rpi_4_defconfig
+
 # Default lab deployment preference for this board profile
 DEFAULT_DEPLOY    := ssh

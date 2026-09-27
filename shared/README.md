@@ -1,6 +1,7 @@
-﻿# Shared Modules & Layers
+# Shared Modules & Layers
 
 Contains reusable components shared across different ARM platform projects:
+- `boot/`: Bootloader source submodules (e.g. `u-boot`), board build configurations, and unified Makefile
 - Common Device Tree include files (*.dtsi)
 - Reusable Linux kernel driver skeletons
 - Shared Buildroot packages / Yocto meta-layers
