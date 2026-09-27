@@ -15,9 +15,7 @@ build/
 output/
 shared/boot/build/
 # shared/boot/firmware/ — replaced by shared/bsp/ (committed)
-# Ignore the large kernel Image that must be built locally
 shared/boot/firmware/
-shared/kernel/rpi-linux/arch/arm64/boot/Image
 .config
 .config.old
 *.cmd

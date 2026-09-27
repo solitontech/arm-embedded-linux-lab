@@ -11,9 +11,9 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 BOOT_BUILD_DIR="$REPO_ROOT/shared/boot/build/$BOARD"
 # BSP dir: committed firmware blobs, DTB, config.txt, cmdline.txt
 BSP_DIR="$REPO_ROOT/shared/bsp/$BOARD"
-# Kernel Image: built locally, not committed (too large)
-
-KERNEL_IMAGE="$REPO_ROOT/shared/kernel/rpi-linux/arch/arm64/boot/Image"
+# NOTE: The kernel Image is not stored in the repo (too large).
+# Build it in Docker and copy it to the SD card manually, or add a
+# KERNEL_IMAGE variable here pointing to your local build output.
 
 # Detect OS
 OS_NAME="$(uname -s)"
@@ -69,15 +69,8 @@ else
     echo "  [WARN] BSP directory not found: $BSP_DIR"
 fi
 
-# Copy locally-built kernel Image (must be built first in Docker)
-if [ -f "$KERNEL_IMAGE" ]; then
-    cp "$KERNEL_IMAGE" "$MOUNT_POINT/"
-    echo "  -> Copied kernel Image"
-else
-    echo "  [WARN] Kernel Image not found at $KERNEL_IMAGE — build it first in Docker"
-fi
-
 # Sync the filesystem
 sync
 
 echo "==> Deploy complete!"
+echo "    NOTE: Copy your kernel Image to $MOUNT_POINT/Image manually if needed."
