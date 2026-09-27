@@ -3,17 +3,21 @@
 *.ko
 *.so
 *.a
-*.bin
-*.elf
 *.img
-*.dtb
-*.dtbo
+
+# BSP binaries in shared/bsp/ ARE committed (small firmware blobs + DTBs)
+# Only ignore large generated binaries from build trees
+shared/boot/build/**/*.bin
+shared/boot/build/**/*.elf
 
 # Linux / Kernel / U-Boot build trees
 build/
 output/
 shared/boot/build/
+# shared/boot/firmware/ — replaced by shared/bsp/ (committed)
+# Ignore the large kernel Image that must be built locally
 shared/boot/firmware/
+shared/kernel/rpi-linux/arch/arm64/boot/Image
 .config
 .config.old
 *.cmd
