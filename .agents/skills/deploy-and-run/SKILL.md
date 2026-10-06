@@ -22,7 +22,7 @@ Enables automated building, cross-compilation, deployment (SSH, TFTP, NFS), and 
 | `reboot` | `./lab reboot --board rpi4` | Reset target board via U-Boot serial, SSH, or power relay |
 | `console` | `./lab console --board rpi4` | Connect to physical UART serial boot console |
 | `gdb` | `./lab gdb myapp --board rpi4` | Connect cross-gdb to target gdbserver session |
-| `doctor` | `./lab doctor` | Check host toolchains, serial ports, TFTP, and network status |
+| `doctor` | `./lab doctor` | Run environment diagnostics inside Docker (toolchains, serial, TFTP, network) |
 | `completion` | `./lab completion zsh >> ~/.zshrc` | Generate bash/zsh auto-completion script |
 
 ## Step-by-Step Workflow

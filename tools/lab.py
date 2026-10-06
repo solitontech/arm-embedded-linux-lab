@@ -433,9 +433,25 @@ def cmd_gdb(args: argparse.Namespace):
     ]
     subprocess.run(cmd)
 
+def is_in_container() -> bool:
+    return (
+        Path("/.dockerenv").exists()
+        or Path("/run/.containerenv").exists()
+        or (Path("/workspace").exists() and REPO_ROOT == Path("/workspace"))
+    )
+
 def cmd_doctor(args: argparse.Namespace):
+    if not is_in_container():
+        print_banner()
+        log_error("'lab doctor' is designed to run only within the Docker development container.")
+        print(f"  {Style.BOLD}All cross-compilers, serial tools, and the TFTP server run inside Docker.{Style.RESET}\n")
+        print(f"  {Style.BOLD}To run diagnostics:{Style.RESET}")
+        print(f"    {Style.B_CYAN}1.{Style.RESET} Interactive container:  {Style.BOLD}./tools/docker/run.sh run{Style.RESET}   (then run: {Style.BOLD}./lab doctor{Style.RESET})")
+        print(f"    {Style.B_CYAN}2.{Style.RESET} Directly from host:     {Style.BOLD}./tools/docker/run.sh exec ./lab doctor{Style.RESET}\n")
+        sys.exit(1)
+
     print_banner()
-    print(f"{Style.BOLD}{Style.B_BLUE}▶ RUNNING ENVIRONMENT & LAB DIAGNOSTICS{Style.RESET}\n")
+    print(f"{Style.BOLD}{Style.B_BLUE}▶ RUNNING CONTAINER ENVIRONMENT & LAB DIAGNOSTICS{Style.RESET}\n")
     
     # 1. Check Toolchains
     print(f"{Style.BOLD}1. Compiler Toolchains:{Style.RESET}")
