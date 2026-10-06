@@ -129,9 +129,16 @@ cmd_build() {
     [[ -n "$REGISTRY" ]] && full_name="${REGISTRY}/${full_name}"
 
     info "Building Docker image: ${full_name}"
+    local target_uid="${SUDO_UID:-$(id -u)}"
+    local target_gid="${SUDO_GID:-$(id -g)}"
+    if [[ "$target_uid" -eq 0 ]]; then
+        target_uid=1000
+        target_gid=1000
+    fi
+
     docker build \
-        --build-arg UID="$(id -u)" \
-        --build-arg GID="$(id -g)" \
+        --build-arg UID="${target_uid}" \
+        --build-arg GID="${target_gid}" \
         -t "${full_name}" \
         -f "${REPO_ROOT}/tools/docker/Dockerfile" \
         "${REPO_ROOT}"

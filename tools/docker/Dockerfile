@@ -72,8 +72,10 @@ RUN echo 'TFTP_USERNAME="tftp"' > /etc/default/tftpd-hpa && \
 # Pass --build-arg UID=$(id -u) GID=$(id -g) when building
 ARG UID=1000
 ARG GID=1000
-RUN (getent group ${GID} || groupadd -g ${GID} labuser) \
-    && (getent passwd ${UID} || useradd -m -u ${UID} -g ${GID} -s /bin/bash labuser) \
+RUN TARGET_UID="${UID}"; TARGET_GID="${GID}"; \
+    if [ "${TARGET_UID}" -eq 0 ]; then TARGET_UID=1000; TARGET_GID=1000; fi; \
+    (getent group ${TARGET_GID} || groupadd -g ${TARGET_GID} labuser) \
+    && (id -u labuser >/dev/null 2>&1 || useradd -m -u ${TARGET_UID} -g ${TARGET_GID} -s /bin/bash labuser) \
     && usermod -aG dialout labuser \
     && echo "labuser ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/labuser \
     && chmod 0440 /etc/sudoers.d/labuser
