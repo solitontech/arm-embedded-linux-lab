@@ -37,6 +37,14 @@ if [ ! -e "$SERIAL_PORT" ]; then
   exit 1
 fi
 
+# Free serial device from any stale process holding an exclusive lock
+if command -v fuser >/dev/null 2>&1; then
+  fuser -k -9 "$SERIAL_PORT" >/dev/null 2>&1 || true
+else
+  pkill -9 -f "picocom.*${SERIAL_PORT}" >/dev/null 2>&1 || true
+  pkill -9 -f "minicom.*${SERIAL_PORT}" >/dev/null 2>&1 || true
+fi
+
 echo "[INFO] Connecting to ${BOARD} on ${SERIAL_PORT} (${SERIAL_BAUD} baud)..."
 echo "[INFO] To exit picocom: Ctrl+A followed by Ctrl+X"
 

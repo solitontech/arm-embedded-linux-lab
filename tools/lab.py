@@ -110,8 +110,9 @@ def get_boards() -> Dict[str, Dict[str, str]]:
 def get_board_env(board_name: str) -> Dict[str, str]:
     env_file = REPO_ROOT / "tools" / "deploy" / "boards" / f"{board_name}.env"
     example_file = REPO_ROOT / "tools" / "deploy" / "boards" / f"{board_name}.env.example"
+    generic_file = REPO_ROOT / "tools" / "deploy" / "boards" / "board.env.example"
     
-    target_file = env_file if env_file.exists() else (example_file if example_file.exists() else None)
+    target_file = env_file if env_file.exists() else (example_file if example_file.exists() else (generic_file if generic_file.exists() else None))
     data = {}
     if target_file:
         with open(target_file, "r", encoding="utf-8") as f:
@@ -462,6 +463,7 @@ def cmd_doctor(args: argparse.Namespace):
         ("rsync", "Fast Remote File Sync"),
         ("scp", "Secure Copy Protocol"),
         ("ssh", "Secure Shell Client"),
+        ("mkimage", "U-Boot Image & Script Compiler (u-boot-tools)"),
     ]
     for bin_name, desc in tools:
         path = shutil.which(bin_name)
@@ -486,7 +488,12 @@ def cmd_doctor(args: argparse.Namespace):
     # 4. Lab Boards Reachability Check
     print(f"\n{Style.BOLD}4. Lab Board Network Status:{Style.RESET}")
     boards = get_boards()
+    configured_boards = 0
     for b_name in boards:
+        env_file = REPO_ROOT / "tools" / "deploy" / "boards" / f"{b_name}.env"
+        if not env_file.exists():
+            continue
+        configured_boards += 1
         env = get_board_env(b_name)
         ip = env.get("TARGET_IP")
         if ip and ip != "127.0.0.1":
@@ -501,12 +508,13 @@ def cmd_doctor(args: argparse.Namespace):
                 print(f"  {Style.B_RED}✖{Style.RESET} [{b_name:<10}] {ip:<15} -> {Style.DIM}Offline / Unreachable{Style.RESET}")
         elif ip == "127.0.0.1":
             print(f"  {Style.B_GREEN}✔{Style.RESET} [{b_name:<10}] {ip:<15} -> {Style.DIM}Local Loopback{Style.RESET}")
-        else:
-            print(f"  {Style.DIM}• [{b_name:<10}] <IP not configured in tools/deploy/boards/{b_name}.env>{Style.RESET}")
+    
+    if configured_boards == 0:
+        print(f"  {Style.DIM}No active board profiles configured (tools/deploy/boards/*.env){Style.RESET}")
 
     # 5. TFTP Server & Firewall Diagnostics
     print(f"\n{Style.BOLD}5. TFTP Server & Network Diagnostics:{Style.RESET}")
-    tftp_dir = Path("/workspace/tftp")
+    tftp_dir = Path("/workspace/tftp") if Path("/workspace").exists() else (REPO_ROOT / "tftp")
     
     # 5.1 Directory & test file check
     if tftp_dir.exists():
@@ -544,7 +552,7 @@ def cmd_doctor(args: argparse.Namespace):
 
     # 5.4 UFW Host Firewall Warning
     try:
-        res = subprocess.run(["sudo", "ufw", "status"], capture_output=True, text=True, check=False)
+        res = subprocess.run(["sudo", "-n", "ufw", "status"], capture_output=True, text=True, check=False)
         if "Status: active" in res.stdout:
             if "69/udp" in res.stdout:
                 print(f"  {Style.B_GREEN}✔{Style.RESET} Host UFW Firewall: 69/udp ALLOWED")

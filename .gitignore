@@ -18,7 +18,10 @@ shared/boot/build/
 shared/boot/firmware/
 .config
 .config.old
-*.cmd
+# Kernel build command files (not U-Boot boot scripts)
+shared/boot/build/**/*.cmd
+# U-Boot compiled boot script binary (source boot.cmd IS committed)
+shared/bsp/**/boot.scr
 modules.order
 Module.symvers
 

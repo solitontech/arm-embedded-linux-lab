@@ -38,6 +38,7 @@ Provide a reproducible cross-compilation environment without requiring developer
 | `libssl-dev`, `swig` | Cryptographic and interface compiler libraries |
 | `device-tree-compiler` | `dtc` for compiling Device Tree blobs (`.dtb`) and overlays |
 | `lld` | High-performance LLVM linker (avoids binutils ld.bfd emulation bugs on Apple Silicon) |
+| `u-boot-tools` | `mkimage` and `dumpimage` for compiling U-Boot script images (`boot.scr`) and FIT images |
 
 ## Instructions
 
@@ -127,6 +128,6 @@ To ensure fast rebuild times when adding or updating packages:
 - **Modular `RUN` Layers**: The `Dockerfile` is structured into ordered `RUN` steps:
   1. **Layer 1 (Core Host Tools)**: `build-essential`, `gcc`, `g++`, `clang`, `git`, `cmake`
   2. **Layer 2 (Heavy Cross-Compilers)**: `gcc-aarch64-linux-gnu`, `gcc-arm-linux-gnueabihf` (takes ~90% of total build time)
-  3. **Layer 3 (Peripheral Utilities & Network Tools)**: `gdb-multiarch`, `picocom`, `minicom`, `nano`, `iproute2`, `tftp-hpa`, `tftpd-hpa`
+  3. **Layer 3 (Peripheral Utilities & Network Tools)**: `gdb-multiarch`, `picocom`, `minicom`, `nano`, `iproute2`, `tftp-hpa`, `tftpd-hpa`, `u-boot-tools`
 - **Adding New Packages**: Always add new packages to **Layer 3** (or append a new `RUN apt-get update && apt-get install ...` layer at the end).
 - **Cache Preservation**: When modifying Layer 3, Docker reuses cached layers for Layer 1 and Layer 2 (`---> Using cache`), allowing the build to complete in seconds rather than rebuilding heavy cross-compiler toolchains from scratch.

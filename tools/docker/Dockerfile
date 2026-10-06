@@ -58,6 +58,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ufw \
     tftp-hpa \
     tftpd-hpa \
+    u-boot-tools \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

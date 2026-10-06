@@ -1,57 +1,59 @@
 ---
 name: deploy-and-run
-description: Build, deploy, run, and reboot target boards across multiple hardware architectures and projects using the unified easymake framework.
+description: Build, deploy, run, and reboot target boards across multiple hardware architectures and projects using the unified lab framework.
 ---
 
-# Deploy and Run on Target Boards
+# Deploy and Run on Target Boards (`lab` CLI)
 
 ## Purpose
 Enables automated building, cross-compilation, deployment (SSH, TFTP, NFS), and hardware control (reboot, console, GDB) for any project in the monorepo.
 
-## When to Use This Skill
-- When building a project for a specific target board (`BOARD=rpi4`, `BOARD=rpi3`, `BOARD=beaglebone`, `BOARD=qemu_arm64`, `BOARD=host`)
-- When deploying binaries or boot files to target hardware or lab servers
-- When executing applications remotely or inspecting serial boot console
-- When resetting a target board via U-Boot serial or SSH
+## Primary CLI Commands (`./lab`)
 
-## Prerequisites
-- Target board environment file exists at `tools/deploy/boards/<board>.env` (copied from `tools/deploy/boards/<board>.env.example`)
-- Cross-compiler toolchain is installed in the DevContainer or system environment
+| Command | Usage Example | Description |
+|---|---|---|
+| `list` | `./lab list` | List all available projects and target board profiles |
+| `new` | `./lab new myapp --type app --board rpi4` | Scaffold a new project (`app`, `lib_static`, `lib_shared`) |
+| `info` | `./lab info myapp --board rpi4` | Display resolved build flags, toolchains, and deploy settings |
+| `build` | `./lab build myapp --board rpi4` | Cross-compile project for target board (`--clean`, `--all`) |
+| `clean` | `./lab clean myapp --board rpi4` | Clean build directory (`--distclean` to wipe all builds) |
+| `deploy` | `./lab deploy myapp --board rpi4` | Transfer binary to target via SSH, TFTP, or NFS (`--dry-run`) |
+| `run` | `./lab run myapp --board rpi4` | Deploy and execute binary remotely over SSH |
+| `reboot` | `./lab reboot --board rpi4` | Reset target board via U-Boot serial, SSH, or power relay |
+| `console` | `./lab console --board rpi4` | Connect to physical UART serial boot console |
+| `gdb` | `./lab gdb myapp --board rpi4` | Connect cross-gdb to target gdbserver session |
+| `doctor` | `./lab doctor` | Check host toolchains, serial ports, TFTP, and network status |
+| `completion` | `./lab completion zsh >> ~/.zshrc` | Generate bash/zsh auto-completion script |
 
-## Instructions
+## Step-by-Step Workflow
 
 ### Step 1: Inspect Target Configuration
-Check compiler flags, architecture, deploy method, and network addresses:
 ```bash
 lab info <project-name> --board <board-name>
 ```
 
 ### Step 2: Build Project
-Cross-compile the project for the target board:
 ```bash
 lab build <project-name> --board <board-name>
 ```
 
 ### Step 3: Deploy to Board
-Deploy artifacts using the configured strategy (SSH, TFTP, or NFS):
 ```bash
 lab deploy <project-name> --board <board-name>
 ```
 
 ### Step 4: Run Application Remotely
-Execute the deployed binary over SSH and stream output:
 ```bash
 lab run <project-name> --board <board-name>
 ```
 
-### Step 5: Target Reset (If Needed)
-Trigger target reset / reboot:
+### Step 5: Serial Console & Debugging
 ```bash
-lab reboot --board <board-name>
+lab console --board <board-name>
+lab gdb <project-name> --board <board-name>
 ```
 
 ## Notes
-- Use `lab` as the primary CLI entry point for all build, deploy, and run operations — prefer `./lab <command>` over raw `make` calls.
-- To simulate without modifying physical boards or networks, pass `--dry-run`: `lab deploy <project> --board <board> --dry-run` or `lab reboot --board <board> --dry-run`.
-- All object files and binaries are segregated under `projects/<project>/build/<board>/`.
-- **TFTP Deployment**: TFTP deployment copies target boot files into `/workspace/tftp`. Ensure host firewall allows UDP port 69 (`sudo ufw allow 69/udp`) if UFW is active.
+- Use `./lab <command>` as the primary entry point for all operations.
+- Dry-run mode (`--dry-run`) simulates actions without touching physical hardware or networks.
+- All object files and binaries live in `projects/<project>/build/<board>/`.

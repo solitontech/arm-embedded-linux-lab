@@ -61,10 +61,24 @@ if [ -f "$BOOT_BUILD_DIR/u-boot.bin" ]; then
     echo "  -> Copied u-boot.bin"
 fi
 
+# Compile boot.cmd -> boot.scr (U-Boot script image) if mkimage is available
+BOOT_CMD="$BSP_DIR/boot.cmd"
+BOOT_SCR="$BSP_DIR/boot.scr"
+if [ -f "$BOOT_CMD" ]; then
+    if command -v mkimage >/dev/null 2>&1; then
+        echo "  -> Compiling boot.cmd -> boot.scr..."
+        mkimage -C none -A arm64 -T script -d "$BOOT_CMD" "$BOOT_SCR" >/dev/null
+        echo "  -> Compiled boot.scr"
+    else
+        echo "  [WARN] mkimage not found — skipping boot.scr compilation."
+        echo "         To compile inside Docker: mkimage -C none -A arm64 -T script -d shared/bsp/rpi4/boot.cmd shared/bsp/rpi4/boot.scr"
+    fi
+fi
+
 # Copy committed BSP: GPU firmware, DTB, config.txt, cmdline.txt
 if [ -d "$BSP_DIR" ]; then
     cp -r "$BSP_DIR"/* "$MOUNT_POINT/"
-    echo "  -> Copied BSP files (firmware, DTB, config.txt, cmdline.txt)"
+    echo "  -> Copied BSP files (firmware, DTB, config.txt, cmdline.txt, boot.scr)"
 else
     echo "  [WARN] BSP directory not found: $BSP_DIR"
 fi
@@ -74,3 +88,4 @@ sync
 
 echo "==> Deploy complete!"
 echo "    NOTE: Copy your kernel Image to $MOUNT_POINT/Image manually if needed."
+echo "    TFTP boot: Place Image and bcm2711-rpi-4-b.dtb in /workspace/tftp/ on host."
