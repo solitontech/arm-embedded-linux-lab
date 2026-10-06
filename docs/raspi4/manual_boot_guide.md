@@ -398,21 +398,23 @@ Please press Enter to activate this console.
 
 ---
 
-## 9. Fast-Iteration Alternative: U-Boot + TFTP/NFS Boot
+## 9. Fast-Iteration: U-Boot + TFTP Boot (Current Working Setup)
 
-Swapping SD cards during active driver and kernel development becomes a bottleneck. The monorepo architecture integrates **TFTP network kernel loading and NFS root filesystems**.
+Swapping SD cards during active kernel development is a bottleneck. The monorepo uses **static-IP TFTP network loading** with U-Boot: the SD card holds only the rarely-changing bootloader files (`start4.elf`, `fixup4.dat`, `config.txt`, `u-boot.bin`, `boot.scr`); the kernel and DTB are served over TFTP from the host on every boot.
 
 ```mermaid
 flowchart LR
-    A["RPi 4 Power-On"] --> B["GPU loads u-boot.bin from SD"]
-    B --> C["U-Boot obtains IP via DHCP"]
-    C --> D["TFTP Server: Downloads Image & DTB"]
-    D --> E["NFS Server: Mounts /workspace/rootfs over Gigabit Ethernet"]
-    E --> F["Zero SD card swaps needed for new kernel/driver builds!"]
+    A["RPi 4 Power-On"] --> B["GPU: loads u-boot.bin from SD"]
+    B --> C["U-Boot: executes boot.scr"]
+    C --> D["TFTP: downloads Image @ 0x02000000"]
+    D --> E["TFTP: downloads DTB @ 0x06000000"]
+    E --> F["booti: hands off to Linux kernel"]
+    F --> G["Kernel mounts root (SD or NFS)"]
 ```
 
 ### 9.1 Cross-Compile U-Boot for Pi 4
 ```bash
+# Run inside Docker container
 cd /workspace
 git clone --depth=1 --branch v2024.01 https://github.com/u-boot/u-boot.git
 cd u-boot
@@ -422,74 +424,482 @@ export CROSS_COMPILE=aarch64-linux-gnu-
 
 make rpi_4_defconfig
 make -j$(nproc)
+# Output: u-boot.bin
 ```
-The output file is `u-boot.bin`.
 
-### 9.2 Configure SD Card for U-Boot
-On the FAT32 `BOOT` partition, update `config.txt`:
-```ini
-arm_64bit=1
-enable_uart=1
-uart_2ndstage=1
+Pre-built `u-boot.bin` is committed at [`shared/bsp/rpi4/u-boot.bin`](../../shared/bsp/rpi4/u-boot.bin). Rebuild only when changing U-Boot config.
 
-# Tell VideoCore GPU to load U-Boot instead of Linux kernel
-kernel=u-boot.bin
-device_tree=bcm2711-rpi-4-b.dtb
+### 9.2 SD Card BOOT Partition Contents
+The FAT32 partition only needs these files (all committed in `shared/bsp/rpi4/`):
+
+| File | Source | Purpose |
+|:---|:---|:---|
+| `start4.elf` | RPi firmware | VideoCore GPU firmware |
+| `fixup4.dat` | RPi firmware | Memory split configuration |
+| `config.txt` | `shared/bsp/rpi4/config.txt` | `kernel=u-boot.bin`, UART, 64-bit |
+| `u-boot.bin` | Built in Docker | Second-stage bootloader |
+| `boot.scr` | Compiled from `boot.cmd` | U-Boot autoboot script |
+
+Deploy with:
+```bash
+./lab deploy --board=rpi4
 ```
 
 ### 9.3 Serve Artifacts over TFTP
-The monorepo Docker container has a built-in TFTP server pre-configured to `/workspace/tftp`:
+The Docker container runs a TFTP server on `/workspace/tftp`. Copy your build outputs:
 ```bash
-cp /workspace/rpi-linux/arch/arm64/boot/Image /workspace/tftp/Image
-cp /workspace/rpi-linux/arch/arm64/boot/dts/broadcom/bcm2711-rpi-4-b.dtb /workspace/tftp/bcm2711-rpi-4-b.dtb
+cp arch/arm64/boot/Image /workspace/tftp/Image
+cp arch/arm64/boot/dts/broadcom/bcm2711-rpi-4-b.dtb /workspace/tftp/bcm2711-rpi-4-b.dtb
 ```
 
-### 9.4 Booting in U-Boot Prompt
-Over the serial console, interrupt the U-Boot autoboot countdown by pressing any key:
+### 9.4 Current `boot.scr` Logic
+See [`shared/bsp/rpi4/boot.cmd`](../../shared/bsp/rpi4/boot.cmd). Key addresses:
+
+| Artifact | Load Address | Reason |
+|:---|:---|:---|
+| `Image` | `0x02000000` | Standard AArch64 kernel load address |
+| `bcm2711-rpi-4-b.dtb` | `0x06000000` | Well past kernel (~40 MB), avoids overlap |
+
+> [!IMPORTANT]
+> **Do not use `0x03000000` for DTB.** The kernel `Image` is ~45 MB; placing the DTB at `0x03000000` (only 16 MB above kernel base) causes "FDT image overlaps OS image" and a boot hang.
+
+### 9.5 Manual U-Boot Prompt (Interactive Debug)
+Interrupt autoboot by pressing any key over serial, then:
 ```text
-U-Boot> dhcp
-U-Boot> setenv serverip 192.168.1.100    # Your host IP running TFTP
+U-Boot> setenv ipaddr    192.168.1.150
+U-Boot> setenv serverip  192.168.1.220
 U-Boot> tftp 0x02000000 Image
-U-Boot> tftp 0x03000000 bcm2711-rpi-4-b.dtb
-U-Boot> setenv bootargs console=serial0,115200 root=/dev/nfs nfsroot=192.168.1.100:/workspace/nfs/rootfs,v3,tcp ip=dhcp rw
-U-Boot> booti 0x02000000 - 0x03000000
+U-Boot> tftp 0x06000000 bcm2711-rpi-4-b.dtb
+U-Boot> setenv bootargs "console=serial0,115200 console=tty1 root=/dev/mmcblk0p2 rw rootwait rootfstype=ext4 earlycon"
+U-Boot> booti 0x02000000 - 0x06000000
 ```
 
 ---
 
-## 10. Troubleshooting & Diagnostic Runbook
+## 10. BusyBox NFS Root Filesystem
+
+Instead of mounting a root filesystem from the SD card (`/dev/mmcblk0p2`), the kernel can mount a directory exported by the host over NFS. This eliminates all per-rootfs SD card writes — every change to userspace is made on the host and is instantly visible to the Pi on the next boot.
+
+```mermaid
+flowchart LR
+    A["RPi 4"] -->|"TFTP: Image + DTB"| B["Docker Host"]
+    A -->|"NFS mount: /"| C["Host: /srv/nfs/rpi4-rootfs"]
+    B --- C
+```
+
+### 10.1 Required Kernel Config
+
+The running kernel must have these options compiled **statically** (`=y`), not as modules:
+
+```
+CONFIG_NFS_FS=y
+CONFIG_NFS_V3=y
+CONFIG_ROOT_NFS=y
+CONFIG_IP_PNP=y
+CONFIG_IP_PNP_DHCP=y     # if using ip=dhcp
+CONFIG_IP_PNP_BOOTP=y
+```
+
+Verify with:
+```bash
+zcat /proc/config.gz | grep -E 'NFS|IP_PNP'
+# or during build inside Docker:
+grep -E 'CONFIG_NFS|CONFIG_IP_PNP' /workspace/rpi-linux/.config
+```
+
+If any are `=m`, run `make menuconfig` → `File systems → Network File Systems → NFS client` and set them to `*`, then rebuild the kernel.
+
+### 10.2 Build a Minimal BusyBox RootFS (on Host)
+
+All commands run on the **host machine** (or inside Docker for the cross-compile step).
+
+#### Step 1 — Cross-compile BusyBox (inside Docker)
+```bash
+# Inside Docker container
+cd /workspace
+git clone --depth=1 --branch 1_36_stable https://github.com/mirror/busybox.git
+cd busybox
+
+make defconfig
+
+# Enable static linking (no shared lib deps on the target)
+sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config
+
+make -j$(nproc) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
+make install CONFIG_PREFIX=/workspace/nfs/rpi4-rootfs
+```
+
+#### Step 2 — Create Standard Directory Hierarchy
+```bash
+export ROOTFS=/srv/nfs/rpi4-rootfs
+sudo mkdir -p ${ROOTFS}
+
+# Copy BusyBox install output (from Docker) to host export directory
+# Adjust source path if using Docker volume mount
+sudo cp -a /workspace/nfs/rpi4-rootfs/. ${ROOTFS}/
+
+sudo mkdir -p ${ROOTFS}/{dev,proc,sys,tmp,var/log,etc/init.d,root,home,run}
+sudo chmod 1777 ${ROOTFS}/tmp
+```
+
+#### Step 3 — Create Essential Device Nodes
+```bash
+sudo mknod -m 600 ${ROOTFS}/dev/console c 5 1
+sudo mknod -m 666 ${ROOTFS}/dev/null    c 1 3
+```
+
+#### Step 4 — Create `/etc/inittab`
+```bash
+sudo tee ${ROOTFS}/etc/inittab > /dev/null <<'EOF'
+# /etc/inittab - Minimal BusyBox init
+::sysinit:/etc/init.d/rcS
+::askfirst:-/bin/sh
+::restart:/sbin/init
+::ctrlaltdel:/sbin/reboot
+::shutdown:/bin/umount -a -r
+EOF
+```
+
+#### Step 5 — Create Startup Script `/etc/init.d/rcS`
+```bash
+sudo tee ${ROOTFS}/etc/init.d/rcS > /dev/null <<'EOF'
+#!/bin/sh
+mount -t proc  proc  /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts
+
+echo "==========================================================="
+echo " Soliton ARM Embedded Linux Lab — RPi4 NFS Root"
+echo " Kernel : $(uname -r) | Arch: $(uname -m)"
+echo "==========================================================="
+EOF
+sudo chmod +x ${ROOTFS}/etc/init.d/rcS
+```
+
+### 10.3 Configure NFS Export on Host
+
+#### Install NFS Server
+```bash
+# Ubuntu / Debian
+sudo apt install -y nfs-kernel-server
+```
+
+#### Add Export
+Append to `/etc/exports`:
+```text
+/srv/nfs/rpi4-rootfs  192.168.1.0/24(rw,sync,no_subtree_check,no_root_squash)
+```
+
+Apply:
+```bash
+sudo exportfs -ra
+sudo systemctl restart nfs-kernel-server
+
+# Verify
+showmount -e localhost
+```
+
+> [!NOTE]
+> `no_root_squash` is required. Without it, the kernel's NFS root mount will fail trying to create device nodes owned by `root`.
+
+### 10.4 Update `boot.cmd` for NFS Boot
+
+Edit [`shared/bsp/rpi4/boot.cmd`](../../shared/bsp/rpi4/boot.cmd) — change `setenv bootargs`:
+
+```bash
+# Replace the existing bootargs line:
+setenv bootargs "console=serial0,115200 console=tty1 \
+  root=/dev/nfs \
+  nfsroot=192.168.1.220:/srv/nfs/rpi4-rootfs,v3,tcp \
+  ip=192.168.1.150:::255.255.255.0:rpi4:eth0:off \
+  rw earlycon audit=0"
+```
+
+Key parameters:
+
+| Parameter | Purpose |
+|:---|:---|
+| `root=/dev/nfs` | Tell kernel to use NFS as root |
+| `nfsroot=<hostip>:<path>,v3,tcp` | Host IP, exported path, NFS version, transport |
+| `ip=<static-config>` | Static IP for the Pi (avoid DHCP dependency at boot) |
+| `rw` | Mount root read-write |
+
+Recompile and deploy:
+```bash
+# Inside Docker
+mkimage -C none -A arm64 -T script -d shared/bsp/rpi4/boot.cmd shared/bsp/rpi4/boot.scr
+
+# On host — copy to SD card BOOT partition
+cp shared/bsp/rpi4/boot.scr /media/$USER/BOOT/
+```
+
+### 10.5 Expected NFS Mount Log
+```text
+[    2.345678] NFS: Mounting 192.168.1.220:/srv/nfs/rpi4-rootfs on /
+[    2.789012] VFS: Mounted root (nfs filesystem) on device 0:14.
+[    2.801234] Run /sbin/init as init process
+===========================================================
+ Soliton ARM Embedded Linux Lab — RPi4 NFS Root
+ Kernel : 6.6.y | Arch: aarch64
+===========================================================
+Please press Enter to activate this console.
+/ #
+```
+
+---
+
+## 11. Eliminating the SD Card — Full Network Boot via EEPROM
+
+The RPi4 SPI EEPROM bootloader (not the SD card) is the true first stage. It can be **reprogrammed to boot over the network (PXE/TFTP)** without any SD card at all. After a one-time EEPROM update, the Pi contacts a DHCP+TFTP server on power-on and downloads the entire boot chain.
+
+```mermaid
+flowchart TD
+    subgraph "After EEPROM reprogramming — no SD card"
+        A["Power On"] --> B["SPI EEPROM Bootloader"]
+        B --> C["Ethernet: DHCP request"]
+        C --> D["DHCP Server (dnsmasq) on Host"]
+        D --> E["TFTP: start4.elf, fixup4.dat, config.txt"]
+        E --> F["TFTP: u-boot.bin"]
+        F --> G["U-Boot: boot.scr"]
+        G --> H["TFTP: Image + DTB"]
+        H --> I["NFS: mount rootfs"]
+    end
+```
+
+> [!NOTE]
+> Standard Raspberry Pi 4 Model B does **not** have built-in eMMC (that is the Compute Module 4). The EEPROM only stores the boot *configuration*, not the firmware. Firmware (`start4.elf`) must still be served — but via TFTP from the host instead of from SD.
+
+### 11.1 One-Time EEPROM Reprogramming (Requires SD Card Once)
+
+This step needs a running RPi OS on an SD card (or a USB drive). Do it once, then discard the card.
+
+#### Step 1 — Boot an Official RPi OS Image
+Flash the latest **Raspberry Pi OS Lite (64-bit)** with [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to a microSD card and boot it. This gives you access to `rpi-eeprom-config`.
+
+#### Step 2 — Check Current EEPROM Bootloader Version
+```bash
+sudo rpi-eeprom-update
+```
+
+#### Step 3 — Extract and Edit EEPROM Config
+```bash
+# Dump the current EEPROM config to a file
+sudo rpi-eeprom-config --out /tmp/boot.conf
+```
+
+The critical field is `BOOT_ORDER`. Update `/tmp/boot.conf`:
+```ini
+[all]
+BOOT_UART=1
+
+# Boot order: try network first (0x2), then USB (0x4), then SD (0x1) as fallback
+# Digits are tried right-to-left
+BOOT_ORDER=0xf241
+
+# Timeout before moving to next boot mode (100ms units)
+BOOT_ORDER_TIMEOUT=5
+
+# Allow Network boot without SD/USB present
+NETWORK_INSTALL_ENABLED=1
+```
+
+`BOOT_ORDER` digit meanings:
+
+| Digit | Mode |
+|:---:|:---|
+| `0x1` | SD card |
+| `0x2` | Network (PXE/TFTP) |
+| `0x4` | USB mass storage |
+| `0xf` | Restart from first mode |
+
+#### Step 4 — Flash the New Config
+```bash
+sudo rpi-eeprom-config --apply /tmp/boot.conf
+
+# Verify
+sudo rpi-eeprom-config
+```
+
+Reboot and remove the SD card — the Pi will now attempt network boot on next power-on.
+
+---
+
+### 11.2 Host DHCP + TFTP Server Setup (dnsmasq)
+
+The Pi's EEPROM sends a DHCP broadcast over Ethernet. The host must answer with an IP and a TFTP server path pointing to the firmware files.
+
+#### Install dnsmasq
+```bash
+# Ubuntu / Debian
+sudo apt install -y dnsmasq
+```
+
+#### Configure `/etc/dnsmasq.conf`
+
+Replace or append (adjust interface and IP range for your network):
+```ini
+# ================================================================
+# dnsmasq — DHCP + TFTP for RPi4 network boot (no SD card)
+# ================================================================
+
+# Listen only on the LAN interface connected to the Pi
+interface=enp2s0           # <-- change to your host's LAN interface
+bind-interfaces
+
+# DHCP range — hand out one IP (or a range) to the Pi
+dhcp-range=192.168.1.150,192.168.1.160,255.255.255.0,12h
+
+# Assign a predictable IP to the Pi by MAC (recommended)
+# dhcp-host=dc:a6:32:xx:xx:xx,rpi4,192.168.1.150
+
+# TFTP server root — all firmware files go here
+enable-tftp
+tftp-root=/srv/tftp/rpi4
+
+# PXE boot file for RPi4 (EEPROM fetches this first)
+dhcp-boot=start4.elf
+
+# Log DHCP and TFTP activity
+log-dhcp
+log-queries
+```
+
+#### Create TFTP Root and Populate Firmware
+```bash
+ROOT=/srv/tftp/rpi4
+sudo mkdir -p ${ROOT}
+
+# Copy RPi firmware (from shared/bsp/rpi4/ in the monorepo)
+REPO=/home/soliton/source/repo/nirmalprasad.k/arm-embedded-linux-lab
+
+sudo cp ${REPO}/shared/bsp/rpi4/start4.elf   ${ROOT}/
+sudo cp ${REPO}/shared/bsp/rpi4/fixup4.dat   ${ROOT}/
+sudo cp ${REPO}/shared/bsp/rpi4/config.txt   ${ROOT}/
+sudo cp ${REPO}/shared/bsp/rpi4/u-boot.bin   ${ROOT}/
+sudo cp ${REPO}/shared/bsp/rpi4/boot.scr     ${ROOT}/
+```
+
+Kernel and DTB are still served by the Docker TFTP server (port 69) during U-Boot's `boot.scr`. If you want everything from one server, also copy these to `${ROOT}` and point U-Boot's `serverip` to the host.
+
+#### Restart dnsmasq
+```bash
+sudo systemctl restart dnsmasq
+sudo systemctl status  dnsmasq
+```
+
+> [!WARNING]
+> If your host already runs a DHCP server (e.g., NetworkManager), dnsmasq will conflict on port 67. Either: (a) disable the existing DHCP server for the Pi-facing interface, or (b) run dnsmasq only on the Pi-facing interface with `bind-interfaces`.
+
+### 11.3 Network Topology
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Host Workstation (192.168.1.220)                   │
+│                                                     │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────┐  │
+│  │ dnsmasq      │  │ Docker TFTP  │  │ NFS      │  │
+│  │ DHCP + TFTP  │  │ (port 69)    │  │ Server   │  │
+│  │ /srv/tftp/   │  │ /workspace/  │  │ /srv/nfs/│  │
+│  │   rpi4/      │  │   tftp/      │  │   rpi4-  │  │
+│  └──────┬───────┘  └──────┬───────┘  │   rootfs │  │
+│         │                 │          └────┬─────┘  │
+└─────────┼─────────────────┼───────────────┼────────┘
+          │    Gigabit Ethernet (enp2s0)     │
+          └─────────────────┬───────────────┘
+                            │
+               ┌────────────▼──────────┐
+               │  Raspberry Pi 4       │
+               │  192.168.1.150        │
+               │  (no SD card)         │
+               └───────────────────────┘
+```
+
+### 11.4 Verifying Network Boot
+
+Watch dnsmasq logs while powering on the Pi:
+```bash
+sudo journalctl -fu dnsmasq
+```
+
+Expected sequence:
+```text
+dnsmasq-dhcp: DHCPDISCOVER(enp2s0) dc:a6:32:xx:xx:xx
+dnsmasq-dhcp: DHCPOFFER(enp2s0)    192.168.1.150 dc:a6:32:xx:xx:xx
+dnsmasq-tftp: sent /srv/tftp/rpi4/start4.elf
+dnsmasq-tftp: sent /srv/tftp/rpi4/fixup4.dat
+dnsmasq-tftp: sent /srv/tftp/rpi4/config.txt
+dnsmasq-tftp: sent /srv/tftp/rpi4/u-boot.bin
+dnsmasq-tftp: sent /srv/tftp/rpi4/boot.scr
+```
+
+Then U-Boot fetches `Image` and `bcm2711-rpi-4-b.dtb` via TFTP (Docker TFTP server), and the kernel mounts the NFS rootfs.
+
+---
+
+## 12. Troubleshooting & Diagnostic Runbook
 
 ### Issue 1: Green ACT LED Error Blinks
-If the Raspberry Pi 4 fails before the serial console starts, inspect the green ACT LED flash patterns:
+If the Pi fails before the serial console starts, inspect the ACT LED flash patterns:
 
-| Flash Pattern | Diagnosis | Root Cause & Resolution |
+| Flash Pattern | Diagnosis | Resolution |
 | :--- | :--- | :--- |
-| **Solid ON / No blink** | No boot code executed | SPI EEPROM corrupt or no power. Reprogram EEPROM with Raspberry Pi Imager. |
-| **3 flashes** | `start4.elf` not found | Partition 1 is not FAT32, missing `start4.elf`, or card not seated properly. |
-| **4 flashes** | `start4.elf` cannot launch | Corrupt `start4.elf` or incompatible firmware version. Re-download firmware. |
-| **7 flashes** | Kernel image not found | `kernel=Image` in `config.txt` does not match the filename on the `BOOT` partition. |
+| **Solid ON / No blink** | No boot code executed | SPI EEPROM corrupt. Reprogram with Raspberry Pi Imager. |
+| **3 flashes** | `start4.elf` not found | Partition 1 not FAT32, missing file, or card not seated. |
+| **4 flashes** | `start4.elf` cannot launch | Corrupt firmware. Re-download from RPi firmware repo. |
+| **7 flashes** | Kernel image not found | `kernel=` in `config.txt` does not match the file on BOOT. |
 | **8 flashes** | SDRAM not recognized | Hardware defect or unsupported RAM revision. |
 
-### Issue 2: Serial Terminal Displays Nothing (Completely Silent)
-1. **Check Pin Orientation:** Verify Pi Pin 8 (TX) goes to USB-TTL **RX**, and Pi Pin 10 (RX) goes to USB-TTL **TX**.
-2. **Verify `config.txt`:** Ensure `enable_uart=1` is present.
-3. **Verify Host Port Permissions:** On Linux, add your user to `dialout` group: `sudo usermod -aG dialout $USER`.
-4. **Baud Rate Mismatch:** Confirm terminal is set to `115200 8N1` (no hardware flow control).
+### Issue 2: Serial Console Silent After `bootconsole [bcm2835aux0] disabled`
+
+This is **not a hang**. The kernel switched from the mini-UART early console to the proper console driver. If your terminal goes silent here:
+- Confirm `console=serial0,115200` is in `bootargs` in `boot.cmd`.
+- Confirm `enable_uart=1` is in `config.txt`.
+- The kernel continues booting on HDMI — check your monitor.
+- If truly hung after this, likely a rootfs mount failure (see Issue 4 / Issue 5).
 
 ### Issue 3: Kernel Panics: `VFS: Unable to mount root fs on unknown-block(0,0)`
-* **Root Cause 1:** The MMC or SDHCI driver is built as a module (`=m`) rather than built-in (`=y`). Ensure `CONFIG_MMC_BCM2835=y` and `CONFIG_MMC_SDHCI_IPROC=y` in `.config`.
-* **Root Cause 2:** Missing `rootwait` parameter in `cmdline.txt`. Without `rootwait`, the kernel tries to mount the rootfs before the MMC driver discovers the SD card partitions.
-* **Root Cause 3:** Typo in partition path. Verify `root=/dev/mmcblk0p2` in `cmdline.txt`.
+* `CONFIG_MMC_BCM2835=y` and `CONFIG_MMC_SDHCI_IPROC=y` must be built-in.
+* Add `rootwait` to `bootargs`.
+* Verify `root=/dev/mmcblk0p2` path.
 
-### Issue 4: Kernel Freezes at `Starting kernel ...` (When using U-Boot)
-* **Root Cause 1:** Device tree blob architecture mismatch. Ensure `bcm2711-rpi-4-b.dtb` was compiled with `ARCH=arm64`.
-* **Root Cause 2:** Overlapping memory addresses when loading into RAM. Use spaced-out load addresses (e.g. `0x02000000` for Kernel, `0x03000000` for DTB).
+### Issue 4: NFS Mount Fails — `VFS: Unable to mount root fs via NFS`
+* Verify NFS server is running: `sudo systemctl status nfs-kernel-server`.
+* Verify export is active: `showmount -e localhost`.
+* Verify Pi can reach host IP: from U-Boot prompt, `ping 192.168.1.220`.
+* Check NFS export has `no_root_squash`.
+* Confirm kernel has `CONFIG_NFS_FS=y` and `CONFIG_ROOT_NFS=y` (not `=m`).
+* Check `nfsroot=` in `bootargs` matches the exported path exactly.
+
+### Issue 5: EEPROM Netboot — Pi Gets IP but TFTP Fails
+* Confirm `start4.elf` is in the TFTP root (`/srv/tftp/rpi4/`).
+* Check dnsmasq logs: `sudo journalctl -fu dnsmasq`.
+* Port 69 (TFTP UDP) must not be blocked by firewall: `sudo ufw allow 69/udp`.
+* Ensure dnsmasq is bound to the correct interface (`interface=enp2s0`).
+
+### Issue 6: EEPROM Netboot — Pi Does Not Send DHCP Request
+* Hold EEPROM boot order did not take effect. Re-verify with `sudo rpi-eeprom-config`.
+* Make sure Ethernet cable is connected **before** powering on (EEPROM checks link state).
+* Try `BOOT_ORDER=0xf2` (network-only, no fallback) to force network-only mode and see UART output.
+
+### Issue 7: Kernel Freezes at `Starting kernel ...` (U-Boot)
+* DTB compiled without `ARCH=arm64`.
+* DTB load address overlaps kernel. Use `0x06000000` for DTB, not `0x03000000`.
+
+### Issue 8: U-Boot `FDT image overlaps OS image`
+Move the DTB load address higher: use `0x06000000` instead of `0x03000000`. The `Image` kernel is ~45 MB; any address below `0x05000000` risks overlap.
 
 ---
 
-## 11. Monorepo Integration Checklist
+## 13. Monorepo Integration Checklist
 
-Once your board boots successfully into userspace, integrate your environment with the monorepo workflows:
-- [x] Configure your serial port in board settings for `./lab console --board=rpi4`.
-- [x] Build and deploy your projects using `./lab build --project=<project-name> --board=rpi4`.
-- [x] Test network and serial connectivity with `./lab doctor`.
+Once your board boots successfully into userspace:
+- [x] Serial console working via `./lab console --board=rpi4`
+- [x] Kernel + DTB served over TFTP (Docker container running)
+- [ ] BusyBox NFS rootfs built and exported from host
+- [ ] `boot.cmd` updated to `root=/dev/nfs nfsroot=...`
+- [ ] EEPROM reprogrammed with `BOOT_ORDER=0xf241` (optional, for SD-card elimination)
+- [ ] dnsmasq configured and serving firmware from `/srv/tftp/rpi4/`
+- [x] Build and deploy projects: `./lab build --project=<name> --board=rpi4`
+- [x] Run diagnostics: `./lab doctor` (inside Docker)
