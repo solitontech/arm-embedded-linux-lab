@@ -55,10 +55,16 @@ else
     echo "Warning: Mount point does not end with /bootfs or /BOOT. Skipping cleanup for safety."
 fi
 
-# Copy pre-built U-Boot binary (built in Docker)
+# Copy pre-built U-Boot binary (built in Docker or committed in BSP)
 if [ -f "$BOOT_BUILD_DIR/u-boot.bin" ]; then
     cp "$BOOT_BUILD_DIR/u-boot.bin" "$MOUNT_POINT/"
     echo "  -> Copied u-boot.bin"
+elif [ -f "$BSP_DIR/u-boot.bin" ]; then
+    cp "$BSP_DIR/u-boot.bin" "$MOUNT_POINT/"
+    echo "  -> Copied u-boot.bin"
+else
+    echo "  [WARN] u-boot.bin not found in $BOOT_BUILD_DIR or $BSP_DIR!"
+    echo "         Build it inside Docker: cd shared/boot && make BOARD=$BOARD"
 fi
 
 # Compile boot.cmd -> boot.scr (U-Boot script image) if mkimage is available
