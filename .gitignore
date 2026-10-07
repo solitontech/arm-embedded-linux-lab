@@ -30,6 +30,11 @@ Module.symvers
 *~
 .DS_Store
 
+# Python Cache
+__pycache__/
+*.py[cod]
+*$py.class
+
 # Local TFTP staging/server directory
 tftp/*
 !tftp/.gitkeep
