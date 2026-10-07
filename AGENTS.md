@@ -28,6 +28,10 @@ This is a professional embedded Linux monorepo supporting multiple projects and 
 - **`docs/` must NEVER link to specific `projects/`:** Documentation in `docs/` and infrastructure in `shared/` are generic, board-level, or curriculum-wide assets. Linking from `docs/` to specific projects violates clean separation of concerns and breaks portability.
 - **Projects link to docs, never the reverse:** Projects consume `docs/`, `shared/`, and `tools/`. A project README may link to any document in `docs/`, but files in `docs/` must remain completely decoupled from specific projects.
 
+## Git Rules
+
+**Never push to a remote.** Do not run `git push` under any circumstances unless the user explicitly asks you to. Commits are local only until the user decides to push.
+
 ## How to Operate in This Repo
 
 Before starting any task, check `.agents/workflows/` for a workflow matching your task. If one exists, follow it. If not, complete your task and create a new workflow using `.agents/workflows/WORKFLOW_TEMPLATE.md` so future agents can benefit.
