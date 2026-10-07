@@ -406,7 +406,7 @@ def cmd_reboot(args: argparse.Namespace):
 def cmd_console(args: argparse.Namespace):
     board = select_board(None, args.board)
     env = get_board_env(board)
-    console_script = REPO_ROOT / "tools" / "deploy" / "console.sh"
+    console_script = REPO_ROOT / "tools" / "target" / "console.sh"
     
     cmd = [
         str(console_script),
@@ -449,7 +449,7 @@ def cmd_gdb(args: argparse.Namespace):
         subprocess.run(["make", "-C", str(proj_dir), f"BOARD={board}"])
     
     env = get_board_env(board)
-    gdb_script = REPO_ROOT / "tools" / "deploy" / "gdb.sh"
+    gdb_script = REPO_ROOT / "tools" / "target" / "gdb.sh"
     
     cmd = [
         str(gdb_script),
@@ -465,6 +465,12 @@ def is_in_container() -> bool:
         or Path("/run/.containerenv").exists()
         or (Path("/workspace").exists() and REPO_ROOT == Path("/workspace"))
     )
+
+def cmd_docker(args: argparse.Namespace):
+    docker_script = REPO_ROOT / "tools" / "docker" / "run.sh"
+    action = args.action or "run"
+    cmd = [str(docker_script), action] + args.extra
+    os.execvp(cmd[0], cmd)
 
 def cmd_doctor(args: argparse.Namespace):
     if not is_in_container():
@@ -630,7 +636,7 @@ _lab_complete() {{
     local cur prev words cword
     _init_completion || return
 
-    local commands="list new info build clean deploy run reboot console gdb doctor completion"
+    local commands="list new info build clean deploy run reboot console ssh docker gdb doctor completion"
     local boards="{boards}"
     local projects="{projects}"
 
@@ -675,6 +681,8 @@ _lab() {{
         'run:Deploy and execute on target'
         'reboot:Reset/reboot target hardware'
         'console:Connect to serial UART console'
+        'ssh:Connect to target board via SSH'
+        'docker:Enter Docker development environment'
         'gdb:Start remote GDB session'
         'doctor:Diagnose toolchains and lab environment'
         'completion:Generate shell completion script'
@@ -789,6 +797,12 @@ def main():
     p_gdb.add_argument("--board", help="Target hardware board")
     p_gdb.add_argument("--port", help="Target gdbserver port (default: 2345)")
     p_gdb.set_defaults(func=cmd_gdb)
+
+    # docker
+    p_docker = subparsers.add_parser("docker", help="Enter the Docker development environment")
+    p_docker.add_argument("action", nargs="?", default=None, help="Docker action (run, build, stop, attach, exec). Default: run")
+    p_docker.add_argument("extra", nargs="*", help="Extra arguments passed to docker helper")
+    p_docker.set_defaults(func=cmd_docker)
 
     # doctor
     p_doc = subparsers.add_parser("doctor", help="Diagnose toolchains, serial ports, and lab network")

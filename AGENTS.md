@@ -62,7 +62,7 @@ If you create a new infrastructure file or tool, also create a new skill or work
 
 Always prefer `./lab <command>` over raw `make` calls when building, deploying, running, or rebooting. The `lab` CLI is the single authoritative interface for all agent and developer tasks. Raw `make` is an implementation detail.
 
-Available commands: `list`, `new`, `info`, `build`, `clean`, `deploy`, `run`, `reboot`, `console`, `gdb`, `doctor`, `completion`.
+Available commands: `list`, `new`, `info`, `build`, `clean`, `deploy`, `run`, `reboot`, `console`, `ssh`, `docker`, `gdb`, `doctor`, `completion`.
 
 ## Docker Development Environment
 

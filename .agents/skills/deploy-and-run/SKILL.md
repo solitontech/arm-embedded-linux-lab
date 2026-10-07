@@ -21,6 +21,8 @@ Enables automated building, cross-compilation, deployment (SSH, TFTP, NFS), and 
 | `run` | `./lab run myapp --board rpi4` | Deploy and execute binary remotely over SSH |
 | `reboot` | `./lab reboot --board rpi4` | Reset target board via U-Boot serial, SSH, or power relay |
 | `console` | `./lab console --board rpi4` | Connect to physical UART serial boot console |
+| `ssh` | `./lab ssh --board rpi4` | SSH into the target board |
+| `docker` | `./lab docker` | Enter the Docker development environment |
 | `gdb` | `./lab gdb myapp --board rpi4` | Connect cross-gdb to target gdbserver session |
 | `doctor` | `./lab doctor` | Run environment diagnostics inside Docker (toolchains, serial, TFTP, network) |
 | `completion` | `./lab completion zsh >> ~/.zshrc` | Generate bash/zsh auto-completion script |
