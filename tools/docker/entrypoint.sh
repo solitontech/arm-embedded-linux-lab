@@ -27,7 +27,7 @@ if [ ! -f "${TFTP_DIR}/test.txt" ]; then
 fi
 
 # 4. Ensure tftp daemon user can read/write files inside /workspace/tftp
-chmod -R 777 "${TFTP_DIR}" 2>/dev/null || chmod -R a+rX "${TFTP_DIR}" 2>/dev/null || true
+chmod -R a+rwX "${TFTP_DIR}" 2>/dev/null || true
 
 # 5. Start or restart tftpd-hpa service
 if command -v service &>/dev/null; then
