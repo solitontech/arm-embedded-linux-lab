@@ -412,6 +412,28 @@ def cmd_console(args: argparse.Namespace):
     ]
     subprocess.run(cmd)
 
+def cmd_ssh(args: argparse.Namespace):
+    board = select_board(None, args.board)
+    env = get_board_env(board)
+    
+    ip = env.get("TARGET_IP")
+    user = env.get("TARGET_USER", "root")
+    port = env.get("TARGET_PORT", "22")
+    
+    if not ip or ip == "127.0.0.1":
+        log_error(f"Cannot SSH to {ip} (Target IP not configured or is loopback)")
+        sys.exit(1)
+        
+    print(f"[INFO] Connecting to {board} at {user}@{ip}:{port} via SSH...")
+    cmd = ["ssh", "-p", port, f"{user}@{ip}"]
+    
+    # Check if a custom key is specified
+    ssh_key = env.get("TARGET_SSH_KEY")
+    if ssh_key and Path(ssh_key).expanduser().exists():
+        cmd.extend(["-i", str(Path(ssh_key).expanduser())])
+        
+    subprocess.run(cmd)
+
 def cmd_gdb(args: argparse.Namespace):
     proj_name = select_project(args.project)
     board = select_board(proj_name, args.board)
@@ -751,6 +773,11 @@ def main():
     p_console = subparsers.add_parser("console", help="Connect to serial UART console")
     p_console.add_argument("--board", help="Target hardware board")
     p_console.set_defaults(func=cmd_console)
+    
+    # ssh
+    p_ssh = subparsers.add_parser("ssh", help="Connect to target board via SSH")
+    p_ssh.add_argument("--board", help="Target hardware board")
+    p_ssh.set_defaults(func=cmd_ssh)
 
     # gdb
     p_gdb = subparsers.add_parser("gdb", help="Start cross-GDB remote debug session")
