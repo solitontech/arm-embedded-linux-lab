@@ -222,8 +222,12 @@ def cmd_list(args: argparse.Namespace):
     print(f" {Style.BOLD}{'BOARD':<14} {'ARCH':<10} {'DEFAULT DEPLOY':<16} {'DESCRIPTION'}{Style.RESET}")
     print(f"{Style.DIM}─" * 72 + f"{Style.RESET}")
     for b_name, b_info in boards.items():
-        env = get_board_env(b_name)
-        ip_status = f" (IP: {env.get('TARGET_IP')})" if env.get("TARGET_IP") else ""
+        env_file = REPO_ROOT / "shared" / "boards" / f"{b_name}.env"
+        ip_status = ""
+        if env_file.exists():
+            env = get_board_env(b_name)
+            if env.get("TARGET_IP"):
+                ip_status = f" (IP: {env.get('TARGET_IP')})"
         print(f" {Style.B_CYAN}{b_name:<14}{Style.RESET} {b_info['arch']:<10} {b_info['default_deploy']:<16} {b_info['desc']}{Style.DIM}{ip_status}{Style.RESET}")
     print(f"{Style.DIM}─" * 72 + f"{Style.RESET}")
 
