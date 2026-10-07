@@ -21,7 +21,7 @@ This is a professional embedded Linux monorepo supporting multiple projects and 
 
 **Always use relative links in repository documentation (`.md` files):**
 - Never commit absolute filesystem URIs (e.g. `file:///...` or hardcoded host paths like `/Users/...` or `/home/...`) in committed markdown documentation, READMEs, skills, or workflows.
-- All internal links between documentation files, code files, and projects must use relative markdown paths (e.g. `[guide](manual_boot_guide.md)` or `[rpi4.mk](../../shared/build_system/boards/rpi4.mk)`).
+- All internal links between documentation files, code files, and projects must use relative markdown paths (e.g. `[guide](boot_architecture.md)` or `[rpi4.mk](../../shared/build_system/boards/rpi4.mk)`).
 - This ensures documentation renders and navigates correctly across all developer workstations, Docker containers, CI/CD, and GitHub.
 
 **Strict Dependency Direction (Docs vs Projects):**
