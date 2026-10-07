@@ -2,12 +2,12 @@
 
 You need a minimal userspace to spawn `/sbin/init` or `/bin/sh`. BusyBox combines tiny versions of common UNIX utilities into a single multi-call binary — recommended for first bringup.
 
-## 1. Download & Build BusyBox
-```bash
-cd /workspace
-git clone --depth=1 --branch 1_36_stable https://github.com/mirror/busybox.git
-cd busybox
+## 1. Configure & Build BusyBox
 
+BusyBox is included as a Git submodule at `shared/rootfs/busybox`. No need to clone separately.
+
+```bash
+cd /workspace/shared/rootfs/busybox
 make defconfig
 ```
 

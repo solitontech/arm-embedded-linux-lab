@@ -2,3 +2,7 @@
 	path = shared/boot/u-boot
 	url = https://github.com/u-boot/u-boot.git
 	branch = v2024.07
+[submodule "shared/rootfs/busybox"]
+	path = shared/rootfs/busybox
+	url = https://github.com/mirror/busybox.git
+	branch = 1_36_stable

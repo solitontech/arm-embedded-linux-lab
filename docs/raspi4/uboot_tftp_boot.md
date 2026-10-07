@@ -162,10 +162,8 @@ If any are `=m`, run `make menuconfig` → `File systems → Network File System
 Follow the same BusyBox cross-compile and rootfs assembly procedure from [BusyBox Root Filesystem](rootfs_busybox.md), but install into the NFS export directory instead of the SD card partition:
 
 ```bash
-# Inside Docker container — cross-compile BusyBox
-cd /workspace
-git clone --depth=1 --branch 1_36_stable https://github.com/mirror/busybox.git
-cd busybox
+# Inside Docker container — cross-compile BusyBox (submodule at shared/rootfs/busybox)
+cd /workspace/shared/rootfs/busybox
 make defconfig
 sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config
 make -j$(nproc) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
