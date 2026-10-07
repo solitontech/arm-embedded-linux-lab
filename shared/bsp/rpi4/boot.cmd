@@ -26,7 +26,7 @@ tftp 0x02000000 Image
 echo "==> Fetching Device Tree Blob via TFTP..."
 tftp 0x06000000 bcm2711-rpi-4-b.dtb
 
-setenv bootargs "console=serial0,115200 console=tty1 root=/dev/mmcblk0p2 rw rootwait rootfstype=ext4 earlycon audit=0 ip=192.168.1.150:::255.255.255.0:rpi4:eth0:off"
+setenv bootargs "console=ttyS0,115200 console=tty1 root=/dev/mmcblk0p2 rw rootwait rootfstype=ext4 earlycon=bcm2835aux,0xfe215040 audit=0 ip=192.168.1.150:::255.255.255.0:rpi4:eth0:off"
 
 echo "==> Booting Linux kernel..."
 booti 0x02000000 - 0x06000000
