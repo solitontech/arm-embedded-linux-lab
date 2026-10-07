@@ -513,14 +513,27 @@ def cmd_doctor(args: argparse.Namespace):
         env = get_board_env(b_name)
         ip = env.get("TARGET_IP")
         if ip and ip != "127.0.0.1":
-            # Quick ping/port check
-            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            s.settimeout(0.6)
-            try:
-                s.connect((ip, int(env.get("TARGET_PORT", 22))))
-                s.close()
-                print(f"  {Style.B_GREEN}✔{Style.RESET} [{b_name:<10}] {ip:<15} -> {Style.B_GREEN}Online (SSH Reachable){Style.RESET}")
-            except Exception:
+            # Use ICMP ping as the primary liveness check.
+            # SSH (TCP/22) is optional on embedded targets and may not be running.
+            ping_ok = subprocess.call(
+                ["ping", "-c", "1", "-W", "1", ip],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            ) == 0
+            if ping_ok:
+                # Optionally check SSH reachability as extra info
+                ssh_ok = False
+                try:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(0.6)
+                    s.connect((ip, int(env.get("TARGET_PORT", 22))))
+                    s.close()
+                    ssh_ok = True
+                except Exception:
+                    pass
+                suffix = " (SSH ready)" if ssh_ok else " (ping OK, SSH not available)"
+                print(f"  {Style.B_GREEN}✔{Style.RESET} [{b_name:<10}] {ip:<15} -> {Style.B_GREEN}Online{suffix}{Style.RESET}")
+            else:
                 print(f"  {Style.B_RED}✖{Style.RESET} [{b_name:<10}] {ip:<15} -> {Style.DIM}Offline / Unreachable{Style.RESET}")
         elif ip == "127.0.0.1":
             print(f"  {Style.B_GREEN}✔{Style.RESET} [{b_name:<10}] {ip:<15} -> {Style.DIM}Local Loopback{Style.RESET}")
