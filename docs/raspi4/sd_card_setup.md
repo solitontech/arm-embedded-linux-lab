@@ -54,80 +54,52 @@ sudo mount /dev/sdX2 /tmp/rpi-rootfs
 
 ---
 
-## 2. Obtaining the VideoCore Firmware & Configuration
+## 2. Populating the BOOT Partition
 
-Raspberry Pi's VideoCore GPU requires proprietary firmware blobs to initialize the SoC memory and clocks before loading Linux.
+The monorepo already has all the boot artifacts committed in [`shared/bsp/rpi4/`](../../shared/bsp/rpi4/) — firmware blobs, `config.txt`, `cmdline.txt`, U-Boot binary, and boot script. The deploy script copies them automatically:
 
-### Step 2.1 Download Official Firmware Files
-Fetch the minimal firmware binaries from the official Raspberry Pi GitHub firmware repository:
 ```bash
-FW_DIR="/tmp/rpi-fw"
-mkdir -p "${FW_DIR}"
-
-BASE_URL="https://raw.githubusercontent.com/raspberrypi/firmware/master/boot"
-
-wget -q --show-progress -O "${FW_DIR}/start4.elf" "${BASE_URL}/start4.elf"
-wget -q --show-progress -O "${FW_DIR}/fixup4.dat" "${BASE_URL}/fixup4.dat"
-
-# Optional firmware variants (e.g. debug/minimal):
-# wget -O "${FW_DIR}/start4cd.elf" "${BASE_URL}/start4cd.elf"
-# wget -O "${FW_DIR}/fixup4cd.dat" "${BASE_URL}/fixup4cd.dat"
+cd shared/boot
+make deploy-sd BOARD=rpi4
 ```
 
-Copy the firmware to the `BOOT` partition:
-```bash
-sudo cp "${FW_DIR}/start4.elf" /tmp/rpi-boot/
-sudo cp "${FW_DIR}/fixup4.dat" /tmp/rpi-boot/
-```
+This runs [`tools/target/deploy_bootfs.sh`](../../tools/target/deploy_bootfs.sh), which detects the mounted SD card (macOS/Linux), cleans the BOOT partition, compiles `boot.cmd` → `boot.scr`, and copies all required files.
 
-### Step 2.2 Create `config.txt`
-Create `/tmp/rpi-boot/config.txt` to tell the GPU firmware how to configure clocks, UART, and load the 64-bit ARM Linux kernel:
+> [!NOTE]
+> If you need to re-fetch firmware from upstream (e.g. after a Pi firmware update):
+> ```bash
+> cd shared/boot
+> make fetch-firmware BOARD=rpi4
+> ```
 
-```ini
-# ==============================================================================
-# Raspberry Pi 4 Manual 64-Bit Boot Configuration
-# ==============================================================================
+### Understanding the Boot Configuration
 
-# Force ARM Cortex-A72 cores into 64-bit execution mode (AArch64)
-arm_64bit=1
+The following files in `shared/bsp/rpi4/` control the boot process. Edit them in the repo, then re-run `make deploy-sd` to apply.
 
-# Enable primary serial UART console (PL011 / ttyAMA0 on GPIO 14/15)
-enable_uart=1
-uart_2ndstage=1
+**`config.txt`** — GPU firmware configuration:
 
-# Explicitly specify the Linux kernel and device tree binary
-kernel=Image
-device_tree=bcm2711-rpi-4-b.dtb
+| Setting | Purpose |
+|:---|:---|
+| `arm_64bit=1` | Force AArch64 execution mode |
+| `enable_uart=1` | Enable serial UART console |
+| `kernel=u-boot.bin` | Load U-Boot as the bootloader |
+| `device_tree=bcm2711-rpi-4-b.dtb` | Hardware device tree |
+| `gpu_mem=128` | Minimal GPU memory for headless operation |
 
-# Allocate minimal memory to VideoCore GPU for headless/inspection operation (128MB)
-gpu_mem=128
-
-# Disable rainbow splash screen for faster boot
-disable_splash=1
-
-# Disable automatic overlay loading so we control the exact hardware layout
-dtoverlay=
-```
-
-### Step 2.3 Create `cmdline.txt`
-The GPU firmware reads `cmdline.txt` and passes its arguments to the Linux kernel via the `chosen/bootargs` Device Tree node.
+**`cmdline.txt`** — Kernel boot parameters (passed via the `chosen/bootargs` Device Tree node):
 
 > [!IMPORTANT]
 > `cmdline.txt` **MUST be a single continuous line** with no newline/carriage return character at the end.
 
-Create `/tmp/rpi-boot/cmdline.txt`:
-```text
-console=serial0,115200 console=tty1 root=/dev/mmcblk0p2 rw rootwait rootfstype=ext4 earlycon audit=0
-```
-
-#### Explanation of Parameters:
-* `console=serial0,115200`: Directs `printk` and login getty to the physical UART at 115200 baud.
-* `console=tty1`: Also duplicates output to the HDMI virtual terminal if a monitor is attached.
-* `root=/dev/mmcblk0p2`: Tells the kernel to mount partition 2 of the SD card as the root filesystem.
-* `rw`: Mounts the root filesystem read-write.
-* `rootwait`: Forces kernel to pause initialization until the asynchronous SD/MMC card driver finishes probing.
-* `rootfstype=ext4`: Avoids probing all filesystem drivers; mounts directly as ext4.
-* `earlycon`: Enables early printk logging through the UART before the full TTY driver initializes.
+| Parameter | Purpose |
+|:---|:---|
+| `console=serial0,115200` | Direct `printk` and getty to the physical UART |
+| `console=tty1` | Duplicate output to HDMI terminal |
+| `root=/dev/mmcblk0p2` | Mount SD card partition 2 as rootfs |
+| `rw` | Mount root read-write |
+| `rootwait` | Wait for the SD/MMC driver to finish probing |
+| `rootfstype=ext4` | Mount directly as ext4 |
+| `earlycon` | Enable early printk before full TTY driver init |
 
 ---
 

@@ -39,18 +39,23 @@ For a clean manual bringup, the following must be compiled **statically into the
 make -j$(nproc) Image modules dtbs
 ```
 
-## 5. Copy Kernel & DTB to `BOOT` Partition
+## 5. Deploy Kernel Artifacts
+
+After building, you have two deployment paths depending on your boot method:
+
+**TFTP boot (recommended for development):** Copy to the Docker TFTP directory — the Pi fetches them over the network on every boot:
 ```bash
-# 1. Uncompressed 64-bit kernel image
-sudo cp arch/arm64/boot/Image /tmp/rpi-boot/Image
-
-# 2. Raspberry Pi 4 Model B Device Tree Blob
-sudo cp arch/arm64/boot/dts/broadcom/bcm2711-rpi-4-b.dtb /tmp/rpi-boot/bcm2711-rpi-4-b.dtb
-
-# 3. Device Tree Overlays directory
-sudo mkdir -p /tmp/rpi-boot/overlays
-sudo cp arch/arm64/boot/dts/overlays/*.dtbo /tmp/rpi-boot/overlays/
+cp arch/arm64/boot/Image /workspace/tftp/Image
+cp arch/arm64/boot/dts/broadcom/bcm2711-rpi-4-b.dtb /workspace/tftp/bcm2711-rpi-4-b.dtb
 ```
+
+**Direct SD card boot (first-time bringup only):** The deploy script handles copying firmware, U-Boot, config, and boot script to the SD card automatically:
+```bash
+cd /workspace/shared/boot
+make deploy-sd BOARD=rpi4
+```
+
+See [U-Boot, TFTP & NFS Boot](uboot_tftp_boot.md) for the full TFTP workflow.
 
 ## 6. Install Kernel Modules to `ROOTFS` Partition
 ```bash

@@ -228,13 +228,10 @@ Key parameters:
 | `ip=<static-config>` | Static IP for the Pi (avoid DHCP dependency at boot) |
 | `rw` | Mount root read-write |
 
-Recompile and deploy:
+Recompile and deploy — the deploy script handles `boot.cmd` → `boot.scr` compilation automatically:
 ```bash
-# Inside Docker
-mkimage -C none -A arm64 -T script -d shared/bsp/rpi4/boot.cmd shared/bsp/rpi4/boot.scr
-
-# On host — copy to SD card BOOT partition
-cp shared/bsp/rpi4/boot.scr /media/$USER/BOOT/
+cd shared/boot
+make deploy-sd BOARD=rpi4
 ```
 
 ### 3.5 Expected NFS Mount Log
