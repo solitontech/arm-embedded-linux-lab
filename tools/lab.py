@@ -108,9 +108,9 @@ def get_boards() -> Dict[str, Dict[str, str]]:
     return boards
 
 def get_board_env(board_name: str) -> Dict[str, str]:
-    env_file = REPO_ROOT / "tools" / "deploy" / "boards" / f"{board_name}.env"
-    example_file = REPO_ROOT / "tools" / "deploy" / "boards" / f"{board_name}.env.example"
-    generic_file = REPO_ROOT / "tools" / "deploy" / "boards" / "board.env.example"
+    env_file = REPO_ROOT / "shared" / "boards" / f"{board_name}.env"
+    example_file = REPO_ROOT / "shared" / "boards" / f"{board_name}.env.example"
+    generic_file = REPO_ROOT / "shared" / "boards" / "board.env.example"
     
     target_file = env_file if env_file.exists() else (example_file if example_file.exists() else (generic_file if generic_file.exists() else None))
     data = {}
@@ -528,7 +528,7 @@ def cmd_doctor(args: argparse.Namespace):
     boards = get_boards()
     configured_boards = 0
     for b_name in boards:
-        env_file = REPO_ROOT / "tools" / "deploy" / "boards" / f"{b_name}.env"
+        env_file = REPO_ROOT / "shared" / "boards" / f"{b_name}.env"
         if not env_file.exists():
             continue
         configured_boards += 1
