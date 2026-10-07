@@ -31,7 +31,7 @@ Use this workflow when adding support for a new hardware platform or controller 
    ```
 
 2. **Create the committed lab environment template**
-   Create `tools/deploy/boards/<board-name>.env.example`:
+   Create `tools/target/boards/<board-name>.env.example`:
    ```bash
    TARGET_IP="192.168.1.xxx"
    TARGET_USER="root"
@@ -49,7 +49,7 @@ Use this workflow when adding support for a new hardware platform or controller 
 
 3. **Create your local lab environment file (Git-Ignored)**
    ```bash
-   cp tools/deploy/boards/<board-name>.env.example tools/deploy/boards/<board-name>.env
+   cp tools/target/boards/<board-name>.env.example tools/target/boards/<board-name>.env
    ```
    Fill in your actual lab IP and `/dev/ttyUSB*` port.
 
@@ -65,5 +65,5 @@ Use this workflow when adding support for a new hardware platform or controller 
 
 ## Files Touched
 - `[CREATE]` `shared/build_system/boards/<board-name>.mk` (Committed)
-- `[CREATE]` `tools/deploy/boards/<board-name>.env.example` (Committed)
-- `[CREATE]` `tools/deploy/boards/<board-name>.env` (Git-ignored, local only)
+- `[CREATE]` `tools/target/boards/<board-name>.env.example` (Committed)
+- `[CREATE]` `tools/target/boards/<board-name>.env` (Git-ignored, local only)

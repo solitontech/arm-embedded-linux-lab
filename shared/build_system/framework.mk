@@ -32,7 +32,7 @@ include $(BOARD_MK_FILE)
 # ------------------------------------------------------------------------------
 # 3. Lab Environment & Secrets Loading (Git-Ignored .env files)
 # ------------------------------------------------------------------------------
--include $(REPO_ROOT)/tools/deploy/lab_host.env
+-include $(REPO_ROOT)/tools/target/lab_host.env
 -include $(REPO_ROOT)/shared/boards/$(BOARD).env
 
 # Connectivity defaults if not explicitly set in .env
@@ -70,10 +70,10 @@ endif
 DEPLOY_FILES ?= $(TARGET)
 
 # Script tools
-DEPLOY_SCRIPT  := $(REPO_ROOT)/tools/deploy/deploy.sh
-REBOOT_SCRIPT  := $(REPO_ROOT)/tools/deploy/reboot.sh
-CONSOLE_SCRIPT := $(REPO_ROOT)/tools/deploy/console.sh
-GDB_SCRIPT     := $(REPO_ROOT)/tools/deploy/gdb.sh
+DEPLOY_SCRIPT  := $(REPO_ROOT)/tools/target/deploy.sh
+REBOOT_SCRIPT  := $(REPO_ROOT)/tools/target/reboot.sh
+CONSOLE_SCRIPT := $(REPO_ROOT)/tools/target/console.sh
+GDB_SCRIPT     := $(REPO_ROOT)/tools/target/gdb.sh
 
 # ------------------------------------------------------------------------------
 # 5. Compiler & Linker Flags Composition

@@ -10,7 +10,7 @@
 ## Checklist
 - [ ] Code compiles with the AArch64 cross-compiler (`aarch64-linux-gnu-g++`)
 - [ ] No board-specific values (CPU flags, serial ports) hardcoded in `shared/`
-- [ ] New hardware boards have a `tools/deploy/boards/<name>.env.example` file
+- [ ] New hardware boards have a `tools/target/boards/<name>.env.example` file
 - [ ] New projects start from `shared/templates/new_project/`
 - [ ] CI smoke test passes
 

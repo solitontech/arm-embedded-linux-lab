@@ -34,7 +34,7 @@ When you need to prepare a fresh SD card for a hardware board (like the Raspberr
    ```
    Or invoke the deployment helper directly:
    ```bash
-   ./tools/deploy/deploy_bootfs.sh rpi4
+   ./tools/target/deploy_bootfs.sh rpi4
    ```
 
 4. **Verify**
@@ -45,5 +45,5 @@ When you need to prepare a fresh SD card for a hardware board (like the Raspberr
 - `[MODIFY]` `shared/boot/configs/<board>/cmdline.txt` (Optional)
 
 ## Notes
-- The deploy script (`tools/deploy/deploy_bootfs.sh`) dynamically detects macOS and Linux mount points.
+- The deploy script (`tools/target/deploy_bootfs.sh`) dynamically detects macOS and Linux mount points.
 - U-Boot compilation requires the cross-compiler toolchain, usually handled inside the monorepo Docker container.

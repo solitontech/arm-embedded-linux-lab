@@ -15,7 +15,7 @@ List the conditions or triggers that should cause an agent to invoke this skill:
 
 ## Prerequisites
 - List required tools, configurations, or prior setup steps
-- Reference specific files or board profiles if needed (e.g., `tools/deploy/boards/<board>.env`)
+- Reference specific files or board profiles if needed (e.g., `tools/target/boards/<board>.env`)
 
 ## Instructions
 

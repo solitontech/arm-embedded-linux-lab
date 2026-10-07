@@ -47,7 +47,7 @@ Whenever any infrastructure file changes, the corresponding skill and/or workflo
 |---|---|
 | `tools/lab.py` (new commands, renamed flags) | `.agents/skills/deploy-and-run/SKILL.md` |
 | `Makefile` (new top-level targets) | `.agents/skills/deploy-and-run/SKILL.md` |
-| `tools/deploy/*.sh` (deploy/reboot strategies) | `.agents/skills/deploy-and-run/SKILL.md` |
+| `tools/target/*.sh` (deploy/reboot strategies) | `.agents/skills/deploy-and-run/SKILL.md` |
 | `shared/build_system/boards/*.mk` (new board) | `.agents/workflows/new_board.md` |
 | Docker infrastructure (`tools/docker/`) | `.agents/skills/docker-setup/SKILL.md` |
 | New project scaffold template | `.agents/workflows/new_project.md` |
