@@ -8,7 +8,7 @@
 
 ## 1. Architectural Overview & Boot Pipeline
 
-Before touching the SD card or terminal, understand the unique multi-stage boot sequence of the Raspberry Pi 4. Unlike standard x86 systems (BIOS/UEFI) or traditional ARM SoCs (SPL $\rightarrow$ U-Boot), **the Raspberry Pi is GPU-first silicon**: the VideoCore VI GPU initializes the hardware before releasing the ARM Cortex-A72 cores.
+Before touching the SD card or terminal, understand the unique multi-stage boot sequence of the Raspberry Pi 4. Unlike standard x86 systems (BIOS/UEFI) or traditional ARM SoCs (SPL → U-Boot), **the Raspberry Pi is GPU-first silicon**: the VideoCore VI GPU initializes the hardware before releasing the ARM Cortex-A72 cores.
 
 ```mermaid
 flowchart TD
@@ -91,11 +91,11 @@ sudo wipefs -a /dev/sdX
 sudo fdisk /dev/sdX
 ```
 Inside `fdisk`, enter the following commands:
-1. `o` $\rightarrow$ create a new empty DOS partition table.
-2. `n` $\rightarrow$ new partition $\rightarrow$ `p` (primary) $\rightarrow$ `1` $\rightarrow$ First sector: `2048` $\rightarrow$ Last sector: `+512M`.
-3. `t` $\rightarrow$ change partition type $\rightarrow$ `c` (W95 FAT32 LBA).
-4. `n` $\rightarrow$ new partition $\rightarrow$ `p` (primary) $\rightarrow$ `2` $\rightarrow$ default first and last sectors (uses remaining disk).
-5. `w` $\rightarrow$ write changes and exit.
+1. `o` → create a new empty DOS partition table.
+2. `n` → new partition → `p` (primary) → `1` → First sector: `2048` → Last sector: `+512M`.
+3. `t` → change partition type → `c` (W95 FAT32 LBA).
+4. `n` → new partition → `p` (primary) → `2` → default first and last sectors (uses remaining disk).
+5. `w` → write changes and exit.
 
 ### Step 3.3 Format the Filesystems
 ```bash
@@ -413,21 +413,17 @@ flowchart LR
 ```
 
 ### 9.1 Cross-Compile U-Boot for Pi 4
+
+The monorepo already includes U-Boot as a Git submodule at `shared/boot/u-boot` with a board-aware build system. Build inside the Docker container:
+
 ```bash
-# Run inside Docker container
-cd /workspace
-git clone --depth=1 --branch v2024.01 https://github.com/u-boot/u-boot.git
-cd u-boot
-
-export ARCH=arm64
-export CROSS_COMPILE=aarch64-linux-gnu-
-
-make rpi_4_defconfig
-make -j$(nproc)
-# Output: u-boot.bin
+# Inside Docker container
+cd /workspace/shared/boot
+make BOARD=rpi4          # configures + compiles U-Boot
+# Output: build/rpi4/u-boot.bin
 ```
 
-Pre-built `u-boot.bin` is committed at [`shared/bsp/rpi4/u-boot.bin`](../../shared/bsp/rpi4/u-boot.bin). Rebuild only when changing U-Boot config.
+A pre-built `u-boot.bin` is committed at [`shared/bsp/rpi4/u-boot.bin`](../../shared/bsp/rpi4/u-boot.bin). Rebuild only when changing U-Boot config. See `shared/boot/Makefile` for available targets (`defconfig`, `menuconfig`, `clean`, `distclean`).
 
 ### 9.2 SD Card BOOT Partition Contents
 The FAT32 partition only needs these files (all committed in `shared/bsp/rpi4/`):
@@ -440,9 +436,10 @@ The FAT32 partition only needs these files (all committed in `shared/bsp/rpi4/`)
 | `u-boot.bin` | Built in Docker | Second-stage bootloader |
 | `boot.scr` | Compiled from `boot.cmd` | U-Boot autoboot script |
 
-Deploy with:
+Deploy to a mounted SD card with:
 ```bash
-./lab deploy --board=rpi4
+cd shared/boot
+make deploy-sd BOARD=rpi4
 ```
 
 ### 9.3 Serve Artifacts over TFTP
@@ -511,71 +508,27 @@ If any are `=m`, run `make menuconfig` → `File systems → Network File System
 
 ### 10.2 Build a Minimal BusyBox RootFS (on Host)
 
-All commands run on the **host machine** (or inside Docker for the cross-compile step).
+Follow the same BusyBox cross-compile and rootfs assembly procedure from [Section 6 — Option A](#option-a-ultra-minimal-busybox-rootfs-recommended-for-first-bringup), but install into the NFS export directory instead of the SD card partition:
 
-#### Step 1 — Cross-compile BusyBox (inside Docker)
 ```bash
-# Inside Docker container
+# Inside Docker container — cross-compile BusyBox
 cd /workspace
 git clone --depth=1 --branch 1_36_stable https://github.com/mirror/busybox.git
 cd busybox
-
 make defconfig
-
-# Enable static linking (no shared lib deps on the target)
 sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config
-
 make -j$(nproc) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
 make install CONFIG_PREFIX=/workspace/nfs/rpi4-rootfs
 ```
 
-#### Step 2 — Create Standard Directory Hierarchy
+Then on the **host**, copy the output to the NFS export directory and create the rootfs structure (directories, device nodes, `inittab`, `rcS`) exactly as described in Section 6:
+
 ```bash
 export ROOTFS=/srv/nfs/rpi4-rootfs
 sudo mkdir -p ${ROOTFS}
-
-# Copy BusyBox install output (from Docker) to host export directory
-# Adjust source path if using Docker volume mount
 sudo cp -a /workspace/nfs/rpi4-rootfs/. ${ROOTFS}/
 
-sudo mkdir -p ${ROOTFS}/{dev,proc,sys,tmp,var/log,etc/init.d,root,home,run}
-sudo chmod 1777 ${ROOTFS}/tmp
-```
-
-#### Step 3 — Create Essential Device Nodes
-```bash
-sudo mknod -m 600 ${ROOTFS}/dev/console c 5 1
-sudo mknod -m 666 ${ROOTFS}/dev/null    c 1 3
-```
-
-#### Step 4 — Create `/etc/inittab`
-```bash
-sudo tee ${ROOTFS}/etc/inittab > /dev/null <<'EOF'
-# /etc/inittab - Minimal BusyBox init
-::sysinit:/etc/init.d/rcS
-::askfirst:-/bin/sh
-::restart:/sbin/init
-::ctrlaltdel:/sbin/reboot
-::shutdown:/bin/umount -a -r
-EOF
-```
-
-#### Step 5 — Create Startup Script `/etc/init.d/rcS`
-```bash
-sudo tee ${ROOTFS}/etc/init.d/rcS > /dev/null <<'EOF'
-#!/bin/sh
-mount -t proc  proc  /proc
-mount -t sysfs sysfs /sys
-mount -t devtmpfs devtmpfs /dev
-mkdir -p /dev/pts
-mount -t devpts devpts /dev/pts
-
-echo "==========================================================="
-echo " Soliton ARM Embedded Linux Lab — RPi4 NFS Root"
-echo " Kernel : $(uname -r) | Arch: $(uname -m)"
-echo "==========================================================="
-EOF
-sudo chmod +x ${ROOTFS}/etc/init.d/rcS
+# Create directories, device nodes, inittab, and rcS — see Section 6 steps 2-5
 ```
 
 ### 10.3 Configure NFS Export on Host
@@ -772,7 +725,7 @@ ROOT=/srv/tftp/rpi4
 sudo mkdir -p ${ROOT}
 
 # Copy RPi firmware (from shared/bsp/rpi4/ in the monorepo)
-REPO=/home/soliton/source/repo/nirmalprasad.k/arm-embedded-linux-lab
+REPO=/path/to/arm-embedded-linux-lab   # <-- adjust to your local clone
 
 sudo cp ${REPO}/shared/bsp/rpi4/start4.elf   ${ROOT}/
 sudo cp ${REPO}/shared/bsp/rpi4/fixup4.dat   ${ROOT}/
