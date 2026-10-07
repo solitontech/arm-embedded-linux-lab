@@ -73,7 +73,7 @@ done
 reboot_uboot_serial() {
   log_info "Attempting U-Boot reset over serial port: ${SERIAL_PORT:-<not configured>} (${SERIAL_BAUD} baud)..."
   if [ -z "$SERIAL_PORT" ]; then
-    log_error "BOARD_SERIAL_PORT is not set. Please configure tools/deploy/boards/${BOARD}.env"
+    log_error "BOARD_SERIAL_PORT is not set. Please configure shared/boards/${BOARD}.env"
     return 1
   fi
 
@@ -113,7 +113,7 @@ EOF
 reboot_ssh() {
   log_info "Attempting SSH reboot to ${TARGET_USER}@${TARGET_IP:-<not configured>}..."
   if [ -z "$TARGET_IP" ]; then
-    log_error "TARGET_IP is not set in tools/deploy/boards/${BOARD}.env"
+    log_error "TARGET_IP is not set in shared/boards/${BOARD}.env"
     return 1
   fi
 
@@ -173,7 +173,7 @@ reboot_power_relay() {
     eval "$POWER_RELAY_CMD"
     log_success "Power relay cycle executed."
   else
-    log_warn "POWER_RELAY_CMD not configured in tools/deploy/boards/${BOARD}.env"
+    log_warn "POWER_RELAY_CMD not configured in shared/boards/${BOARD}.env"
   fi
 }
 

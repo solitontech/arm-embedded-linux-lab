@@ -33,7 +33,7 @@ include $(BOARD_MK_FILE)
 # 3. Lab Environment & Secrets Loading (Git-Ignored .env files)
 # ------------------------------------------------------------------------------
 -include $(REPO_ROOT)/tools/deploy/lab_host.env
--include $(REPO_ROOT)/tools/deploy/boards/$(BOARD).env
+-include $(REPO_ROOT)/shared/boards/$(BOARD).env
 
 # Connectivity defaults if not explicitly set in .env
 TARGET_USER          ?= root

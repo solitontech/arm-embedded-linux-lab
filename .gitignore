@@ -37,7 +37,7 @@ tftp/*
 
 # Lab environment secrets (real IPs, SSH key paths — copy from *.env.example)
 tools/deploy/lab_host.env
-tools/deploy/boards/*.env
+shared/boards/*.env
 
 # Buildroot & large output trees
 buildroot/output/

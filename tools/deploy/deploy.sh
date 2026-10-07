@@ -97,7 +97,7 @@ done
 deploy_ssh() {
   log_info "Deploying via SSH/SCP to target..."
   if [ -z "$TARGET_IP" ]; then
-    log_error "TARGET_IP is not set. Please configure tools/deploy/boards/${BOARD}.env"
+    log_error "TARGET_IP is not set. Please configure shared/boards/${BOARD}.env"
     return 1
   fi
 

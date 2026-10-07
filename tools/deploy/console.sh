@@ -28,7 +28,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [ -z "$SERIAL_PORT" ]; then
-  echo "[ERROR] BOARD_SERIAL_PORT is not set. Please configure tools/deploy/boards/${BOARD}.env"
+  echo "[ERROR] BOARD_SERIAL_PORT is not set. Please configure shared/boards/${BOARD}.env"
   exit 1
 fi
 

@@ -23,7 +23,7 @@ docs(adr): record decision to use Easymake over CMake
 Before opening a PR, confirm:
 - [ ] Code compiles cleanly with the AArch64 cross-compiler
 - [ ] No board-specific paths or CPU flags committed to `shared/`
-- [ ] New hardware targets have a corresponding `tools/deploy/boards/<name>.env.example`
+- [ ] New hardware targets have a corresponding `shared/boards/<name>.env.example`
 - [ ] New projects use the `shared/templates/new_project/` scaffold as a starting point
 - [ ] CI passes
 

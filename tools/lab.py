@@ -561,7 +561,7 @@ def cmd_doctor(args: argparse.Namespace):
             print(f"  {Style.B_GREEN}✔{Style.RESET} [{b_name:<10}] {ip:<15} -> {Style.DIM}Local Loopback{Style.RESET}")
     
     if configured_boards == 0:
-        print(f"  {Style.DIM}No active board profiles configured (tools/deploy/boards/*.env){Style.RESET}")
+        print(f"  {Style.DIM}No active board profiles configured (shared/boards/*.env){Style.RESET}")
 
     # 5. TFTP Server & Firewall Diagnostics
     print(f"\n{Style.BOLD}5. TFTP Server & Network Diagnostics:{Style.RESET}")

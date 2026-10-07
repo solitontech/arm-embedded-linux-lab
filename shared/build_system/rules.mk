@@ -59,7 +59,7 @@ run: deploy
 			$${TARGET_SSH_KEY:+-i $$TARGET_SSH_KEY} \
 			$(TARGET_USER)@$(TARGET_IP) "$(TARGET_DEST_DIR)/$(PROJECT_NAME)"; \
 	else \
-		echo "  [ERROR] TARGET_IP not configured in tools/deploy/boards/$(BOARD).env"; \
+		echo "  [ERROR] TARGET_IP not configured in shared/boards/$(BOARD).env"; \
 		exit 1; \
 	fi
 

@@ -11,7 +11,7 @@
 #   cp shared/bsp/rpi4/boot.scr /media/$USER/BOOT/
 # ==============================================================================
 
-# Static IP configuration — must match cmdline.txt and tools/deploy/boards/rpi4.env
+# Static IP configuration — must match cmdline.txt and shared/boards/rpi4.env
 setenv ipaddr    192.168.1.150
 # Host machine LAN IP (confirmed: enp2s0 on 192.168.0.0/23)
 setenv serverip  192.168.1.220
