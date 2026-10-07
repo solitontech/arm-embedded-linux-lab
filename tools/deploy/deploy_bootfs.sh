@@ -81,10 +81,26 @@ if [ -f "$BOOT_CMD" ]; then
     fi
 fi
 
-# Copy committed BSP: GPU firmware, DTB, config.txt, cmdline.txt
+# Copy committed BSP files to BOOT partition.
+# boot.cmd is intentionally excluded — it is a source file only.
+# U-Boot reads boot.scr (the compiled binary). boot.cmd has no effect on the target.
+# Image is intentionally excluded — it is served via TFTP, not placed on the SD card.
 if [ -d "$BSP_DIR" ]; then
-    cp -r "$BSP_DIR"/* "$MOUNT_POINT/"
-    echo "  -> Copied BSP files (firmware, DTB, config.txt, cmdline.txt, boot.scr)"
+    for f in "$BSP_DIR"/*; do
+        fname="$(basename "$f")"
+        case "$fname" in
+            boot.cmd|Image)
+                echo "  -> Skipping $fname (not needed on SD card)"
+                ;;
+            u-boot.bin)
+                # u-boot.bin is already handled above (with BOOT_BUILD_DIR fallback)
+                ;;
+            *)
+                cp "$f" "$MOUNT_POINT/"
+                echo "  -> Copied $fname"
+                ;;
+        esac
+    done
 else
     echo "  [WARN] BSP directory not found: $BSP_DIR"
 fi
@@ -93,5 +109,12 @@ fi
 sync
 
 echo "==> Deploy complete!"
-echo "    NOTE: Copy your kernel Image to $MOUNT_POINT/Image manually if needed."
-echo "    TFTP boot: Place Image and bcm2711-rpi-4-b.dtb in /workspace/tftp/ on host."
+echo "    SD card BOOT partition contains:"
+echo "      start4.elf, fixup4.dat  — GPU firmware"
+echo "      config.txt              — kernel=u-boot.bin, enable_uart=1"
+echo "      u-boot.bin              — second-stage bootloader"
+echo "      boot.scr               — U-Boot autoboot script"
+echo "      bcm2711-rpi-4-b.dtb    — DTB for U-Boot hardware init"
+echo "    TFTP boot (served by Docker container):"
+echo "      Image                  — place in /workspace/tftp/Image"
+echo "      bcm2711-rpi-4-b.dtb    — place in /workspace/tftp/bcm2711-rpi-4-b.dtb"
