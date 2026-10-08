@@ -36,7 +36,41 @@ else
     /usr/sbin/in.tftpd --listen --user tftp --address :69 --secure "${TFTP_DIR}" &>/dev/null || true
 fi
 
-# 6. macOS serial bridge — create PTY devices from host socat TCP proxies.
+# 6. Configure and start NFS server for Raspberry Pi root filesystem
+NFS_DIR="/workspace/nfs"
+
+mkdir -p "${NFS_DIR}"
+
+cat << EOF > /etc/exports
+${NFS_DIR} 192.168.1.0/24(rw,sync,no_subtree_check,no_root_squash)
+EOF
+
+# Load NFS server kernel module from host
+modprobe nfsd
+
+exportfs -ra
+
+# Start rpcbind
+if command -v service &>/dev/null; then
+    service rpcbind start &>/dev/null || true
+fi
+
+if ! pgrep -x rpcbind >/dev/null 2>&1; then
+    rpcbind -w &
+    sleep 1
+fi
+
+# Start NFS server
+if command -v service &>/dev/null; then
+    service nfs-kernel-server start &>/dev/null || true
+else
+    /etc/init.d/nfs-kernel-server start &>/dev/null || true
+fi
+
+echo "❯ [NFS] Exporting ${NFS_DIR} to 192.168.1.0/24"
+exportfs -v || true
+
+# 7. macOS serial bridge — create PTY devices from host socat TCP proxies.
 #    run.sh sets SERIAL_PROXY_PORTS="54320:/dev/cu.usbserial-XXXX,54321:..."
 #    Each entry creates /dev/ttyVUSB<N> backed by a socat TCP connection.
 if [[ -n "${SERIAL_PROXY_PORTS:-}" ]]; then
@@ -75,7 +109,7 @@ if [[ -n "${SERIAL_PROXY_PORTS:-}" ]]; then
     sleep 0.8
 fi
 
-# 7. Execute main command as labuser (UID 1000)
+# 8. Execute main command as labuser (UID 1000)
 if [ "$(id -u)" -eq 0 ]; then
     export HOME="/home/labuser"
     exec sudo -E -u labuser HOME=/home/labuser "$@"

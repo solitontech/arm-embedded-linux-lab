@@ -1,0 +1,6 @@
+# /etc/inittab - Minimal BusyBox init configuration
+::sysinit:/etc/init.d/rcS
+::askfirst:-/bin/sh
+::restart:/sbin/init
+::ctrlaltdel:/sbin/reboot
+::shutdown:/bin/umount -a -r

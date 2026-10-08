@@ -234,6 +234,7 @@ cmd_run() {
     docker run \
         --rm \
         -it \
+        --privileged \
         --network host \
         --name "${CONTAINER_NAME}" \
         -v "${REPO_ROOT}:/workspace" \

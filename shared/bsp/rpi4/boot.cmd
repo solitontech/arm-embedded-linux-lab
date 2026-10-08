@@ -16,7 +16,7 @@ setenv ipaddr    192.168.1.150
 # Host machine LAN IP (confirmed: enp2s0 on 192.168.0.0/23)
 setenv serverip  192.168.1.220
 
-echo "==> ARM Embedded Linux Lab — TFTP Network Boot"
+echo "==> Soliton ARM Embedded Linux Lab"
 echo "==> Board IP : ${ipaddr}"
 echo "==> Server IP: ${serverip}"
 
@@ -26,7 +26,7 @@ tftp 0x02000000 Image
 echo "==> Fetching Device Tree Blob via TFTP..."
 tftp 0x06000000 bcm2711-rpi-4-b.dtb
 
-setenv bootargs "console=ttyS0,115200 console=tty1 root=/dev/mmcblk0p2 rw rootwait rootfstype=ext4 earlycon=bcm2835aux,0xfe215040 audit=0 ip=192.168.1.150:::255.255.255.0:rpi4:eth0:off"
+setenv bootargs "console=ttyS0,115200 console=tty1 root=/dev/nfs rw rootwait nfsroot=192.168.1.220:/workspace/nfs/rpi4-rootfs,tcp,v3 ip=192.168.1.150:::255.255.255.0:rpi4:eth0:off earlycon=bcm2835aux,0xfe215040"
 
 echo "==> Booting Linux kernel..."
 booti 0x02000000 - 0x06000000

@@ -1,0 +1,14 @@
+#!/bin/sh
+# /etc/init.d/rcS - System startup script
+
+# Mount pseudo filesystems
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mount -t devtmpfs devtmpfs /dev
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts
+
+echo "=========================================================="
+echo " Welcome to Soliton ARM Embedded Linux Lab — Pi 4 Bringup"
+echo " Kernel: $(uname -r) on $(uname -m)"
+echo "=========================================================="
