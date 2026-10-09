@@ -33,6 +33,7 @@ Provide a reproducible cross-compilation environment without requiring developer
 | `nano` | Terminal text editor |
 | `ssh`, `rsync`, `scp` | Remote deploy utilities |
 | `tftpd-hpa`, `tftp-hpa` | TFTP server & client utilities for network boot/deploy |
+| `nfs-kernel-server`, `rpcbind` | NFS server and RPC port mapper — exports `/workspace/nfs` to the lab subnet for NFS root-filesystem boot |
 | `iproute2` | Advanced IP networking tools (`ip`, `ss`, etc.) |
 | `bison`, `flex`, `bc` | Parser generators and math utilities for kernel & U-Boot |
 | `libssl-dev`, `swig` | Cryptographic and interface compiler libraries |
@@ -99,11 +100,39 @@ REGISTRY=ghcr.io/your-org ./tools/docker/run.sh push
 ```
 
 ## Notes
+- The container runs with `--privileged` so the entrypoint can call `modprobe nfsd` to load the NFS kernel module from the host kernel. This is required for the in-container NFS server. Be aware of the security implications of `--privileged` on shared or production machines — it gives the container full access to host kernel capabilities.
 - The container runs as a non-root user (`labuser`) matching the host UID/GID, with passwordless `sudo` and membership in `dialout`.
 - **Serial ports are detected and passed in automatically across platforms:**
   - **Linux host**: Directly enumerates all `/dev/ttyUSB*` and `/dev/ttyACM*` devices and passes them via `--device`.
   - **macOS host**: Docker Desktop runs in a virtual machine and cannot directly mount `/dev/cu.*` character devices via `--device`. `run.sh` automatically detects macOS serial adapters (`/dev/cu.usbserial*`, `/dev/cu.usbmodem*`), launches background host `socat` TCP listeners, and the container entrypoint creates corresponding `/dev/ttyVUSB<N>` PTY devices and `/dev/ttyUSB<N>` compatibility symlinks. `picocom`, `minicom`, and `./lab console` work directly out of the box.
 - To use a custom image tag: `IMAGE_TAG=v1.2 ./tools/docker/run.sh build`.
+
+## Reproducible NFS Server
+
+The Docker container automatically starts an NFS server that exports the `nfs/` directory from the repository root to the lab subnet. This allows the Raspberry Pi 4 to mount its root filesystem over the network without any SD card writes.
+
+- **Exported directory**: `/workspace/nfs` inside the container, which maps to `nfs/` in the repository root on the host.
+- **Export subnet**: `192.168.1.0/24` with `rw,sync,no_subtree_check,no_root_squash`.
+- **NFS version**: NFSv3 over TCP (as configured in `shared/bsp/rpi4/boot.cmd`).
+- **Startup**: `entrypoint.sh` calls `modprobe nfsd`, starts `rpcbind`, and starts `nfs-kernel-server` before switching to `labuser`. The export is printed to the console as `[NFS] Exporting /workspace/nfs to 192.168.1.0/24`.
+- **Host Firewall (UFW) Requirement**: If UFW is active on the host, allow NFS and rpcbind traffic:
+  ```bash
+  sudo ufw allow 2049/tcp
+  sudo ufw allow 2049/udp
+  sudo ufw allow 111/tcp
+  sudo ufw allow 111/udp
+  ```
+- **Verify from the Pi** (U-Boot prompt):
+  ```text
+  U-Boot> ping 192.168.1.220
+  ```
+  Or from Linux on the Pi:
+  ```bash
+  showmount -e 192.168.1.220
+  ```
+
+> [!NOTE]
+> `modprobe nfsd` loads the NFS module from the **host** kernel, not the container. This requires `--privileged` (already set in `run.sh`). On WSL2, NFS server inside Docker may not be supported because WSL2 uses a minimal Microsoft kernel without `nfsd`. In that case, run the NFS server natively on the Windows host using Windows Services for NFS or on a Linux VM.
 
 ## Reproducible TFTP Server & Host Networking
 

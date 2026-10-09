@@ -130,10 +130,12 @@ Instead of mounting a root filesystem from the SD card (`/dev/mmcblk0p2`), the k
 
 ```mermaid
 flowchart LR
-    A["RPi 4"] -->|"TFTP: Image + DTB"| B["Docker Host"]
-    A -->|"NFS mount: /"| C["Host: /srv/nfs/rpi4-rootfs"]
-    B --- C
+    A["RPi 4"] -->|"TFTP: Image + DTB"| B["Docker Container"]
+    A -->|"NFS mount: /"| B
+    B -->|"bind-mount"| C["Host repo: nfs/rpi4-rootfs"]
 ```
+
+The NFS server runs **inside the Docker container**. `tools/docker/entrypoint.sh` starts it automatically and exports `/workspace/nfs` (the `nfs/` directory bind-mounted from the repo) to `192.168.1.0/24`. No separate NFS installation on the host is needed.
 
 ### 3.1 Required Kernel Config
 
@@ -157,66 +159,57 @@ grep -E 'CONFIG_NFS|CONFIG_IP_PNP' /workspace/rpi-linux/.config
 
 If any are `=m`, run `make menuconfig` → `File systems → Network File Systems → NFS client` and set them to `*`, then rebuild the kernel.
 
-### 3.2 Build a Minimal BusyBox RootFS (on Host)
+### 3.2 Populate the NFS Root Filesystem
 
-Follow the same BusyBox cross-compile and rootfs assembly procedure from [BusyBox Root Filesystem](rootfs_busybox.md), but install into the NFS export directory instead of the SD card partition:
+A pre-built rootfs is already committed at `nfs/rpi4-rootfs/`. To rebuild it or extend it, follow [.agents/workflows/nfs_rootfs.md](../../.agents/workflows/nfs_rootfs.md).
 
-```bash
-# Inside Docker container — cross-compile BusyBox (submodule at shared/rootfs/busybox)
-cd /workspace/shared/rootfs/busybox
-make defconfig
-sed -i 's/# CONFIG_STATIC is not set/CONFIG_STATIC=y/' .config
-make -j$(nproc) ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu-
-make install CONFIG_PREFIX=/workspace/nfs/rpi4-rootfs
-```
+To add or modify files, edit them directly under `nfs/rpi4-rootfs/` in the repository. The Docker container exports the directory live — changes are visible to the Pi on the next boot without any copy or flash step.
 
-Then on the **host**, copy the output to the NFS export directory and create the rootfs structure (directories, device nodes, `inittab`, `rcS`) exactly as described in [BusyBox Root Filesystem](rootfs_busybox.md):
+### 3.3 Start the Docker Container (NFS Server Included)
 
 ```bash
-export ROOTFS=/srv/nfs/rpi4-rootfs
-sudo mkdir -p ${ROOTFS}
-sudo cp -a /workspace/nfs/rpi4-rootfs/. ${ROOTFS}/
-
-# Create directories, device nodes, inittab, and rcS — see rootfs_busybox.md steps 2-5
+./tools/docker/run.sh run
 ```
 
-### 3.3 Configure NFS Export on Host
+The container entrypoint automatically:
+1. Loads the `nfsd` kernel module from the host.
+2. Starts `rpcbind` and `nfs-kernel-server`.
+3. Exports `/workspace/nfs` to `192.168.1.0/24` with `rw,sync,no_subtree_check,no_root_squash`.
 
-#### Install NFS Server
+You will see this line in the container startup output:
+```
+❯ [NFS] Exporting /workspace/nfs to 192.168.1.0/24
+```
+
+**Host firewall (UFW):** If UFW is active, allow NFS traffic before starting the container:
 ```bash
-# Ubuntu / Debian
-sudo apt install -y nfs-kernel-server
+sudo ufw allow 2049/tcp
+sudo ufw allow 2049/udp
+sudo ufw allow 111/tcp
+sudo ufw allow 111/udp
 ```
 
-#### Add Export
-Append to `/etc/exports`:
-```text
-/srv/nfs/rpi4-rootfs  192.168.1.0/24(rw,sync,no_subtree_check,no_root_squash)
-```
-
-Apply:
+**Verify the export** from within the container or from another host:
 ```bash
-sudo exportfs -ra
-sudo systemctl restart nfs-kernel-server
-
-# Verify
-showmount -e localhost
+showmount -e 192.168.1.220
+# Expected: /workspace/nfs  192.168.1.0/24
 ```
 
 > [!NOTE]
 > `no_root_squash` is required. Without it, the kernel's NFS root mount will fail trying to create device nodes owned by `root`.
 
-### 3.4 Update `boot.cmd` for NFS Boot
+> [!NOTE]
+> On WSL2, `modprobe nfsd` may fail because the WSL2 Microsoft kernel does not include the `nfsd` module. In that case, run an NFS server natively on the Windows host using Windows Services for NFS, or use a Linux VM.
 
-Edit [`shared/bsp/rpi4/boot.cmd`](../../shared/bsp/rpi4/boot.cmd) — change `setenv bootargs`:
+### 3.4 `boot.cmd` NFS Boot Arguments
+
+[`shared/bsp/rpi4/boot.cmd`](../../shared/bsp/rpi4/boot.cmd) already contains the NFS `bootargs`. The current configuration:
 
 ```bash
-# Replace the existing bootargs line:
-setenv bootargs "console=serial0,115200 console=tty1 \
-  root=/dev/nfs \
-  nfsroot=192.168.1.220:/srv/nfs/rpi4-rootfs,v3,tcp \
+setenv bootargs "console=ttyS0,115200 console=tty1 root=/dev/nfs rw rootwait \
+  nfsroot=192.168.1.220:/workspace/nfs/rpi4-rootfs,tcp,v3 \
   ip=192.168.1.150:::255.255.255.0:rpi4:eth0:off \
-  rw earlycon audit=0"
+  earlycon=bcm2835aux,0xfe215040"
 ```
 
 Key parameters:
@@ -224,25 +217,26 @@ Key parameters:
 | Parameter | Purpose |
 |:---|:---|
 | `root=/dev/nfs` | Tell kernel to use NFS as root |
-| `nfsroot=<hostip>:<path>,v3,tcp` | Host IP, exported path, NFS version, transport |
-| `ip=<static-config>` | Static IP for the Pi (avoid DHCP dependency at boot) |
-| `rw` | Mount root read-write |
+| `nfsroot=<hostip>:<path>,tcp,v3` | Docker host IP, exported path, NFSv3 over TCP |
+| `ip=<static-config>` | Static IP for the Pi (no DHCP dependency at boot) |
+| `rw rootwait` | Mount root read-write; wait for network before mounting |
 
-Recompile and deploy — the deploy script handles `boot.cmd` → `boot.scr` compilation automatically:
+If you change the NFS path or host IP, recompile `boot.scr` and copy it to the SD card BOOT partition:
 ```bash
-cd shared/boot
-make deploy-sd BOARD=rpi4
+# Inside Docker container
+mkimage -C none -A arm64 -T script -d shared/bsp/rpi4/boot.cmd shared/bsp/rpi4/boot.scr
+# Then copy boot.scr to the SD card BOOT partition
 ```
 
 ### 3.5 Expected NFS Mount Log
 ```text
-[    2.345678] NFS: Mounting 192.168.1.220:/srv/nfs/rpi4-rootfs on /
+[    2.345678] NFS: Mounting 192.168.1.220:/workspace/nfs/rpi4-rootfs on /
 [    2.789012] VFS: Mounted root (nfs filesystem) on device 0:14.
 [    2.801234] Run /sbin/init as init process
-===========================================================
- Soliton ARM Embedded Linux Lab — RPi4 NFS Root
- Kernel : 6.6.y | Arch: aarch64
-===========================================================
+==========================================================
+ Welcome to Soliton ARM Embedded Linux Lab — Pi 4 Bringup
+ Kernel: 6.6.y on aarch64
+==========================================================
 Please press Enter to activate this console.
 / #
 ```
