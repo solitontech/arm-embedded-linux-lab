@@ -679,14 +679,27 @@ def cmd_doctor(args: argparse.Namespace):
         except Exception:
             print(f"  {Style.DIM}• Could not query port 2049 via ss{Style.RESET}")
 
-        # 6.5 Active NFS exports
+        # 6.5 Active NFS exports — also cross-check against nfsroot= in boot.cmd
         try:
             res = subprocess.run(["exportfs", "-v"], capture_output=True, text=True, check=False)
             exports = res.stdout.strip()
             if exports:
-                print(f"  {Style.B_GREEN}✔{Style.RESET} NFS Exports: Active")
+                exported_paths = [line.split()[0] for line in exports.splitlines() if line.strip()]
+                print(f"  {Style.B_GREEN}✔{Style.RESET} NFS Exports: Active ({len(exported_paths)} path(s))")
                 for line in exports.splitlines():
                     print(f"    {Style.DIM}{line}{Style.RESET}")
+                # Cross-check: warn if nfsroot= in boot.cmd doesn't match any export
+                boot_cmd = Path("/workspace/shared/bsp/rpi4/boot.cmd")
+                if boot_cmd.exists():
+                    import re as _re
+                    nfsroot_match = _re.search(r'nfsroot=[^,\s]+:([^\s,]+)', boot_cmd.read_text())
+                    if nfsroot_match:
+                        nfsroot_path = nfsroot_match.group(1)
+                        if not any(nfsroot_path == ep or nfsroot_path.startswith(ep + "/") for ep in exported_paths):
+                            print(f"  {Style.B_RED}✖{Style.RESET} boot.cmd nfsroot path {Style.BOLD}{nfsroot_path}{Style.RESET} is NOT covered by any NFS export")
+                            print(f"    {Style.B_YELLOW}The kernel will hang at NFS mount. Rebuild the Docker image to fix exports.{Style.RESET}")
+                        else:
+                            print(f"  {Style.B_GREEN}✔{Style.RESET} boot.cmd nfsroot path {Style.BOLD}{nfsroot_path}{Style.RESET} is covered by NFS exports")
             else:
                 print(f"  {Style.B_YELLOW}⚠{Style.RESET} NFS Exports: No active exports (run: sudo exportfs -ra)")
         except Exception:

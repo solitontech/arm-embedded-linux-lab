@@ -45,9 +45,19 @@ NFS_OK=false
 
 mkdir -p "${NFS_DIR}"
 
-cat << EOF > /etc/exports
-${NFS_DIR} 192.168.1.0/24(rw,sync,no_subtree_check,no_root_squash)
-EOF
+# Export each *-rootfs directory directly so the path the kernel requests
+# (nfsroot=<host>:/workspace/nfs/<board>-rootfs) matches an exported path
+# exactly. Exporting only the parent /workspace/nfs can cause NFS clients
+# to fail at mount time when they request the subdirectory path.
+> /etc/exports
+for _rootfs_dir in "${NFS_DIR}"/*-rootfs; do
+    [ -d "${_rootfs_dir}" ] && \
+        echo "${_rootfs_dir} 192.168.1.0/24(rw,sync,no_subtree_check,no_root_squash)" >> /etc/exports
+done
+# Fall back to exporting the parent if no *-rootfs directories exist yet
+if [ ! -s /etc/exports ]; then
+    echo "${NFS_DIR} 192.168.1.0/24(rw,sync,no_subtree_check,no_root_squash)" >> /etc/exports
+fi
 
 # Load NFS kernel module (fails gracefully on WSL2 / kernels without nfsd)
 if modprobe nfsd 2>/dev/null; then
