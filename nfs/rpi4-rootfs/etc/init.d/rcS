@@ -1,6 +1,12 @@
 #!/bin/sh
 # /etc/init.d/rcS - System startup script
 
+# Create essential device nodes before devtmpfs is mounted.
+# The kernel needs /dev/console to exist at the point it hands off to init.
+# These are immediately shadowed once devtmpfs is mounted below.
+[ -e /dev/console ] || mknod -m 600 /dev/console c 5 1
+[ -e /dev/null ]    || mknod -m 666 /dev/null    c 1 3
+
 # Mount pseudo filesystems
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
