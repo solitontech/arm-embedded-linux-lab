@@ -44,5 +44,9 @@ tftp/*
 tools/target/lab_host.env
 shared/boards/*.env
 
+# MCP server — virtual environment and runtime logs
+tools/mcp/venv/
+tools/mcp/logs/*.log
+
 # Buildroot & large output trees
 buildroot/output/

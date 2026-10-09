@@ -54,6 +54,8 @@ Whenever any infrastructure file changes, the corresponding skill and/or workflo
 | `tools/target/*.sh` (deploy/reboot strategies) | `.agents/skills/deploy-and-run/SKILL.md` |
 | `shared/build_system/boards/*.mk` (new board) | `.agents/workflows/new_board.md` |
 | Docker infrastructure (`tools/docker/`) | `.agents/skills/docker-setup/SKILL.md` |
+| MCP server (`tools/mcp/`) | `.agents/skills/lab-mcp/SKILL.md` |
+| `tools/lab.py` (`mcp` subcommand) | `.agents/skills/deploy-and-run/SKILL.md` |
 | New project scaffold template | `.agents/workflows/new_project.md` |
 
 If you create a new infrastructure file or tool, also create a new skill or workflow documenting it.
@@ -62,7 +64,7 @@ If you create a new infrastructure file or tool, also create a new skill or work
 
 Always prefer `./lab <command>` over raw `make` calls when building, deploying, running, or rebooting. The `lab` CLI is the single authoritative interface for all agent and developer tasks. Raw `make` is an implementation detail.
 
-Available commands: `list`, `new`, `info`, `build`, `clean`, `deploy`, `run`, `reboot`, `console`, `ssh`, `docker`, `gdb`, `doctor`, `completion`.
+Available commands: `list`, `new`, `info`, `build`, `clean`, `deploy`, `run`, `reboot`, `console`, `ssh`, `docker`, `gdb`, `doctor`, `mcp`, `completion`.
 
 ## Docker Development Environment
 
@@ -70,3 +72,11 @@ For cross-compilation on a fresh workstation (any OS), use the Docker environmen
 - **Skill:** `.agents/skills/docker-setup/SKILL.md`
 - **Workflow:** `.agents/workflows/docker_setup.md`
 - **Helper script:** `tools/docker/run.sh build | run | exec <cmd>`
+
+## MCP Server (Hardware Tool Bridge)
+
+For AI agent access to physical boards (serial console, boot analysis, BSP management, bench verification):
+- **Skill:** `.agents/skills/lab-mcp/SKILL.md`
+- **Workflow:** `.agents/workflows/mcp_setup.md`
+- **CLI:** `./lab mcp setup | start | stop | status | logs`
+- **Config:** `.devin/config.json` (MCP client configuration)

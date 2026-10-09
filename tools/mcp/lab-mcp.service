@@ -1,0 +1,14 @@
+[Unit]
+Description=ARM Embedded Linux Lab MCP Server (Hardware Tool Bridge)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/source/arm-embedded-linux-lab
+ExecStart=%h/source/arm-embedded-linux-lab/tools/mcp/venv/bin/python %h/source/arm-embedded-linux-lab/tools/mcp/server.py
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=default.target

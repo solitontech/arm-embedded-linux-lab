@@ -472,6 +472,96 @@ def cmd_docker(args: argparse.Namespace):
     cmd = [str(docker_script), action] + args.extra
     os.execvp(cmd[0], cmd)
 
+def cmd_mcp(args: argparse.Namespace):
+    """Manage the MCP server (Hardware Tool Bridge)."""
+    mcp_dir = REPO_ROOT / "tools" / "mcp"
+    venv_python = mcp_dir / "venv" / "bin" / "python"
+    service_name = "lab-mcp"
+    action = args.action or "status"
+
+    if action == "setup":
+        setup_script = mcp_dir / "setup_venv.sh"
+        if not setup_script.exists():
+            log_error(f"Setup script not found: {setup_script}")
+            sys.exit(1)
+        subprocess.run([str(setup_script)], cwd=str(mcp_dir))
+        return
+
+    if action == "start":
+        if not venv_python.exists():
+            log_warn("Virtual environment not found. Running setup first...")
+            subprocess.run([str(mcp_dir / "setup_venv.sh")], cwd=str(mcp_dir))
+        # Link and enable systemd user service
+        service_file = mcp_dir / "lab-mcp.service"
+        subprocess.run(
+            ["systemctl", "--user", "link", str(service_file)],
+            check=False,
+        )
+        res = subprocess.run(
+            ["systemctl", "--user", "enable", "--now", service_name],
+            check=False,
+        )
+        if res.returncode == 0:
+            log_success(f"MCP server started (port 8420)")
+            print(f"  {Style.DIM}View logs: ./lab mcp logs{Style.RESET}")
+        else:
+            log_error("Failed to start MCP server. Check: systemctl --user status lab-mcp")
+        return
+
+    if action == "stop":
+        subprocess.run(
+            ["systemctl", "--user", "stop", service_name],
+            check=False,
+        )
+        log_success("MCP server stopped.")
+        return
+
+    if action == "status":
+        print_banner()
+        print(f"{Style.BOLD}MCP Server (Hardware Tool Bridge) Status:{Style.RESET}\n")
+        # Check venv
+        if venv_python.exists():
+            print(f"  {Style.B_GREEN}✔{Style.RESET} Virtual environment: {mcp_dir / 'venv'}")
+        else:
+            print(f"  {Style.B_RED}✖{Style.RESET} Virtual environment: not set up (run: ./lab mcp setup)")
+        # Check systemd service
+        res = subprocess.run(
+            ["systemctl", "--user", "is-active", service_name],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        svc_state = res.stdout.strip()
+        if svc_state == "active":
+            print(f"  {Style.B_GREEN}✔{Style.RESET} Service: {service_name} is {Style.B_GREEN}active{Style.RESET}")
+            print(f"  {Style.B_GREEN}✔{Style.RESET} SSE endpoint: http://127.0.0.1:8420/sse")
+        else:
+            print(f"  {Style.B_YELLOW}⚠{Style.RESET} Service: {service_name} is {svc_state}")
+            print(f"    {Style.DIM}Start with: ./lab mcp start{Style.RESET}")
+        # Check port
+        try:
+            import socket as _sock
+            s = _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM)
+            s.settimeout(1)
+            s.connect(("127.0.0.1", 8420))
+            s.close()
+            print(f"  {Style.B_GREEN}✔{Style.RESET} Port 8420: listening")
+        except Exception:
+            print(f"  {Style.DIM}• Port 8420: not listening{Style.RESET}")
+        print()
+        return
+
+    if action == "logs":
+        os.execlp(
+            "journalctl", "journalctl",
+            "--user", "-u", service_name, "-f", "--no-pager",
+        )
+        return
+
+    log_error(f"Unknown MCP action: {action}")
+    print(f"  Available: setup, start, stop, status, logs")
+    sys.exit(1)
+
 def cmd_doctor(args: argparse.Namespace):
     if not is_in_container():
         print_banner()
@@ -732,7 +822,7 @@ _lab_complete() {{
     local cur prev words cword
     _init_completion || return
 
-    local commands="list new info build clean deploy run reboot console ssh docker gdb doctor completion"
+    local commands="list new info build clean deploy run reboot console ssh docker gdb doctor mcp completion"
     local boards="{boards}"
     local projects="{projects}"
 
@@ -781,6 +871,7 @@ _lab() {{
         'docker:Enter Docker development environment'
         'gdb:Start remote GDB session'
         'doctor:Diagnose toolchains and lab environment'
+        'mcp:Manage MCP server (Hardware Tool Bridge)'
         'completion:Generate shell completion script'
     )
 
@@ -903,6 +994,11 @@ def main():
     # doctor
     p_doc = subparsers.add_parser("doctor", help="Diagnose toolchains, serial ports, and lab network")
     p_doc.set_defaults(func=cmd_doctor)
+
+    # mcp
+    p_mcp = subparsers.add_parser("mcp", help="Manage MCP server (Hardware Tool Bridge)")
+    p_mcp.add_argument("action", nargs="?", default=None, help="MCP action (setup, start, stop, status, logs). Default: status")
+    p_mcp.set_defaults(func=cmd_mcp)
 
     # completion
     p_comp = subparsers.add_parser("completion", help="Generate shell auto-completion script")

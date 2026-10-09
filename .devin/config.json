@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "lab": {
+      "serverUrl": "http://localhost:8420/sse"
+    }
+  }
+}
