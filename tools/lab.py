@@ -613,7 +613,7 @@ def cmd_doctor(args: argparse.Namespace):
 
     # 5.4 UFW Host Firewall Warning
     try:
-        res = subprocess.run(["sudo", "-n", "ufw", "status"], capture_output=True, text=True, check=False)
+        res = subprocess.run(["sudo", "-n", "ufw", "status"], capture_output=True, text=True, check=False, stderr=subprocess.DEVNULL)
         if "Status: active" in res.stdout:
             if "69/udp" in res.stdout:
                 print(f"  {Style.B_GREEN}✔{Style.RESET} Host UFW Firewall: 69/udp ALLOWED")
@@ -685,7 +685,7 @@ def cmd_doctor(args: argparse.Namespace):
 
     # 6.5 UFW firewall — NFS ports
     try:
-        res = subprocess.run(["sudo", "-n", "ufw", "status"], capture_output=True, text=True, check=False)
+        res = subprocess.run(["sudo", "-n", "ufw", "status"], capture_output=True, text=True, check=False, stderr=subprocess.DEVNULL)
         if "Status: active" in res.stdout:
             for port, proto in [("2049", "tcp"), ("2049", "udp"), ("111", "tcp"), ("111", "udp")]:
                 rule = f"{port}/{proto}"

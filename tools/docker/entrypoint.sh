@@ -36,8 +36,12 @@ else
     /usr/sbin/in.tftpd --listen --user tftp --address :69 --secure "${TFTP_DIR}" &>/dev/null || true
 fi
 
-# 6. Configure and start NFS server for Raspberry Pi root filesystem
+# 6. Configure and start NFS server for Raspberry Pi root filesystem.
+#    This is best-effort: modprobe nfsd can fail on WSL2 (no nfsd module in
+#    Microsoft kernel) or kernels built without NFS server support. In those
+#    cases we print a clear warning and continue — TFTP boot still works.
 NFS_DIR="/workspace/nfs"
+NFS_OK=false
 
 mkdir -p "${NFS_DIR}"
 
@@ -45,30 +49,34 @@ cat << EOF > /etc/exports
 ${NFS_DIR} 192.168.1.0/24(rw,sync,no_subtree_check,no_root_squash)
 EOF
 
-# Load NFS server kernel module from host
-modprobe nfsd
+# Load NFS kernel module (fails gracefully on WSL2 / kernels without nfsd)
+if modprobe nfsd 2>/dev/null; then
+    # Start rpcbind (portmapper)
+    if command -v service &>/dev/null; then
+        service rpcbind start &>/dev/null || true
+    fi
+    if ! pgrep -x rpcbind >/dev/null 2>&1; then
+        rpcbind -w &
+        sleep 1
+    fi
 
-exportfs -ra
+    # Start NFS server
+    if command -v service &>/dev/null; then
+        service nfs-kernel-server start &>/dev/null || true
+    else
+        /etc/init.d/nfs-kernel-server start &>/dev/null || true
+    fi
 
-# Start rpcbind
-if command -v service &>/dev/null; then
-    service rpcbind start &>/dev/null || true
+    exportfs -ra 2>/dev/null && NFS_OK=true
 fi
 
-if ! pgrep -x rpcbind >/dev/null 2>&1; then
-    rpcbind -w &
-    sleep 1
-fi
-
-# Start NFS server
-if command -v service &>/dev/null; then
-    service nfs-kernel-server start &>/dev/null || true
+if ${NFS_OK}; then
+    echo "❯ [NFS] Exporting ${NFS_DIR} to 192.168.1.0/24"
+    exportfs -v 2>/dev/null || true
 else
-    /etc/init.d/nfs-kernel-server start &>/dev/null || true
+    echo "⚠ [NFS] nfsd module not available (WSL2 / unsupported kernel) — NFS root boot disabled"
+    echo "⚠ [NFS] TFTP kernel/DTB loading still works; use SD card or a native Linux host for NFS root"
 fi
-
-echo "❯ [NFS] Exporting ${NFS_DIR} to 192.168.1.0/24"
-exportfs -v || true
 
 # 7. macOS serial bridge — create PTY devices from host socat TCP proxies.
 #    run.sh sets SERIAL_PROXY_PORTS="54320:/dev/cu.usbserial-XXXX,54321:..."
