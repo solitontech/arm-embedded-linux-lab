@@ -648,54 +648,63 @@ def cmd_doctor(args: argparse.Namespace):
     else:
         print(f"  {Style.B_RED}✖{Style.RESET} NFS Dir: {nfs_dir} does not exist (run nfs_rootfs workflow)")
 
-    # 6.2 rpcbind / portmapper (TCP+UDP 111)
-    try:
-        res_t = subprocess.run(["ss", "-tlpn"], capture_output=True, text=True, check=False)
-        res_u = subprocess.run(["ss", "-ulpn"], capture_output=True, text=True, check=False)
-        if ":111" in res_t.stdout or ":111" in res_u.stdout:
-            print(f"  {Style.B_GREEN}✔{Style.RESET} rpcbind: Port 111 listening")
-        else:
-            print(f"  {Style.B_YELLOW}⚠{Style.RESET} rpcbind: Port 111 NOT listening (run: sudo service rpcbind start)")
-    except Exception:
-        print(f"  {Style.DIM}• Could not query port 111 via ss{Style.RESET}")
+    # 6.2 Check if nfsd kernel module is loaded (/proc/fs/nfsd only exists when it is).
+    # On WSL2 / kernels without nfsd support, modprobe fails at container startup and
+    # the module is never loaded — skip all service/port checks in that case.
+    nfsd_loaded = Path("/proc/fs/nfsd").exists()
 
-    # 6.3 NFS server (TCP+UDP 2049)
-    try:
-        res_t = subprocess.run(["ss", "-tlpn"], capture_output=True, text=True, check=False)
-        res_u = subprocess.run(["ss", "-ulpn"], capture_output=True, text=True, check=False)
-        if ":2049" in res_t.stdout or ":2049" in res_u.stdout:
-            print(f"  {Style.B_GREEN}✔{Style.RESET} NFS Server: Port 2049 listening")
-        else:
-            print(f"  {Style.B_YELLOW}⚠{Style.RESET} NFS Server: Port 2049 NOT listening (run: sudo service nfs-kernel-server start)")
-    except Exception:
-        print(f"  {Style.DIM}• Could not query port 2049 via ss{Style.RESET}")
+    if not nfsd_loaded:
+        print(f"  {Style.B_YELLOW}⚠{Style.RESET} NFS Server: nfsd kernel module not loaded — NFS root boot unavailable on this host")
+        print(f"    {Style.DIM}Expected on WSL2 (Microsoft kernel has no nfsd). TFTP boot still works normally.{Style.RESET}")
+    else:
+        # 6.3 rpcbind / portmapper (TCP+UDP 111)
+        try:
+            res_t = subprocess.run(["ss", "-tlpn"], capture_output=True, text=True, check=False)
+            res_u = subprocess.run(["ss", "-ulpn"], capture_output=True, text=True, check=False)
+            if ":111" in res_t.stdout or ":111" in res_u.stdout:
+                print(f"  {Style.B_GREEN}✔{Style.RESET} rpcbind: Port 111 listening")
+            else:
+                print(f"  {Style.B_YELLOW}⚠{Style.RESET} rpcbind: Port 111 NOT listening (run: sudo service rpcbind start)")
+        except Exception:
+            print(f"  {Style.DIM}• Could not query port 111 via ss{Style.RESET}")
 
-    # 6.4 Active NFS exports
-    try:
-        res = subprocess.run(["exportfs", "-v"], capture_output=True, text=True, check=False)
-        exports = res.stdout.strip()
-        if exports:
-            print(f"  {Style.B_GREEN}✔{Style.RESET} NFS Exports: Active")
-            for line in exports.splitlines():
-                print(f"    {Style.DIM}{line}{Style.RESET}")
-        else:
-            print(f"  {Style.B_YELLOW}⚠{Style.RESET} NFS Exports: No active exports (run: sudo exportfs -ra)")
-    except Exception:
-        print(f"  {Style.DIM}• Could not query NFS exports via exportfs -v{Style.RESET}")
+        # 6.4 NFS server (TCP+UDP 2049)
+        try:
+            res_t = subprocess.run(["ss", "-tlpn"], capture_output=True, text=True, check=False)
+            res_u = subprocess.run(["ss", "-ulpn"], capture_output=True, text=True, check=False)
+            if ":2049" in res_t.stdout or ":2049" in res_u.stdout:
+                print(f"  {Style.B_GREEN}✔{Style.RESET} NFS Server: Port 2049 listening")
+            else:
+                print(f"  {Style.B_YELLOW}⚠{Style.RESET} NFS Server: Port 2049 NOT listening (run: sudo service nfs-kernel-server start)")
+        except Exception:
+            print(f"  {Style.DIM}• Could not query port 2049 via ss{Style.RESET}")
 
-    # 6.5 UFW firewall — NFS ports
-    try:
-        res = subprocess.run(["sudo", "-n", "ufw", "status"], capture_output=True, text=True, check=False, stderr=subprocess.DEVNULL)
-        if "Status: active" in res.stdout:
-            for port, proto in [("2049", "tcp"), ("2049", "udp"), ("111", "tcp"), ("111", "udp")]:
-                rule = f"{port}/{proto}"
-                if rule in res.stdout or f"{port} " in res.stdout:
-                    print(f"  {Style.B_GREEN}✔{Style.RESET} Host UFW Firewall: {rule} ALLOWED")
-                else:
-                    print(f"  {Style.B_RED}✖{Style.RESET} Host UFW Firewall: ACTIVE but {rule} BLOCKED")
-                    print(f"    {Style.B_YELLOW}Run on host PC:{Style.RESET} {Style.BOLD}sudo ufw allow {rule}{Style.RESET}")
-    except Exception:
-        pass
+        # 6.5 Active NFS exports
+        try:
+            res = subprocess.run(["exportfs", "-v"], capture_output=True, text=True, check=False)
+            exports = res.stdout.strip()
+            if exports:
+                print(f"  {Style.B_GREEN}✔{Style.RESET} NFS Exports: Active")
+                for line in exports.splitlines():
+                    print(f"    {Style.DIM}{line}{Style.RESET}")
+            else:
+                print(f"  {Style.B_YELLOW}⚠{Style.RESET} NFS Exports: No active exports (run: sudo exportfs -ra)")
+        except Exception:
+            print(f"  {Style.DIM}• Could not query NFS exports via exportfs -v{Style.RESET}")
+
+        # 6.6 UFW firewall — NFS ports
+        try:
+            res = subprocess.run(["sudo", "-n", "ufw", "status"], capture_output=True, text=True, check=False, stderr=subprocess.DEVNULL)
+            if "Status: active" in res.stdout:
+                for port, proto in [("2049", "tcp"), ("2049", "udp"), ("111", "tcp"), ("111", "udp")]:
+                    rule = f"{port}/{proto}"
+                    if rule in res.stdout or f"{port} " in res.stdout:
+                        print(f"  {Style.B_GREEN}✔{Style.RESET} Host UFW Firewall: {rule} ALLOWED")
+                    else:
+                        print(f"  {Style.B_RED}✖{Style.RESET} Host UFW Firewall: ACTIVE but {rule} BLOCKED")
+                        print(f"    {Style.B_YELLOW}Run on host PC:{Style.RESET} {Style.BOLD}sudo ufw allow {rule}{Style.RESET}")
+        except Exception:
+            pass
 
     print(f"\n{Style.BOLD}{Style.B_GREEN}Diagnostics complete.{Style.RESET}\n")
 
