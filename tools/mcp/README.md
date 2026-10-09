@@ -6,17 +6,34 @@ Linux boards.  Implements the **Hardware Tool Bridge** described in the
 
 ## Architecture
 
-```
-AI Agent (Devin / Cursor / etc.)          Linux Host Machine
-  MCP config: serverUrl →            ┌── lab-mcp-server (systemd) ──┐
-  http://localhost:8420/sse          │  SerialManager  (ring buffer) │
-  (via SSH -L 8420:localhost:8420)   │  BoardManager   (ping/SSH)    │
-                                      │  BSPManager     (boot.cmd)    │
-                                      │  DockerBridge   (Tier 1)      │
-                                      │  BootAnalyzer   (diagnosis)   │
-                                      │  DeployManager  (TFTP/NFS)    │
-                                      │  BenchVerifier  (Tier 2)      │
-                                      └─────────────────────────────────┘
+```mermaid
+graph LR
+    subgraph Remote["AI Agent (Remote / Local)"]
+        A["Devin CLI / Cursor / Windsurf"]
+    end
+
+    subgraph Host["Linux Host Machine"]
+        subgraph MCP["lab-mcp-server :8420 (systemd)"]
+            SM["SerialManager<br/>Ring buffer &bull; Disk logs"]
+            BM["BoardManager<br/>Ping &bull; SSH &bull; Reboot"]
+            BSP["BSPManager<br/>boot.cmd &bull; mkimage"]
+            DB["DockerBridge<br/>Tier 1 &mdash; Host-side"]
+            BA["BootAnalyzer<br/>Pattern engine"]
+            DM["DeployManager<br/>TFTP &bull; NFS"]
+            BV["BenchVerifier<br/>Tier 2 &mdash; Bench"]
+        end
+    end
+
+    subgraph HW["Hardware"]
+        Board[/"RPi4 / Target Board"/]
+        Serial[/"USB-Serial Adapter"/]
+    end
+
+    A -- "SSE / HTTP<br/>localhost:8420<br/>(SSH tunnel)" --> MCP
+    SM -- "/dev/ttyUSB0" --> Serial
+    Serial --> Board
+    BM -- "SSH / ping" --> Board
+    DB -- "docker exec" --> Docker["arm-lab-dev container"]
 ```
 
 ## Quick Start
@@ -60,7 +77,7 @@ Add to your MCP configuration:
 }
 ```
 
-## Tools Reference (22 tools)
+## Tools Reference (21 tools)
 
 ### Board Discovery & Status
 
