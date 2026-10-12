@@ -118,21 +118,25 @@ The Pi's EEPROM sends a DHCP broadcast over Ethernet. The Docker container inclu
 
 ### Enable dnsmasq at Container Start
 
-Pass `DNSMASQ_INTERFACE` and `HOST_IP` when launching the container. The entrypoint will configure and start dnsmasq automatically:
+The `lab` CLI reads `HOST_INTERFACE` and `HOST_IP` from your board profile (`shared/boards/rpi4.env`) and passes them into the container automatically:
 
 ```bash
-# Example: host NIC is enp2s0, host IP is 192.168.1.220
+./lab docker run                    # auto-detects board if only one exists
+./lab docker run --board=rpi4       # explicit board selection
+```
+
+The board env file should contain:
+```ini
+HOST_INTERFACE="enp2s0"       # host NIC facing the Pi
+HOST_IP="192.168.1.220"       # host IP on that subnet
+```
+
+You can also override via environment variables:
+```bash
 DNSMASQ_INTERFACE=enp2s0 HOST_IP=192.168.1.220 ./tools/docker/run.sh run
 ```
 
-Or export them before running:
-```bash
-export DNSMASQ_INTERFACE=enp2s0
-export HOST_IP=192.168.1.220
-./tools/docker/run.sh run
-```
-
-If these variables are not set, dnsmasq is skipped — useful when running DHCP on the host or on a different machine.
+If neither the board env nor the env vars provide these values, dnsmasq is skipped — useful when running DHCP on the host or on a different machine.
 
 ### What the Container Configures
 

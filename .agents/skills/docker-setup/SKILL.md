@@ -159,12 +159,14 @@ The Docker container runs with `--network host` to expose the TFTP server on UDP
 
 The container includes `dnsmasq` for providing DHCP to the Pi's EEPROM bootloader during network boot. It is DHCP-only — TFTP is handled by tftpd-hpa.
 
-- **Activation**: Set `DNSMASQ_INTERFACE` and `HOST_IP` environment variables before starting the container:
+- **Activation**: `./lab docker run` reads `HOST_INTERFACE` and `HOST_IP` from the board profile (`shared/boards/<board>.env`) and passes them into the container. If only one board exists, it's auto-detected:
   ```bash
-  DNSMASQ_INTERFACE=enp2s0 HOST_IP=192.168.1.220 ./tools/docker/run.sh run
+  ./lab docker run                    # auto-detects board
+  ./lab docker run --board=rpi4       # explicit board
   ```
+  You can also set them manually: `DNSMASQ_INTERFACE=enp2s0 HOST_IP=192.168.1.220 ./tools/docker/run.sh run`
 - **Config file**: `tools/docker/dnsmasq-netboot.conf` (baked into the image at `/etc/dnsmasq.d/netboot.conf`).
-- **Skipped by default**: If the env vars are not set, dnsmasq does not start. This avoids conflicts when DHCP is managed elsewhere.
+- **Skipped by default**: If neither the board env nor env vars provide the values, dnsmasq does not start.
 - **Host Firewall**: If UFW is active, allow DHCP:
   ```bash
   sudo ufw allow 67/udp
