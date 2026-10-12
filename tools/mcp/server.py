@@ -499,6 +499,10 @@ def _init_managers() -> None:
     docker_bridge = DockerBridge(REPO_ROOT)
     bench_verifier = BenchVerifier(serial_mgr, board_mgr, REPO_ROOT)
 
+    # Wire serial manager into board manager so serial-based reboot
+    # uses the MCP-held port instead of opening a conflicting one
+    board_mgr.set_serial_manager(serial_mgr)
+
     # Start serial monitoring
     serial_mgr.start_all()
     logger.info("Serial monitoring started for boards: %s",

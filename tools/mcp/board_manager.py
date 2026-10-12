@@ -74,37 +74,99 @@ class BoardManager:
             "reset_method": cfg.get("BOARD_RESET_METHOD", "uboot_serial"),
         }
 
+    # -- serial manager reference (set by server.py after init) ----------
+    _serial_mgr: Optional[object] = None
+
+    def set_serial_manager(self, serial_mgr) -> None:
+        """Inject the SerialManager so reboot can use the live serial port."""
+        self._serial_mgr = serial_mgr
+
     # -- reboot -----------------------------------------------------------
 
     def reboot(self, board: str, method: Optional[str] = None) -> str:
         """Reboot a board via the specified method.
 
-        Delegates to tools/target/reboot.sh.
+        Serial-based methods (uboot_serial, sysrq_serial) use the MCP
+        server's own serial connection to avoid port conflicts.  SSH and
+        power_relay methods delegate to tools/target/reboot.sh.
         """
         cfg = self._load_board(board)
+        method = method or cfg.get("BOARD_RESET_METHOD", "uboot_serial")
+
+        if method in ("uboot_serial", "serial"):
+            return self._reboot_uboot_serial(board, cfg)
+        elif method in ("sysrq_serial", "sysrq"):
+            return self._reboot_sysrq(board, cfg)
+        elif method == "ssh":
+            return self._reboot_ssh(board, cfg)
+        elif method in ("power_relay", "relay"):
+            return self._reboot_via_script(board, cfg, method)
+        else:
+            return f"ERROR: Unknown reboot method '{method}'. Supported: uboot_serial, ssh, sysrq_serial, power_relay"
+
+    def _reboot_uboot_serial(self, board: str, cfg: dict) -> str:
+        """Send reset command over the MCP-held serial port."""
+        if not self._serial_mgr:
+            return "ERROR: SerialManager not available"
+
+        reset_cmd = cfg.get("BOARD_RESET_CMD", "reset\\r")
+        # Send Enter first to get to a clean prompt, then the reset command
+        try:
+            self._serial_mgr.send(board, "\\r")
+            import time
+            time.sleep(0.2)
+            self._serial_mgr.send(board, reset_cmd)
+            return f"U-Boot reset command sent to {board} via serial"
+        except ValueError as exc:
+            return f"ERROR: {exc}"
+
+    def _reboot_sysrq(self, board: str, cfg: dict) -> str:
+        """Send Magic SysRq Break+b over the MCP-held serial port."""
+        if not self._serial_mgr:
+            return "ERROR: SerialManager not available"
+
+        try:
+            bs = self._serial_mgr._get_board(board)
+            if bs._released:
+                return f"ERROR: serial port for {board} is released. Call lab_serial_acquire first."
+            if not bs.ser or not bs.ser.is_open:
+                return f"ERROR: serial port for {board} is not open"
+            bs.ser.send_break(duration=0.25)
+            import time
+            time.sleep(0.1)
+            bs.ser.write(b"b")
+            bs._append_line(">>> SENT: SysRq Break+b (reboot)")
+            return f"Magic SysRq reboot sent to {board} via serial"
+        except ValueError as exc:
+            return f"ERROR: {exc}"
+
+    def _reboot_ssh(self, board: str, cfg: dict) -> str:
+        """Reboot via SSH."""
+        ip = cfg.get("TARGET_IP", "")
+        if not ip:
+            return f"ERROR: TARGET_IP not configured for {board}"
+        result = self.ssh_exec(board, "nohup reboot >/dev/null 2>&1 &", timeout=10)
+        if "error" in result:
+            return f"SSH reboot failed: {result['error']}"
+        return f"SSH reboot command sent to {board} ({ip})"
+
+    def _reboot_via_script(self, board: str, cfg: dict, method: str) -> str:
+        """Delegate to tools/target/reboot.sh for methods that need it."""
         reboot_script = self._repo / "tools" / "target" / "reboot.sh"
         if not reboot_script.exists():
             return f"ERROR: reboot script not found at {reboot_script}"
-
-        method = method or cfg.get("BOARD_RESET_METHOD", "uboot_serial")
-        reset_cmd = cfg.get("BOARD_RESET_CMD", "reset\\r")
-
         cmd = [
             str(reboot_script),
             f"--board={board}",
             f"--method={method}",
             f"--serial-port={cfg.get('BOARD_SERIAL_PORT', '')}",
             f"--serial-baud={cfg.get('BOARD_SERIAL_BAUD', '115200')}",
-            f"--reset-cmd={reset_cmd}",
             f"--target-ip={cfg.get('TARGET_IP', '')}",
             f"--target-user={cfg.get('TARGET_USER', 'root')}",
         ]
         try:
             res = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=15,
+                cmd, capture_output=True, text=True, timeout=15,
             )
             output = (res.stdout + res.stderr).strip()
             if res.returncode == 0:
