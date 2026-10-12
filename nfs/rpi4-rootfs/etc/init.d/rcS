@@ -14,7 +14,13 @@ mount -t devtmpfs devtmpfs /dev
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts
 
-exec >/dev/ttyS0 2>&1
+# Detect the kernel console device from bootargs; fall back to ttyS0.
+CONSOLE="/dev/ttyS0"
+if [ -r /proc/cmdline ]; then
+    _last_con=$(sed 's/.*console=\([^ ,]*\).*/\1/' /proc/cmdline)
+    [ -c "/dev/${_last_con}" ] && CONSOLE="/dev/${_last_con}"
+fi
+exec >"${CONSOLE}" 2>&1
 
 printf '%s\r\n' '=========================================================='
 printf '%s\r\n' ' Welcome to Soliton ARM Embedded Linux Lab'

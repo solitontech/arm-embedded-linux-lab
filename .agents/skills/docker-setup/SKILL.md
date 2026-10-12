@@ -114,14 +114,18 @@ The Docker container automatically starts an NFS server that exports the `nfs/` 
 - **Exported directory**: `/workspace/nfs` inside the container, which maps to `nfs/` in the repository root on the host.
 - **Export subnet**: `192.168.1.0/24` with `rw,sync,no_subtree_check,no_root_squash`.
 - **NFS version**: NFSv3 over TCP (as configured in `shared/bsp/rpi4/boot.cmd`).
-- **Startup**: `entrypoint.sh` calls `modprobe nfsd`, starts `rpcbind`, and starts `nfs-kernel-server` before switching to `labuser`. The export is printed to the console as `[NFS] Exporting /workspace/nfs to 192.168.1.0/24`.
-- **Host Firewall (UFW) Requirement**: If UFW is active on the host, allow NFS and rpcbind traffic:
+- **Mount daemon port**: Fixed at **20048** via `tools/docker/rootfs-nfs.conf` to simplify firewall rules and avoid ephemeral port conflicts.
+- **Startup**: `entrypoint.sh` loads the `nfsd` kernel module from the host (via `modprobe`), checks `/proc/filesystems` for nfsd support, starts `rpcbind` and `nfs-kernel-server`, then switches to `labuser`. The export is printed to the console as `[NFS] Exporting /workspace/nfs to 192.168.1.0/24`.
+- **Host Firewall (UFW) Requirement**: If UFW is active on the host, allow NFS, rpcbind, and mountd traffic:
   ```bash
   sudo ufw allow 2049/tcp
   sudo ufw allow 2049/udp
   sudo ufw allow 111/tcp
   sudo ufw allow 111/udp
+  sudo ufw allow 20048/tcp
+  sudo ufw allow 20048/udp
   ```
+  Port 20048 is the fixed NFSv3 mount daemon port configured in `tools/docker/rootfs-nfs.conf`.
 - **Verify from the Pi** (U-Boot prompt):
   ```text
   U-Boot> ping 192.168.1.220

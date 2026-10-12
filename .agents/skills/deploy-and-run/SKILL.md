@@ -25,7 +25,7 @@ Enables automated building, cross-compilation, deployment (SSH, TFTP, NFS), and 
 | `docker` | `./lab docker` | Enter the Docker development environment |
 | `gdb` | `./lab gdb myapp --board rpi4` | Connect cross-gdb to target gdbserver session |
 | `doctor` | `./lab doctor` | Run environment diagnostics inside Docker (toolchains, serial, TFTP, NFS server, network) |
-| `mcp` | `./lab mcp start` | Manage MCP server — Hardware Tool Bridge (`setup`, `start`, `stop`, `status`, `logs`) |
+| `mcp` | `./lab mcp start` | Manage MCP server — Hardware Tool Bridge (`setup`, `start`, `stop`, `status`, `logs`). `setup` generates `lab-mcp.service` from the template with repo-specific paths. |
 | `completion` | `./lab completion zsh >> ~/.zshrc` | Generate bash/zsh auto-completion script |
 
 ## Step-by-Step Workflow

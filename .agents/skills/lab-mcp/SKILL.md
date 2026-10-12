@@ -26,6 +26,7 @@ tiered verification (Tier 1 host-side via Docker, Tier 2 bench via serial).
 ## Prerequisites
 
 - MCP server must be running: `./lab mcp status` to check, `./lab mcp start` to start
+- First-time setup: `./lab mcp setup` — this creates a Python venv and generates the systemd service file from `tools/mcp/lab-mcp.service.template` (the generated `lab-mcp.service` is gitignored since it contains machine-specific paths)
 - Board must be configured in `shared/boards/<board>.env`
 - Serial cable connected for serial tools
 - Docker container running for `lab_docker_exec` and `lab_doctor`
