@@ -33,6 +33,7 @@ nfs/*-rootfs/**/*.pid
 nfs/*-rootfs/**/utmp
 nfs/*-rootfs/**/wtmp
 nfs/*-rootfs/**/*.log
+nfs/*-rootfs/**/*.pub
 
 # IDE & Editor files
 .vscode/
