@@ -60,7 +60,9 @@ if [ ! -s /etc/exports ]; then
 fi
 
 # Load NFS kernel module (fails gracefully on WSL2 / kernels without nfsd)
-if modprobe nfsd 2>/dev/null; then
+# With Docker host networking, nfsd is provided by the host kernel.
+modprobe nfsd 2>/dev/null || true
+if grep -qw nfsd /proc/filesystems; then
     # Start rpcbind (portmapper)
     if command -v service &>/dev/null; then
         service rpcbind start &>/dev/null || true

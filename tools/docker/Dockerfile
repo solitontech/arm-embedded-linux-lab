@@ -70,6 +70,11 @@ RUN echo 'TFTP_USERNAME="tftp"' > /etc/default/tftpd-hpa && \
     echo 'TFTP_ADDRESS=":69"' >> /etc/default/tftpd-hpa && \
     echo 'TFTP_OPTIONS="--secure"' >> /etc/default/tftpd-hpa
 
+# Configure a fixed NFSv3 mount daemon port
+RUN mkdir -p /etc/nfs.conf.d
+
+COPY tools/docker/rootfs-nfs.conf /etc/nfs.conf.d/rootfs-nfs.conf
+
 # Create a non-root user matching the host UID/GID to avoid permission issues
 # Pass --build-arg UID=$(id -u) GID=$(id -g) when building
 ARG UID=1000
