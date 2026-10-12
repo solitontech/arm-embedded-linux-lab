@@ -100,9 +100,9 @@ if [[ -n "${DNSMASQ_INTERFACE:-}" && -n "${HOST_IP:-}" ]]; then
     sed -i "s/^# interface=.*/interface=${DNSMASQ_INTERFACE}/" "${_dnsmasq_conf}"
     sed -i "s/^# dhcp-boot=.*/dhcp-boot=start4.elf,,${HOST_IP}/" "${_dnsmasq_conf}"
 
-    # Stop any host-inherited dnsmasq, then start ours
+    # Stop any host-inherited dnsmasq, then start ours (daemonises itself)
     killall dnsmasq 2>/dev/null || true
-    if dnsmasq --conf-dir=/etc/dnsmasq.d --no-daemon --log-facility=- &>/dev/null & then
+    if dnsmasq --conf-dir=/etc/dnsmasq.d 2>/dev/null; then
         echo "❯ [DHCP] dnsmasq started on ${DNSMASQ_INTERFACE} (TFTP → ${HOST_IP})"
     else
         echo "⚠ [DHCP] dnsmasq failed to start — check DNSMASQ_INTERFACE and HOST_IP"
