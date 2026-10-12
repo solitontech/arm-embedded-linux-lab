@@ -14,7 +14,9 @@ mount -t devtmpfs devtmpfs /dev
 mkdir -p /dev/pts
 mount -t devpts devpts /dev/pts
 
-echo "=========================================================="
-echo " Welcome to Soliton ARM Embedded Linux Lab — Pi 4 Bringup"
-echo " Kernel: $(uname -r) on $(uname -m)"
-echo "=========================================================="
+exec >/dev/ttyS0 2>&1
+
+printf '%s\r\n' '=========================================================='
+printf '%s\r\n' ' Welcome to Soliton ARM Embedded Linux Lab'
+printf ' Kernel: %s on %s\r\n' "$(uname -r)" "$(uname -m)"
+printf '%s\r\n' '=========================================================='
