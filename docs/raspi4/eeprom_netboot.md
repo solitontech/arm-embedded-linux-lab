@@ -109,54 +109,55 @@ Digits are tried right-to-left. `0xf21` = try network, then SD, then restart.
 
 ---
 
-## 2. Host DHCP Server Setup (dnsmasq — DHCP Only)
+## 2. DHCP Server (dnsmasq — Inside Docker)
 
-The Pi's EEPROM sends a DHCP broadcast over Ethernet. The host must answer with an IP and the address of the TFTP server. **TFTP is already served by the Docker container** (tftpd-hpa on port 69 with `--network host`), so dnsmasq only needs to provide DHCP.
+The Pi's EEPROM sends a DHCP broadcast over Ethernet. The Docker container includes `dnsmasq` (DHCP only — TFTP and NFS are handled by tftpd-hpa and nfs-kernel-server in the same container).
 
 > [!WARNING]
-> Do **not** enable `enable-tftp` in dnsmasq — it would conflict with the Docker container's TFTP server on port 69. dnsmasq handles DHCP only; Docker handles TFTP and NFS.
+> Do **not** enable `enable-tftp` in dnsmasq — it would conflict with tftpd-hpa on port 69. dnsmasq handles DHCP only.
 
-### Install dnsmasq
+### Enable dnsmasq at Container Start
+
+Pass `DNSMASQ_INTERFACE` and `HOST_IP` when launching the container. The entrypoint will configure and start dnsmasq automatically:
+
 ```bash
-# Ubuntu / Debian
-sudo apt install -y dnsmasq
+# Example: host NIC is enp2s0, host IP is 192.168.1.220
+DNSMASQ_INTERFACE=enp2s0 HOST_IP=192.168.1.220 ./tools/docker/run.sh run
 ```
 
-### Configure `/etc/dnsmasq.conf`
+Or export them before running:
+```bash
+export DNSMASQ_INTERFACE=enp2s0
+export HOST_IP=192.168.1.220
+./tools/docker/run.sh run
+```
 
-Replace or append (adjust interface for your network):
+If these variables are not set, dnsmasq is skipped — useful when running DHCP on the host or on a different machine.
+
+### What the Container Configures
+
+The entrypoint injects the runtime values into `/etc/dnsmasq.d/netboot.conf`:
 ```ini
-# ================================================================
-# dnsmasq — DHCP only for RPi4 network boot
-# TFTP is served by the Docker container (port 69, --network host)
-# ================================================================
-
-# Listen only on the LAN interface connected to the Pi
-interface=enp2s0           # <-- change to your host's LAN interface
+# DHCP only — no TFTP (handled by tftpd-hpa)
+interface=enp2s0
 bind-interfaces
-
-# DHCP range — hand out IPs to the Pi
 dhcp-range=192.168.1.150,192.168.1.160,255.255.255.0,12h
-
-# Assign a predictable IP to the Pi by MAC (recommended)
-# dhcp-host=dc:a6:32:xx:xx:xx,rpi4,192.168.1.150
-
-# Point the EEPROM's TFTP client to the host IP (Docker TFTP runs there)
 dhcp-boot=start4.elf,,192.168.1.220
-
-# Log DHCP activity
 log-dhcp
 log-queries
 ```
 
-### Restart dnsmasq
-```bash
-sudo systemctl restart dnsmasq
-sudo systemctl status  dnsmasq
+### Customising DHCP (Optional)
+
+To pin the Pi to a specific IP by MAC address, edit `tools/docker/dnsmasq-netboot.conf` and add:
+```ini
+dhcp-host=dc:a6:32:xx:xx:xx,rpi4,192.168.1.150
 ```
 
+Then rebuild the Docker image: `./tools/docker/run.sh build`
+
 > [!WARNING]
-> If your host already runs a DHCP server (e.g., NetworkManager), dnsmasq will conflict on port 67. Either: (a) disable the existing DHCP server for the Pi-facing interface, or (b) run dnsmasq only on the Pi-facing interface with `bind-interfaces`.
+> If the host already runs a DHCP server (e.g., NetworkManager) on the same interface, it will conflict with dnsmasq on port 67. Either disable the host DHCP for that interface, or don't set the env vars and run dnsmasq on the host manually.
 
 ---
 
@@ -191,15 +192,13 @@ ls /workspace/tftp/
 
 ## 4. Network Topology
 
-All three network services run inside the Docker container with `--network host`. dnsmasq runs directly on the host and provides DHCP only.
+All three network services (DHCP, TFTP, NFS) run inside the Docker container with `--network host`.
 
 ```mermaid
 graph TD
     subgraph HOST["Host Workstation (192.168.1.220)"]
-        subgraph DNSMASQ["dnsmasq — DHCP only (port 67)"]
-            D1["Hands out IP + TFTP server address"]
-        end
         subgraph DOCKER["Docker Container (--network host, --privileged)"]
+            D1["dnsmasq — DHCP only (port 67)<br/>Hands out IP + TFTP server address"]
             T["tftpd-hpa (port 69)<br/>/workspace/tftp/"]
             N["NFS Server (port 2049)<br/>/workspace/nfs/rpi4-rootfs/"]
         end

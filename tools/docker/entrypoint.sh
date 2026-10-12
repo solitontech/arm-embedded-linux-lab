@@ -90,7 +90,28 @@ else
     echo "⚠ [NFS] TFTP kernel/DTB loading still works; use SD card or a native Linux host for NFS root"
 fi
 
-# 7. macOS serial bridge — create PTY devices from host socat TCP proxies.
+# 7. Start dnsmasq (DHCP only) for EEPROM network boot.
+#    Requires DNSMASQ_INTERFACE (host NIC facing the Pi) and HOST_IP.
+#    Skipped silently if either is unset — the user may run dnsmasq on the host
+#    or not need EEPROM netboot at all.
+if [[ -n "${DNSMASQ_INTERFACE:-}" && -n "${HOST_IP:-}" ]]; then
+    _dnsmasq_conf="/etc/dnsmasq.d/netboot.conf"
+    # Inject runtime values into the config
+    sed -i "s/^# interface=.*/interface=${DNSMASQ_INTERFACE}/" "${_dnsmasq_conf}"
+    sed -i "s/^# dhcp-boot=.*/dhcp-boot=start4.elf,,${HOST_IP}/" "${_dnsmasq_conf}"
+
+    # Stop any host-inherited dnsmasq, then start ours
+    killall dnsmasq 2>/dev/null || true
+    if dnsmasq --conf-dir=/etc/dnsmasq.d --no-daemon --log-facility=- &>/dev/null & then
+        echo "❯ [DHCP] dnsmasq started on ${DNSMASQ_INTERFACE} (TFTP → ${HOST_IP})"
+    else
+        echo "⚠ [DHCP] dnsmasq failed to start — check DNSMASQ_INTERFACE and HOST_IP"
+    fi
+else
+    echo "❯ [DHCP] dnsmasq skipped (set DNSMASQ_INTERFACE and HOST_IP to enable)"
+fi
+
+# 8. macOS serial bridge — create PTY devices from host socat TCP proxies.
 #    run.sh sets SERIAL_PROXY_PORTS="54320:/dev/cu.usbserial-XXXX,54321:..."
 #    Each entry creates /dev/ttyVUSB<N> backed by a socat TCP connection.
 if [[ -n "${SERIAL_PROXY_PORTS:-}" ]]; then
@@ -129,7 +150,7 @@ if [[ -n "${SERIAL_PROXY_PORTS:-}" ]]; then
     sleep 0.8
 fi
 
-# 8. Execute main command as labuser (UID 1000)
+# 9. Execute main command as labuser (UID 1000)
 if [ "$(id -u)" -eq 0 ]; then
     export HOME="/home/labuser"
     exec sudo -E -u labuser HOME=/home/labuser "$@"

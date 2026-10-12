@@ -60,6 +60,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tftpd-hpa \
     nfs-kernel-server \
     rpcbind \
+    dnsmasq \
     u-boot-tools \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -74,6 +75,9 @@ RUN echo 'TFTP_USERNAME="tftp"' > /etc/default/tftpd-hpa && \
 RUN mkdir -p /etc/nfs.conf.d
 
 COPY tools/docker/rootfs-nfs.conf /etc/nfs.conf.d/rootfs-nfs.conf
+
+# Pre-install dnsmasq config (DHCP only — TFTP is handled by tftpd-hpa)
+COPY tools/docker/dnsmasq-netboot.conf /etc/dnsmasq.d/netboot.conf
 
 # Create a non-root user matching the host UID/GID to avoid permission issues
 # Pass --build-arg UID=$(id -u) GID=$(id -g) when building

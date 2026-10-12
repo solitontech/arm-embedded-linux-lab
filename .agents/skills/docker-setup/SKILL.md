@@ -34,6 +34,7 @@ Provide a reproducible cross-compilation environment without requiring developer
 | `ssh`, `rsync`, `scp` | Remote deploy utilities |
 | `tftpd-hpa`, `tftp-hpa` | TFTP server & client utilities for network boot/deploy |
 | `nfs-kernel-server`, `rpcbind` | NFS server and RPC port mapper — exports `/workspace/nfs` to the lab subnet for NFS root-filesystem boot |
+| `dnsmasq` | Lightweight DHCP server for EEPROM network boot (DHCP only — TFTP is handled by tftpd-hpa) |
 | `iproute2` | Advanced IP networking tools (`ip`, `ss`, etc.) |
 | `bison`, `flex`, `bc` | Parser generators and math utilities for kernel & U-Boot |
 | `libssl-dev`, `swig` | Cryptographic and interface compiler libraries |
@@ -153,6 +154,22 @@ The Docker container runs with `--network host` to expose the TFTP server on UDP
   ```bash
   tftp <HOST_LAN_IP> -c get test.txt
   ```
+
+## DHCP for EEPROM Network Boot (dnsmasq)
+
+The container includes `dnsmasq` for providing DHCP to the Pi's EEPROM bootloader during network boot. It is DHCP-only — TFTP is handled by tftpd-hpa.
+
+- **Activation**: Set `DNSMASQ_INTERFACE` and `HOST_IP` environment variables before starting the container:
+  ```bash
+  DNSMASQ_INTERFACE=enp2s0 HOST_IP=192.168.1.220 ./tools/docker/run.sh run
+  ```
+- **Config file**: `tools/docker/dnsmasq-netboot.conf` (baked into the image at `/etc/dnsmasq.d/netboot.conf`).
+- **Skipped by default**: If the env vars are not set, dnsmasq does not start. This avoids conflicts when DHCP is managed elsewhere.
+- **Host Firewall**: If UFW is active, allow DHCP:
+  ```bash
+  sudo ufw allow 67/udp
+  ```
+- See [EEPROM Network Boot](../../docs/raspi4/eeprom_netboot.md) for the full setup guide.
 
 ## Docker Layer Caching & Dockerfile Modifications
 

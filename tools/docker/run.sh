@@ -240,6 +240,8 @@ cmd_run() {
         -v "${REPO_ROOT}:/workspace" \
         -w /workspace \
         ${serial_proxy_ports:+-e "SERIAL_PROXY_PORTS=${serial_proxy_ports}"} \
+        ${DNSMASQ_INTERFACE:+-e "DNSMASQ_INTERFACE=${DNSMASQ_INTERFACE}"} \
+        ${HOST_IP:+-e "HOST_IP=${HOST_IP}"} \
         ${device_flags[@]+"${device_flags[@]}"} \
         "${full_name}"
 
