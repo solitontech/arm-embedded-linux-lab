@@ -491,8 +491,14 @@ def cmd_mcp(args: argparse.Namespace):
         if not venv_python.exists():
             log_warn("Virtual environment not found. Running setup first...")
             subprocess.run([str(mcp_dir / "setup_venv.sh")], cwd=str(mcp_dir))
-        # Link and enable systemd user service
+        # Generate the systemd service file dynamically from template
+        service_template = mcp_dir / "lab-mcp.service.template"
         service_file = mcp_dir / "lab-mcp.service"
+        if service_template.exists():
+            content = service_template.read_text()
+            service_file.write_text(content.replace("{{REPO_PATH}}", str(REPO_ROOT)))
+
+        # Link and enable systemd user service
         subprocess.run(
             ["systemctl", "--user", "link", str(service_file)],
             check=False,
