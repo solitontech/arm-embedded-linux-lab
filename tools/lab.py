@@ -429,7 +429,13 @@ def cmd_ssh(args: argparse.Namespace):
         sys.exit(1)
         
     print(f"[INFO] Connecting to {board} at {user}@{ip}:{port} via SSH...")
-    cmd = ["ssh", "-p", port, f"{user}@{ip}"]
+    cmd = [
+        "ssh",
+        "-o", "StrictHostKeyChecking=no",
+        "-o", "UserKnownHostsFile=/dev/null",
+        "-p", port,
+        f"{user}@{ip}",
+    ]
     
     # Check if a custom key is specified
     ssh_key = env.get("TARGET_SSH_KEY")

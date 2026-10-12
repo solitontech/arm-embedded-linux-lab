@@ -73,51 +73,73 @@ sudo chmod +x /tmp/rpi-rootfs/etc/init.d/rcS
 
 The base BusyBox rootfs only provides a serial console. To enable remote access via `./lab ssh --board=rpi4`, cross-compile **Dropbear** — a lightweight SSH server designed for embedded systems.
 
-### 6.1 Cross-Compile Dropbear
+### 6.1 Install Cross-Architecture Dependencies
+
+Dropbear needs `crypt()` for password authentication. Install the AArch64 `libcrypt-dev` inside the Docker container:
+
+```bash
+# Inside Docker container (as root / with sudo)
+sudo dpkg --add-architecture arm64
+echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main universe" \
+    | sudo tee /etc/apt/sources.list.d/arm64-ports.list
+echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main universe" \
+    | sudo tee -a /etc/apt/sources.list.d/arm64-ports.list
+sudo apt-get update
+sudo apt-get install -y libcrypt-dev:arm64 autoconf
+```
+
+### 6.2 Cross-Compile Dropbear
 
 ```bash
 # Inside Docker container
-cd /workspace
+cd /tmp
 git clone --depth=1 --branch DROPBEAR_2024.86 https://github.com/mkj/dropbear.git
 cd dropbear
 
+# Generate configure script from autoconf
+autoconf && autoheader
+
 # Configure for AArch64 static build (no shared lib deps on target)
+ROOTFS=/workspace/nfs/rpi4-rootfs
 ./configure --host=aarch64-linux-gnu \
-    --prefix=/tmp/rpi-rootfs \
+    --prefix=${ROOTFS} \
     --disable-zlib \
     --enable-static \
     CC=aarch64-linux-gnu-gcc \
     LDFLAGS="-static"
 
 make -j$(nproc) PROGRAMS="dropbear dropbearkey dbclient scp"
-make install
+make install PROGRAMS="dropbear dropbearkey dbclient scp"
 ```
 
 This installs:
-- `/tmp/rpi-rootfs/sbin/dropbear` — SSH daemon
-- `/tmp/rpi-rootfs/bin/dropbearkey` — Host key generator
-- `/tmp/rpi-rootfs/bin/dbclient` — SSH client
-- `/tmp/rpi-rootfs/bin/scp` — Secure copy
+- `sbin/dropbear` — SSH daemon
+- `bin/dropbearkey` — Host key generator
+- `bin/dbclient` — SSH client
+- `bin/scp` — Secure copy
 
-### 6.2 Create Required Directories & Config
+> [!TIP]
+> Remove the installed manpages to save space: `sudo rm -rf ${ROOTFS}/share`
+
+### 6.3 Create Required Directories & Config
 
 ```bash
-ROOTFS=/tmp/rpi-rootfs
+ROOTFS=/workspace/nfs/rpi4-rootfs
 
-# Dropbear host key directory
-sudo mkdir -p ${ROOTFS}/etc/dropbear
+# Dropbear host key directory (keys are generated at first boot by rcS)
+mkdir -p ${ROOTFS}/etc/dropbear
 
 # Password and shadow files (root with no password — lab use only)
-sudo tee ${ROOTFS}/etc/passwd > /dev/null <<'EOF'
+tee ${ROOTFS}/etc/passwd > /dev/null <<'EOF'
 root::0:0:root:/root:/bin/sh
 EOF
 
-sudo tee ${ROOTFS}/etc/group > /dev/null <<'EOF'
+tee ${ROOTFS}/etc/group > /dev/null <<'EOF'
 root:x:0:
 EOF
 
 # /etc/shells (required by some SSH implementations)
-sudo tee ${ROOTFS}/etc/shells > /dev/null <<'EOF'
+tee ${ROOTFS}/etc/shells > /dev/null <<'EOF'
 /bin/sh
 EOF
 ```
@@ -125,49 +147,33 @@ EOF
 > [!CAUTION]
 > This configures root with **no password** — suitable for an isolated lab network only. For any network-exposed setup, set a password with `chpasswd` after first boot or use key-only authentication.
 
-### 6.3 Update `rcS` to Start Networking & Dropbear
+### 6.4 Update `rcS` to Start Networking & Dropbear
 
-Replace the `rcS` script from step 5 with this expanded version:
+The committed `nfs/rpi4-rootfs/etc/init.d/rcS` already handles Dropbear startup. The key additions over the base script from step 5 are:
 
-```bash
-#!/bin/sh
-# /etc/init.d/rcS - System startup script
+- **Network fallback**: The kernel `ip=` boot parameter configures eth0 during NFS mount. `rcS` detects this and only runs `ifconfig` as a fallback if eth0 has no IP.
+- **Host key generation**: On first boot, ed25519 and RSA host keys are generated and persisted on the NFS rootfs.
+- **Dropbear daemon**: Started with `-R` (generate missing keys) and `-B` (allow blank passwords for the lab's passwordless root).
+- **Console detection**: Parses `console=` from `/proc/cmdline` so output goes to the correct serial device.
 
-# Mount pseudo filesystems
-mount -t proc proc /proc
-mount -t sysfs sysfs /sys
-mount -t devtmpfs devtmpfs /dev
-mkdir -p /dev/pts
-mount -t devpts devpts /dev/pts
+See the committed [rcS](../../nfs/rpi4-rootfs/etc/init.d/rcS) for the full script.
 
-# Configure network (static IP matching shared/boards/rpi4.env)
-ifconfig eth0 192.168.1.150 netmask 255.255.255.0 up
-route add default gw 192.168.1.1
+### 6.5 Verify SSH
 
-# Generate host keys on first boot (persisted on SD/NFS rootfs)
-if [ ! -f /etc/dropbear/dropbear_rsa_host_key ]; then
-    echo "[init] Generating Dropbear host keys..."
-    dropbearkey -t rsa -f /etc/dropbear/dropbear_rsa_host_key
-    dropbearkey -t ecdsa -f /etc/dropbear/dropbear_ecdsa_host_key
-fi
-
-# Start SSH daemon
-dropbear -R -B
-
-echo "=========================================================="
-echo " Soliton ARM Embedded Linux Lab — Pi 4 Bringup"
-echo " Kernel: $(uname -r) on $(uname -m)"
-echo " SSH:    root@$(ifconfig eth0 | grep 'inet ' | awk '{print $2}'):22"
-echo "=========================================================="
-```
-
-### 6.4 Verify SSH
-
-After booting, from your host:
+After booting the Pi, from inside the Docker container or host:
 ```bash
 ./lab ssh --board=rpi4
 # or directly:
-ssh root@192.168.1.150
+ssh -o StrictHostKeyChecking=no root@192.168.1.150
+```
+
+The boot banner on the serial console will show the SSH address:
+```text
+==========================================================
+ Welcome to Soliton ARM Embedded Linux Lab
+ Kernel: 6.6.y on aarch64
+ SSH:    root@192.168.1.150:22
+==========================================================
 ```
 
 ---

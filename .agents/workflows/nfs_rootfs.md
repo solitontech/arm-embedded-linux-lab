@@ -62,11 +62,13 @@ chmod 1777 tmp
 
 ### 5. Verify or create essential config files
 
-Check that `etc/inittab` and `etc/init.d/rcS` exist and are correct. The committed versions work for a minimal serial-console boot. For SSH access, follow `docs/raspi4/rootfs_busybox.md` section 6 to add Dropbear.
+Check that `etc/inittab` and `etc/init.d/rcS` exist and are correct. The committed versions include networking setup and Dropbear SSH daemon startup. To rebuild Dropbear from source, follow `docs/raspi4/rootfs_busybox.md` section 6.
 
 ```bash
 cat /workspace/nfs/rpi4-rootfs/etc/inittab
 cat /workspace/nfs/rpi4-rootfs/etc/init.d/rcS
+# Verify Dropbear binary is present
+ls -l /workspace/nfs/rpi4-rootfs/sbin/dropbear
 ```
 
 ### 6. Verify the NFS export is live
@@ -99,8 +101,14 @@ Power on the Pi. In the serial console you should see:
  Welcome to Soliton ARM Embedded Linux Lab — Pi 4 Bringup
  Kernel: 6.6.y on aarch64
 ==========================================================
-Please press Enter to activate this console.
+ SSH:    root@192.168.1.150:22
+==========================================================
 / #
+```
+
+After boot, verify SSH from inside Docker or from the host:
+```bash
+./lab ssh --board=rpi4
 ```
 
 ### 8. Commit the updated rootfs
@@ -116,6 +124,8 @@ Only commit files you intentionally changed. The `dev/`, `proc/`, `sys/`, `tmp/`
 ## Files Touched
 
 - `[MODIFY]` `nfs/rpi4-rootfs/` — rebuilt BusyBox binary and symlinks
+- `[MODIFY]` `nfs/rpi4-rootfs/sbin/dropbear`, `bin/dropbearkey`, `bin/dbclient`, `bin/scp` — Dropbear SSH binaries
+- `[MODIFY]` `nfs/rpi4-rootfs/etc/passwd`, `etc/group`, `etc/shells` — userspace config for SSH login
 - `[MODIFY]` `nfs/rpi4-rootfs/etc/inittab` — if init config changed
 - `[MODIFY]` `nfs/rpi4-rootfs/etc/init.d/rcS` — if startup script changed
 - `[MODIFY]` `shared/bsp/rpi4/boot.cmd` + `boot.scr` — only if NFS path or IP changed

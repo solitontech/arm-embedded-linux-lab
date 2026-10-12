@@ -23,8 +23,9 @@ shared/boot/build/**/*.cmd
 modules.order
 Module.symvers
 
-# nfs rootfs files
+# nfs rootfs — runtime and generated files
 nfs/rpi4-rootfs/.ash_history
+nfs/rpi4-rootfs/etc/dropbear/*_host_key
 
 # IDE & Editor files
 .vscode/

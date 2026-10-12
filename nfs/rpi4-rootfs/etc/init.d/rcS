@@ -22,7 +22,30 @@ if [ -r /proc/cmdline ]; then
 fi
 exec >"${CONSOLE}" 2>&1
 
+# --- Networking ---
+# The kernel ip= boot parameter configures eth0 during NFS root mount.
+# This block is a fallback for non-NFS boots or if ip= is absent.
+if ! ifconfig eth0 2>/dev/null | grep -q "inet "; then
+    ifconfig eth0 192.168.1.150 netmask 255.255.255.0 up
+    route add default gw 192.168.1.1 2>/dev/null
+fi
+
+# --- Dropbear SSH server ---
+# Generate host keys on first boot (persisted on NFS rootfs)
+if [ ! -f /etc/dropbear/dropbear_ed25519_host_key ]; then
+    printf '[init] Generating Dropbear host keys...\r\n'
+    dropbearkey -t ed25519 -f /etc/dropbear/dropbear_ed25519_host_key 2>/dev/null
+    dropbearkey -t rsa -s 2048 -f /etc/dropbear/dropbear_rsa_host_key 2>/dev/null
+fi
+
+# Start SSH daemon (-R = generate missing keys, -B = allow blank passwords)
+dropbear -R -B
+SSH_IP=$(ifconfig eth0 2>/dev/null | sed -n 's/.*inet addr:\([^ ]*\).*/\1/p')
+[ -z "${SSH_IP}" ] && SSH_IP=$(ifconfig eth0 2>/dev/null | sed -n 's/.*inet \([^ ]*\).*/\1/p')
+
 printf '%s\r\n' '=========================================================='
 printf '%s\r\n' ' Welcome to Soliton ARM Embedded Linux Lab'
 printf ' Kernel: %s on %s\r\n' "$(uname -r)" "$(uname -m)"
+printf ' SSH:    root@%s:22\r\n' "${SSH_IP:-unknown}"
 printf '%s\r\n' '=========================================================='
+
