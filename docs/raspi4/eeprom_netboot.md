@@ -1,18 +1,29 @@
 # Raspberry Pi 4: Eliminating the SD Card — Full Network Boot via EEPROM
 
-The RPi4 SPI EEPROM bootloader (not the SD card) is the true first stage. It can be **reprogrammed to boot over the network (PXE/TFTP)** without any SD card at all. After a one-time EEPROM update, the Pi contacts a DHCP+TFTP server on power-on and downloads the entire boot chain.
+The RPi4 SPI EEPROM bootloader (not the SD card) is the true first stage. It can be **reprogrammed to boot over the network (PXE/TFTP)** without any SD card at all. After a one-time EEPROM update, the Pi contacts a DHCP server on power-on, fetches the entire boot chain via TFTP, and mounts its root filesystem over NFS.
+
+This guide uses the **Docker container's TFTP server** (already part of the lab infrastructure) as the single TFTP source for both the EEPROM firmware stage and the U-Boot kernel stage. dnsmasq provides DHCP only.
 
 ```mermaid
-flowchart TD
-    subgraph "After EEPROM reprogramming — no SD card"
-        A["Power On"] --> B["SPI EEPROM Bootloader"]
-        B --> C["Ethernet: DHCP request"]
-        C --> D["DHCP Server (dnsmasq) on Host"]
-        D --> E["TFTP: start4.elf, fixup4.dat, config.txt"]
-        E --> F["TFTP: u-boot.bin"]
-        F --> G["U-Boot: boot.scr"]
-        G --> H["TFTP: Image + DTB"]
-        H --> I["NFS: mount rootfs"]
+flowchart LR
+    subgraph EEPROM["SPI EEPROM Stage"]
+        A["Power On"] --> B["EEPROM Bootloader"]
+        B --> C["DHCP Request"]
+    end
+
+    subgraph HOST["Host (192.168.1.220)"]
+        C --> D["dnsmasq\nDHCP reply + TFTP IP"]
+    end
+
+    subgraph TFTP["Docker TFTP (port 69)"]
+        D --> E["start4.elf\nfixup4.dat\nconfig.txt"]
+        E --> F["u-boot.bin\nboot.scr"]
+        F --> G["Image\nbcm2711-rpi-4-b.dtb"]
+    end
+
+    subgraph BOOT["Kernel + Rootfs"]
+        G --> H["NFS mount\nrpi4-rootfs"]
+        H --> I["Dropbear SSH\n./lab ssh --board=rpi4"]
     end
 ```
 
@@ -21,41 +32,71 @@ flowchart TD
 
 ---
 
-## 1. One-Time EEPROM Reprogramming (Requires SD Card Once)
+## Prerequisites
 
-This step needs a running RPi OS on an SD card (or a USB drive). Do it once, then discard the card.
+- Docker container built and runnable. See [Docker Setup Skill](../../.agents/skills/docker-setup/SKILL.md).
+- BSP firmware files present in `shared/bsp/rpi4/` (committed in the repo).
+- Host Ethernet interface connected to the Pi on the `192.168.1.0/24` subnet.
 
-### Step 1 — Boot an Official RPi OS Image
-Flash the latest **Raspberry Pi OS Lite (64-bit)** with [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to a microSD card and boot it. This gives you access to `rpi-eeprom-config`.
+---
 
-### Step 2 — Check Current EEPROM Bootloader Version
+## 1. One-Time EEPROM Reprogramming
+
+The EEPROM must be programmed once with `BOOT_ORDER=0xf21` (network-first) and `TFTP_PREFIX=0` (flat directory). After that, the SD card is no longer needed.
+
+### Method A — From the Current Setup (Recommended)
+
+Your current SD card already has a boot partition with U-Boot. You can flash the EEPROM using the GPU **recovery mode** — no RPi OS required. A helper script automates the process:
+
+#### Step 1 — Generate the EEPROM recovery files
 ```bash
-sudo rpi-eeprom-update
+# From the repo root (host machine)
+./tools/eeprom/prepare_netboot.sh
 ```
 
-### Step 3 — Extract and Edit EEPROM Config
-```bash
-# Dump the current EEPROM config to a file
-sudo rpi-eeprom-config --out /tmp/boot.conf
-```
+This downloads the official EEPROM firmware and `recovery.bin` from the [rpi-eeprom](https://github.com/raspberrypi/rpi-eeprom) repository, patches in the netboot config, and outputs ready-to-flash files in `tools/eeprom/output/`.
 
-The critical field is `BOOT_ORDER`. Update `/tmp/boot.conf`:
+The patched config:
 ```ini
 [all]
 BOOT_UART=1
-
-# Boot order: try network first (0x2), then USB (0x4), then SD (0x1) as fallback
-# Digits are tried right-to-left
-BOOT_ORDER=0xf241
-
-# Timeout before moving to next boot mode (100ms units)
+BOOT_ORDER=0xf21
 BOOT_ORDER_TIMEOUT=5
-
-# Allow Network boot without SD/USB present
+TFTP_PREFIX=0
 NETWORK_INSTALL_ENABLED=1
 ```
 
-`BOOT_ORDER` digit meanings:
+#### Step 2 — Copy to the SD card boot partition
+```bash
+# Mount the SD card (path varies by OS — adjust as needed)
+cp tools/eeprom/output/recovery.bin  /media/$USER/bootfs/
+cp tools/eeprom/output/pieeprom.upd  /media/$USER/bootfs/
+```
+
+#### Step 3 — Flash the EEPROM
+1. Insert the SD card into the Pi and power on.
+2. The GPU detects `recovery.bin` and enters recovery mode instead of booting normally.
+3. The green activity LED flashes rapidly while the EEPROM is being written.
+4. On success, the Pi reboots automatically and `pieeprom.upd` is renamed to `pieeprom.upd.bak`.
+
+#### Step 4 — Remove the SD card
+Power off, remove the SD card. On next power-on, the Pi will attempt network boot via TFTP.
+
+### Method B — From RPi OS (Alternative)
+
+If you prefer to use the official `rpi-eeprom-config` tool on the Pi itself:
+
+1. Flash **Raspberry Pi OS Lite (64-bit)** with [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to a microSD card and boot it.
+2. Extract and edit the EEPROM config:
+   ```bash
+   sudo rpi-eeprom-config --out /tmp/boot.conf
+   # Edit /tmp/boot.conf with the settings shown above
+   sudo rpi-eeprom-config --apply /tmp/boot.conf
+   sudo rpi-eeprom-config   # verify
+   ```
+3. Reboot and remove the SD card.
+
+### BOOT_ORDER Reference
 
 | Digit | Mode |
 |:---:|:---|
@@ -64,21 +105,16 @@ NETWORK_INSTALL_ENABLED=1
 | `0x4` | USB mass storage |
 | `0xf` | Restart from first mode |
 
-### Step 4 — Flash the New Config
-```bash
-sudo rpi-eeprom-config --apply /tmp/boot.conf
-
-# Verify
-sudo rpi-eeprom-config
-```
-
-Reboot and remove the SD card — the Pi will now attempt network boot on next power-on.
+Digits are tried right-to-left. `0xf21` = try network, then SD, then restart.
 
 ---
 
-## 2. Host DHCP + TFTP Server Setup (dnsmasq)
+## 2. Host DHCP Server Setup (dnsmasq — DHCP Only)
 
-The Pi's EEPROM sends a DHCP broadcast over Ethernet. The host must answer with an IP and a TFTP server path pointing to the firmware files.
+The Pi's EEPROM sends a DHCP broadcast over Ethernet. The host must answer with an IP and the address of the TFTP server. **TFTP is already served by the Docker container** (tftpd-hpa on port 69 with `--network host`), so dnsmasq only needs to provide DHCP.
+
+> [!WARNING]
+> Do **not** enable `enable-tftp` in dnsmasq — it would conflict with the Docker container's TFTP server on port 69. dnsmasq handles DHCP only; Docker handles TFTP and NFS.
 
 ### Install dnsmasq
 ```bash
@@ -88,50 +124,30 @@ sudo apt install -y dnsmasq
 
 ### Configure `/etc/dnsmasq.conf`
 
-Replace or append (adjust interface and IP range for your network):
+Replace or append (adjust interface for your network):
 ```ini
 # ================================================================
-# dnsmasq — DHCP + TFTP for RPi4 network boot (no SD card)
+# dnsmasq — DHCP only for RPi4 network boot
+# TFTP is served by the Docker container (port 69, --network host)
 # ================================================================
 
 # Listen only on the LAN interface connected to the Pi
 interface=enp2s0           # <-- change to your host's LAN interface
 bind-interfaces
 
-# DHCP range — hand out one IP (or a range) to the Pi
+# DHCP range — hand out IPs to the Pi
 dhcp-range=192.168.1.150,192.168.1.160,255.255.255.0,12h
 
 # Assign a predictable IP to the Pi by MAC (recommended)
 # dhcp-host=dc:a6:32:xx:xx:xx,rpi4,192.168.1.150
 
-# TFTP server root — all firmware files go here
-enable-tftp
-tftp-root=/srv/tftp/rpi4
+# Point the EEPROM's TFTP client to the host IP (Docker TFTP runs there)
+dhcp-boot=start4.elf,,192.168.1.220
 
-# PXE boot file for RPi4 (EEPROM fetches this first)
-dhcp-boot=start4.elf
-
-# Log DHCP and TFTP activity
+# Log DHCP activity
 log-dhcp
 log-queries
 ```
-
-### Create TFTP Root and Populate Firmware
-```bash
-ROOT=/srv/tftp/rpi4
-sudo mkdir -p ${ROOT}
-
-# Copy RPi firmware (from shared/bsp/rpi4/ in the monorepo)
-REPO=/path/to/arm-embedded-linux-lab   # <-- adjust to your local clone
-
-sudo cp ${REPO}/shared/bsp/rpi4/start4.elf   ${ROOT}/
-sudo cp ${REPO}/shared/bsp/rpi4/fixup4.dat   ${ROOT}/
-sudo cp ${REPO}/shared/bsp/rpi4/config.txt   ${ROOT}/
-sudo cp ${REPO}/shared/bsp/rpi4/u-boot.bin   ${ROOT}/
-sudo cp ${REPO}/shared/bsp/rpi4/boot.scr     ${ROOT}/
-```
-
-Kernel and DTB are still served by the Docker TFTP server (port 69) during U-Boot's `boot.scr`. If you want everything from one server, also copy these to `${ROOT}` and point U-Boot's `serverip` to the host.
 
 ### Restart dnsmasq
 ```bash
@@ -144,66 +160,156 @@ sudo systemctl status  dnsmasq
 
 ---
 
-## 3. Network Topology
+## 3. Populate the TFTP Directory
 
+The Docker container serves TFTP from `tftp/` in the repo root (mounted as `/workspace/tftp` inside the container). Copy all BSP firmware files there so the EEPROM, U-Boot, and kernel stages are all served from one location:
+
+```bash
+# From the repo root
+cp shared/bsp/rpi4/start4.elf   tftp/
+cp shared/bsp/rpi4/fixup4.dat   tftp/
+cp shared/bsp/rpi4/config.txt   tftp/
+cp shared/bsp/rpi4/u-boot.bin   tftp/
+cp shared/bsp/rpi4/boot.scr     tftp/
+cp shared/bsp/rpi4/Image        tftp/
+cp shared/bsp/rpi4/bcm2711-rpi-4-b.dtb tftp/
 ```
-┌─────────────────────────────────────────────────────┐
-│  Host Workstation (192.168.1.220)                   │
-│                                                     │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────┐  │
-│  │ dnsmasq      │  │ Docker TFTP  │  │ NFS      │  │
-│  │ DHCP + TFTP  │  │ (port 69)    │  │ Server   │  │
-│  │ /srv/tftp/   │  │ /workspace/  │  │ /srv/nfs/│  │
-│  │   rpi4/      │  │   tftp/      │  │   rpi4-  │  │
-│  └──────┬───────┘  └──────┬───────┘  │   rootfs │  │
-│         │                 │          └────┬─────┘  │
-└─────────┼─────────────────┼───────────────┼────────┘
-          │    Gigabit Ethernet (enp2s0)     │
-          └─────────────────┬───────────────┘
-                            │
-               ┌────────────▼──────────┐
-               │  Raspberry Pi 4       │
-               │  192.168.1.150        │
-               │  (no SD card)         │
-               └───────────────────────┘
+
+Start (or restart) the Docker container so the TFTP server picks up the files:
+```bash
+./tools/docker/run.sh run
+```
+
+Verify from inside the container:
+```bash
+ls /workspace/tftp/
+# Expected: Image  bcm2711-rpi-4-b.dtb  boot.scr  config.txt
+#           fixup4.dat  start4.elf  u-boot.bin
 ```
 
 ---
 
-## 4. Verifying Network Boot
+## 4. Network Topology
 
-Watch dnsmasq logs while powering on the Pi:
+All three network services run inside the Docker container with `--network host`. dnsmasq runs directly on the host and provides DHCP only.
+
+```mermaid
+graph TD
+    subgraph HOST["Host Workstation (192.168.1.220)"]
+        subgraph DNSMASQ["dnsmasq — DHCP only (port 67)"]
+            D1["Hands out IP + TFTP server address"]
+        end
+        subgraph DOCKER["Docker Container (--network host, --privileged)"]
+            T["tftpd-hpa (port 69)<br/>/workspace/tftp/"]
+            N["NFS Server (port 2049)<br/>/workspace/nfs/rpi4-rootfs/"]
+        end
+    end
+
+    subgraph PI["Raspberry Pi 4 — 192.168.1.150 (no SD card)"]
+        P1["EEPROM → DHCP → TFTP → U-Boot → Kernel"]
+        P2["NFS rootfs + Dropbear SSH :22"]
+        P1 --> P2
+    end
+
+    D1 -- "DHCP offer + TFTP IP" --> PI
+    T  -- "start4.elf, u-boot.bin,<br/>Image, DTB, boot.scr" --> PI
+    N  -- "NFS root mount" --> PI
+```
+
+---
+
+## 5. Verifying Network Boot
+
+### 5.1 Watch DHCP Handshake
 ```bash
 sudo journalctl -fu dnsmasq
 ```
 
-Expected sequence:
+Expected:
 ```text
 dnsmasq-dhcp: DHCPDISCOVER(enp2s0) dc:a6:32:xx:xx:xx
 dnsmasq-dhcp: DHCPOFFER(enp2s0)    192.168.1.150 dc:a6:32:xx:xx:xx
-dnsmasq-tftp: sent /srv/tftp/rpi4/start4.elf
-dnsmasq-tftp: sent /srv/tftp/rpi4/fixup4.dat
-dnsmasq-tftp: sent /srv/tftp/rpi4/config.txt
-dnsmasq-tftp: sent /srv/tftp/rpi4/u-boot.bin
-dnsmasq-tftp: sent /srv/tftp/rpi4/boot.scr
 ```
 
-Then U-Boot fetches `Image` and `bcm2711-rpi-4-b.dtb` via TFTP (Docker TFTP server), and the kernel mounts the NFS rootfs.
+### 5.2 Watch TFTP Transfers (Serial Console)
+
+Open the serial console before powering on:
+```bash
+./lab console --board=rpi4
+```
+
+After power-on, the EEPROM stage downloads firmware via TFTP, then U-Boot runs `boot.scr` to fetch the kernel and DTB. The full boot sequence on serial:
+```text
+Net:   eth0: bcmgenet
+TFTP from server 192.168.1.220; our IP address is 192.168.1.150
+Filename 'start4.elf'.
+...
+==> Soliton ARM Embedded Linux Lab
+==> Fetching kernel Image via TFTP...
+==> Fetching Device Tree Blob via TFTP...
+==> Booting Linux kernel...
+[    2.xxx] NFS: Mounting 192.168.1.220:/workspace/nfs/rpi4-rootfs on /
+==========================================================
+ Welcome to Soliton ARM Embedded Linux Lab
+ Kernel: 6.6.y on aarch64
+ SSH:    root@192.168.1.150:22
+==========================================================
+```
+
+### 5.3 Verify SSH Access
+
+Once the banner appears:
+```bash
+./lab ssh --board=rpi4
+```
+
+### 5.4 Run Diagnostics
+
+From inside the Docker container:
+```bash
+./lab doctor
+```
 
 ---
 
-## 5. Troubleshooting
+## 6. Host Firewall Rules
 
-### Issue 1: EEPROM Netboot — Pi Gets IP but TFTP Fails
-* Confirm `start4.elf` is in the TFTP root (`/srv/tftp/rpi4/`).
-* Check dnsmasq logs: `sudo journalctl -fu dnsmasq`.
-* Port 69 (TFTP UDP) must not be blocked by firewall: `sudo ufw allow 69/udp`.
-* Ensure dnsmasq is bound to the correct interface (`interface=enp2s0`).
+If UFW is active on the host, allow all required ports:
+```bash
+sudo ufw allow 67/udp       # DHCP (dnsmasq)
+sudo ufw allow 69/udp       # TFTP (Docker tftpd-hpa)
+sudo ufw allow 2049/tcp     # NFS
+sudo ufw allow 2049/udp
+sudo ufw allow 111/tcp      # rpcbind
+sudo ufw allow 111/udp
+sudo ufw allow 20048/tcp    # NFS mountd (fixed port)
+sudo ufw allow 20048/udp
+```
 
-### Issue 2: EEPROM Netboot — Pi Does Not Send DHCP Request
-* EEPROM boot order did not take effect. Re-verify with `sudo rpi-eeprom-config`.
-* Make sure Ethernet cable is connected **before** powering on (EEPROM checks link state).
-* Try `BOOT_ORDER=0xf2` (network-only, no fallback) to force network-only mode and see UART output.
+---
+
+## 7. Troubleshooting
+
+### Pi gets IP but TFTP fails
+- Confirm firmware files are in `tftp/`: `ls tftp/start4.elf`
+- Check the Docker TFTP server is running: `./tools/docker/run.sh exec ls /workspace/tftp/`
+- Port 69 (UDP) must not be blocked: `sudo ufw allow 69/udp`
+- Verify `TFTP_PREFIX=0` is set in EEPROM config — without it, the Pi requests `<serial>/start4.elf` which won't exist in the flat `tftp/` directory
+
+### Pi does not send DHCP request
+- EEPROM boot order did not take effect. Re-verify: `sudo rpi-eeprom-config`
+- Ethernet cable must be connected **before** powering on (EEPROM checks link state)
+- Try `BOOT_ORDER=0xf2` (network-only, no fallback) to isolate the issue
+- Enable `BOOT_UART=1` in EEPROM config and watch serial output for EEPROM-stage diagnostics
+
+### dnsmasq fails to start
+- Another DHCP server may hold port 67: `sudo ss -ulnp | grep :67`
+- Disable NetworkManager's built-in DHCP for the Pi-facing interface, or set `bind-interfaces` in dnsmasq to avoid conflicts
+
+### SSH connection refused after boot
+- Verify Dropbear is running on the Pi: `./lab console --board=rpi4` then `ps | grep dropbear`
+- Check `rcS` started networking: `ifconfig eth0` should show `192.168.1.150`
+- See [Adding SSH Access (Dropbear)](rootfs_busybox.md#6-adding-ssh-access-dropbear) for setup details
 
 ---
 

@@ -57,6 +57,7 @@ Whenever any infrastructure file changes, the corresponding skill and/or workflo
 | MCP server (`tools/mcp/`) | `.agents/skills/lab-mcp/SKILL.md` |
 | `tools/lab.py` (`mcp` subcommand) | `.agents/skills/deploy-and-run/SKILL.md` |
 | New project scaffold template | `.agents/workflows/new_project.md` |
+| EEPROM tooling (`tools/eeprom/`) | `.agents/skills/eeprom-netboot/SKILL.md` |
 
 If you create a new infrastructure file or tool, also create a new skill or workflow documenting it.
 

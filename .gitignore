@@ -53,5 +53,8 @@ tools/mcp/venv/
 tools/mcp/logs/*.log
 tools/mcp/lab-mcp.service
 
+# EEPROM tool — downloaded firmware and generated binaries
+tools/eeprom/output/
+
 # Buildroot & large output trees
 buildroot/output/
