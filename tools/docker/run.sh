@@ -303,6 +303,18 @@ cmd_push() {
     ok "Pushed: ${full_name}"
 }
 
+cmd_status() {
+    check_docker
+    if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        local status
+        status="$(docker inspect --format='{{.State.Status}}' "${CONTAINER_NAME}" 2>/dev/null || echo "running")"
+        ok "Container '${CONTAINER_NAME}' is ${status}."
+    else
+        warn "Container '${CONTAINER_NAME}' is not running."
+        return 1
+    fi
+}
+
 # ── Dispatch ─────────────────────────────────────────────────────────────────
 COMMAND="${1:-help}"
 shift || true
@@ -312,6 +324,7 @@ case "$COMMAND" in
     build)  cmd_build ;;
     run)    cmd_run ;;
     stop)   cmd_stop ;;
+    status) cmd_status ;;
     attach) cmd_attach ;;
     exec)   cmd_exec "$@" ;;
     push)   cmd_push ;;
@@ -323,6 +336,7 @@ case "$COMMAND" in
         echo "  build           Build the development Docker image"
         echo "  run             Start an interactive container (repo mounted at /workspace)"
         echo "  stop            Stop and remove the running container"
+        echo "  status          Show whether the container is running"
         echo "  attach          Reconnect/open a shell into the already running container"
         echo "  exec <cmd>      Run a command inside the running container"
         echo "  push            Push the image to \$REGISTRY (set REGISTRY env var)"

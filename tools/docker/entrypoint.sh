@@ -99,6 +99,7 @@ if [[ -n "${DNSMASQ_INTERFACE:-}" && -n "${HOST_IP:-}" ]]; then
     # Inject runtime values into the config
     sed -i "s/^# interface=.*/interface=${DNSMASQ_INTERFACE}/" "${_dnsmasq_conf}"
     sed -i "s/^# dhcp-boot=.*/dhcp-boot=start4.elf,,${HOST_IP}/" "${_dnsmasq_conf}"
+    sed -i "s/^dhcp-option=66,.*/dhcp-option=66,${HOST_IP}/" "${_dnsmasq_conf}"
 
     # Stop any host-inherited dnsmasq, then start ours (daemonises itself)
     killall dnsmasq 2>/dev/null || true

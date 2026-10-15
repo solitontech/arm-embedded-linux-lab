@@ -10,6 +10,42 @@ This is a professional embedded Linux monorepo supporting multiple projects and 
 
 **Generic OS/Cross-platform Support:** Always consider Windows, macOS, and Linux when developing generic approaches or infrastructure. Scripts and workflows should ideally support all OS environments. Avoid hardcoding OS-specific paths (like `/Volumes/bootfs` for macOS) when a cross-platform solution (e.g. dynamic mount detection) is possible.
 
+## Network Services Are Docker-Only
+
+**TFTP and NFS are served exclusively from the Docker container — never from the host directly.**
+
+- `tftpd-hpa` (port 69) serves all boot files: `start4.elf`, `fixup4.dat`, `config.txt`, `u-boot.bin`, `boot.scr`, `Image`, DTB
+- `nfs-kernel-server` (port 2049) exports the root filesystem at `/workspace/nfs/rpi4-rootfs/`
+- `dnsmasq` (port 67) provides DHCP for network boot (EEPROM stage)
+
+**Before any agent task involving network boot, TFTP, or NFS rootfs:**
+1. Always check Docker is running: `./lab docker status` or `docker ps | grep arm-lab-dev`
+2. If not running, start it: `./lab docker run` (auto-detects board profile for HOST_INTERFACE/HOST_IP)
+3. Verify TFTP files are present: `./lab docker exec ls /workspace/tftp/`
+
+**This applies to:**
+- EEPROM netboot (Pi fetches `start4.elf` via TFTP from Docker)
+- U-Boot TFTP boot (Pi fetches `Image` + DTB via TFTP from Docker)
+- NFS rootfs mount (Pi mounts root over NFS from Docker)
+- `lab_docker_exec` MCP tool calls (require the container to be up)
+
+## Docker Development Environment
+
+**Always use `./lab docker` to control the container — never call `./tools/docker/run.sh` or raw `docker` commands directly.**
+
+The `lab` CLI is the single authoritative interface for Docker management:
+
+| Command | Purpose |
+|---|---|
+| `./lab docker run` | Start the container (reads HOST_INTERFACE/HOST_IP from board profile) |
+| `./lab docker run --board rpi4` | Start with explicit board profile |
+| `./lab docker build` | Rebuild the Docker image |
+| `./lab docker stop` | Stop the container |
+| `./lab docker attach` | Attach to running container shell |
+| `./lab docker exec <cmd>` | Run a single command inside the container |
+
+This ensures HOST_INTERFACE and HOST_IP are always correctly injected from the board profile, so dnsmasq starts with the right network interface.
+
 ## README Principles
 
 **Keep `README.md` concise, high-level, and clean.**
@@ -72,7 +108,7 @@ Available commands: `list`, `new`, `info`, `build`, `clean`, `deploy`, `run`, `r
 For cross-compilation on a fresh workstation (any OS), use the Docker environment:
 - **Skill:** `.agents/skills/docker-setup/SKILL.md`
 - **Workflow:** `.agents/workflows/docker_setup.md`
-- **Helper script:** `tools/docker/run.sh build | run | exec <cmd>`
+- **Docker CLI:** `./lab docker run | build | stop | exec <cmd> | status`
 
 ## MCP Server (Hardware Tool Bridge)
 

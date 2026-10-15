@@ -32,7 +32,7 @@ The script automatically:
 1. Queries GitHub for the latest stable EEPROM firmware (`firmware-2711/default/`)
 2. Downloads `recovery.bin` and the firmware binary
 3. Downloads `rpi-eeprom-config` (standalone Python tool)
-4. Patches the binary with netboot config (`BOOT_ORDER=0xf21`, `TFTP_PREFIX=0`)
+4. Patches the binary with netboot config (`BOOT_ORDER=0xf12`, `TFTP_IP=<host>`, `TFTP_PREFIX=0`)
 5. Outputs `recovery.bin` + `pieeprom.upd` in `tools/eeprom/output/`
 
 ### Step 2: Populate the TFTP Directory
@@ -49,6 +49,8 @@ cp shared/bsp/rpi4/bcm2711-rpi-4-b.dtb tftp/
 ### Step 3: Copy Recovery Files to SD Card
 ```bash
 cp tools/eeprom/output/recovery.bin  /media/$USER/bootfs/
+cp tools/eeprom/output/pieeprom.bin  /media/$USER/bootfs/
+cp tools/eeprom/output/pieeprom.sig  /media/$USER/bootfs/
 cp tools/eeprom/output/pieeprom.upd  /media/$USER/bootfs/
 ```
 
@@ -75,8 +77,14 @@ cp tools/eeprom/output/pieeprom.upd  /media/$USER/bootfs/
 | `tools/eeprom/output/` | Generated files (gitignored) |
 | `docs/raspi4/eeprom_netboot.md` | Full documentation with dnsmasq setup, topology, troubleshooting |
 
-## Notes
+## Notes & Troubleshooting
 - The `tools/eeprom/output/` directory is gitignored — generated files are not committed.
 - The EEPROM config sets `TFTP_PREFIX=0` so the Pi requests files from a flat directory (e.g., `start4.elf`, not `<serial>/start4.elf`).
 - dnsmasq provides DHCP only (no TFTP) — the Docker container's tftpd-hpa on port 69 serves all files.
+- **Host Firewall (UFW):** Host firewalls drop DHCP broadcasts by default. Always ensure UDP port 67 is open on the host:
+  ```bash
+  sudo ufw allow 67/udp
+  ```
+  Without this, corporate DHCP will answer U-Boot and inject a wrong TFTP server IP (Option 66).
+- **PXE DTB Memory Overwrite:** Do NOT specify `fdt` in `tftp/pxelinux.cfg/default`. U-Boot's default `fdt_addr_r` is `0x02600000`. Kernels larger than 36MB (e.g. 41.5MB 64-bit kernels) will overwrite `0x02600000` during relocation, causing `Did not find a cmdline Flattened Device Tree`. Omitting `fdt` lets U-Boot safely use the VideoCore firmware-supplied FDT (`$fdt_addr`) in protected high memory.
 - If you need to change the EEPROM config later, edit the `boot.conf` section in `prepare_netboot.sh` and re-run.

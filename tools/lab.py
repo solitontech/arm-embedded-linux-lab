@@ -1017,7 +1017,7 @@ def main():
 
     # docker
     p_docker = subparsers.add_parser("docker", help="Enter the Docker development environment")
-    p_docker.add_argument("action", nargs="?", default=None, help="Docker action (run, build, stop, attach, exec). Default: run")
+    p_docker.add_argument("action", nargs="?", default=None, help="Docker action (run, build, stop, attach, exec, status). Default: run")
     p_docker.add_argument("--board", help="Board profile to read HOST_INTERFACE/HOST_IP from (auto-detected if only one board exists)")
     p_docker.add_argument("extra", nargs="*", help="Extra arguments passed to docker helper")
     p_docker.set_defaults(func=cmd_docker)

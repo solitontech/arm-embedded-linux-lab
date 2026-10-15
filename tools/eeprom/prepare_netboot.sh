@@ -102,16 +102,21 @@ else
 fi
 
 # ── Step 5: Create netboot config ────────────────────────────────────────────
+HOST_IP="${HOST_IP:-192.168.1.220}"
 BOOT_CONF="${OUTPUT_DIR}/boot.conf"
-cat > "${BOOT_CONF}" <<'CONF'
+cat > "${BOOT_CONF}" <<CONF
 [all]
 BOOT_UART=1
 
-# Network first (0x2), then SD fallback (0x1); 0xf restarts the sequence
-BOOT_ORDER=0xf21
+# Network first (0x2), then SD fallback (0x1); 0xf restarts the sequence.
+# Note: Raspberry Pi evaluates BOOT_ORDER right-to-left (least-significant nibble first).
+BOOT_ORDER=0xf12
 
 # Timeout before trying next boot mode (units of 100ms)
 BOOT_ORDER_TIMEOUT=5
+
+# Explicit TFTP server IP — overrides rogue or network DHCP Option 66
+TFTP_IP=${HOST_IP}
 
 # Flat TFTP directory — do not prepend the Pi serial number to requests
 TFTP_PREFIX=0
@@ -127,9 +132,23 @@ python3 "${RPI_EEPROM_CONFIG}" \
     --config "${BOOT_CONF}" \
     --out "${OUTPUT_DIR}/pieeprom.upd" \
     "${OUTPUT_DIR}/${PIEEPROM_BIN}"
-ok "Created patched EEPROM: ${OUTPUT_DIR}/pieeprom.upd"
+cp "${OUTPUT_DIR}/pieeprom.upd" "${OUTPUT_DIR}/pieeprom.bin"
+ok "Created patched EEPROM: ${OUTPUT_DIR}/pieeprom.bin and ${OUTPUT_DIR}/pieeprom.upd"
 
-# ── Step 7: Verify ──────────────────────────────────────────────────────────
+# ── Step 7: Generate signature/digest for recovery ───────────────────────────
+RPI_EEPROM_DIGEST="${OUTPUT_DIR}/rpi-eeprom-digest"
+if [[ ! -f "${RPI_EEPROM_DIGEST}" ]]; then
+    fetch "https://raw.githubusercontent.com/raspberrypi/rpi-eeprom/master/rpi-eeprom-digest" \
+          "${RPI_EEPROM_DIGEST}" 2>/dev/null || true
+    chmod +x "${RPI_EEPROM_DIGEST}" 2>/dev/null || true
+fi
+if [[ -x "${RPI_EEPROM_DIGEST}" ]]; then
+    info "Generating pieeprom.sig digest..."
+    "${RPI_EEPROM_DIGEST}" -i "${OUTPUT_DIR}/pieeprom.bin" -o "${OUTPUT_DIR}/pieeprom.sig"
+    ok "Generated: ${OUTPUT_DIR}/pieeprom.sig"
+fi
+
+# ── Step 8: Verify ──────────────────────────────────────────────────────────
 info "Verifying patched config:"
 python3 "${RPI_EEPROM_CONFIG}" "${OUTPUT_DIR}/pieeprom.upd"
 
@@ -141,12 +160,14 @@ echo -e "${BOLD}${GREEN}══════════════════�
 echo ""
 echo "  Files:"
 echo "    ${OUTPUT_DIR}/recovery.bin"
+echo "    ${OUTPUT_DIR}/pieeprom.bin"
+echo "    ${OUTPUT_DIR}/pieeprom.sig"
 echo "    ${OUTPUT_DIR}/pieeprom.upd"
 echo ""
 echo "  Next steps:"
 echo "    1. Mount the SD card boot partition"
 echo "    2. Copy the files:"
-echo "       cp ${OUTPUT_DIR}/recovery.bin ${OUTPUT_DIR}/pieeprom.upd /media/\$USER/bootfs/"
+echo "       cp ${OUTPUT_DIR}/recovery.bin ${OUTPUT_DIR}/pieeprom.bin ${OUTPUT_DIR}/pieeprom.sig ${OUTPUT_DIR}/pieeprom.upd /media/\$USER/bootfs/"
 echo "    3. Insert SD card into the Pi and power on"
 echo "    4. Wait for the green LED to flash rapidly (EEPROM is being written)"
 echo "    5. The Pi reboots automatically — remove the SD card"

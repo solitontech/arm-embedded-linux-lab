@@ -42,7 +42,7 @@ flowchart LR
 
 ## 1. One-Time EEPROM Reprogramming
 
-The EEPROM must be programmed once with `BOOT_ORDER=0xf21` (network-first) and `TFTP_PREFIX=0` (flat directory). After that, the SD card is no longer needed.
+The EEPROM must be programmed once with `BOOT_ORDER=0xf12` (network-first: rightmost nibble 0x2) and `TFTP_PREFIX=0` (flat directory). After that, the SD card is no longer needed.
 
 ### Method A — From the Current Setup (Recommended)
 
@@ -60,8 +60,9 @@ The patched config:
 ```ini
 [all]
 BOOT_UART=1
-BOOT_ORDER=0xf21
+BOOT_ORDER=0xf12
 BOOT_ORDER_TIMEOUT=5
+TFTP_IP=192.168.1.220
 TFTP_PREFIX=0
 NETWORK_INSTALL_ENABLED=1
 ```
@@ -70,6 +71,8 @@ NETWORK_INSTALL_ENABLED=1
 ```bash
 # Mount the SD card (path varies by OS — adjust as needed)
 cp tools/eeprom/output/recovery.bin  /media/$USER/bootfs/
+cp tools/eeprom/output/pieeprom.bin  /media/$USER/bootfs/
+cp tools/eeprom/output/pieeprom.sig  /media/$USER/bootfs/
 cp tools/eeprom/output/pieeprom.upd  /media/$USER/bootfs/
 ```
 
@@ -105,7 +108,7 @@ If you prefer to use the official `rpi-eeprom-config` tool on the Pi itself:
 | `0x4` | USB mass storage |
 | `0xf` | Restart from first mode |
 
-Digits are tried right-to-left. `0xf21` = try network, then SD, then restart.
+Digits are tried right-to-left. `0xf12` = try network (0x2), then SD (0x1), then restart (0xf).
 
 ---
 
@@ -308,6 +311,18 @@ sudo ufw allow 20048/udp
 ### dnsmasq fails to start
 - Another DHCP server may hold port 67: `sudo ss -ulnp | grep :67`
 - Disable NetworkManager's built-in DHCP for the Pi-facing interface, or set `bind-interfaces` in dnsmasq to avoid conflicts
+
+### U-Boot fetches from wrong TFTP IP (times out with T T T)
+- Corporate/office DHCP answered before the host because host UFW dropped DHCP port 67:
+  ```bash
+  sudo ufw allow 67/udp
+  ```
+- Ensure `dhcp-host=88:a2:9e:b3:cd:27,192.168.1.150,rpi4,infinite` and `dhcp-option=66,<HOST_IP>` are configured in `tools/docker/dnsmasq-netboot.conf`.
+
+### "ERROR: Did not find a cmdline Flattened Device Tree" / Boot failed (err=-14)
+- **Root cause:** U-Boot's default `fdt_addr_r` is `0x02600000`. When booting an arm64 uncompressed `Image` larger than ~36MB (our 64-bit kernel is ~41.5MB), U-Boot's `booti` relocation from `0x80000` to `0x200000` extends up to `0x2a40000`, clobbering the DTB loaded at `0x2600000`.
+- **Fix:** Do NOT specify `fdt` in `tftp/pxelinux.cfg/default`. Omitting `fdt` forces U-Boot to use the VideoCore firmware-supplied device tree (`$fdt_addr`) in protected high memory, which is never overwritten and includes all GPU-injected board nodes.
+- Also ensure `PROMPT 0` and `TIMEOUT 0` are in `pxelinux.cfg/default` for instant, non-interactive boot.
 
 ### SSH connection refused after boot
 - Verify Dropbear is running on the Pi: `./lab console --board=rpi4` then `ps | grep dropbear`

@@ -66,3 +66,7 @@ tools/eeprom/output/
 
 # Buildroot & large output trees
 buildroot/output/
+
+# Runtime services & source clones
+dnsmasq.log
+shared/rootfs/dropbear/
