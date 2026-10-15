@@ -17,6 +17,7 @@ Step-by-step guides for manual Linux bringup on the Raspberry Pi 4 Model B — f
 | [U-Boot, TFTP & NFS Boot](uboot_tftp_boot.md) | First boot, TFTP iteration loop, NFS rootfs, troubleshooting |
 | [EEPROM Network Boot](eeprom_netboot.md) | Eliminating the SD card entirely via EEPROM + dnsmasq |
 | [Network Boot Deep Dive](netboot_deep_dive.md) | Technical architecture, DHCP/dnsmasq deep dive, and case studies |
+| [Wireless Setup & Credentials](wifi_setup.md) | Enabling on-board Wi-Fi, firmware, and secure credential isolation |
 
 ---
 
