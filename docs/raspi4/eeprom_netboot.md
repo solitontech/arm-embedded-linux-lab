@@ -317,7 +317,7 @@ sudo ufw allow 20048/udp
   ```bash
   sudo ufw allow 67/udp
   ```
-- Ensure `dhcp-host=88:a2:9e:b3:cd:27,192.168.1.150,rpi4,infinite` and `dhcp-option=66,<HOST_IP>` are configured in `tools/docker/dnsmasq-netboot.conf`.
+- Ensure `dhcp-option=66,<HOST_IP>` is configured in `tools/docker/dnsmasq-netboot.conf`. Optionally pin your Pi's MAC with `dhcp-host=xx:xx:xx:xx:xx:xx,192.168.1.150,rpi4,infinite`.
 
 ### "ERROR: Did not find a cmdline Flattened Device Tree" / Boot failed (err=-14)
 - **Root cause:** U-Boot's default `fdt_addr_r` is `0x02600000`. When booting an arm64 uncompressed `Image` larger than ~36MB (our 64-bit kernel is ~41.5MB), U-Boot's `booti` relocation from `0x80000` to `0x200000` extends up to `0x2a40000`, clobbering the DTB loaded at `0x2600000`.

@@ -1,3 +1,8 @@
+# U-Boot PXE boot configuration for RPi4 NFS rootfs
+# NOTE: nfsroot IP (192.168.1.220) and target IP (192.168.1.150) must match
+#       HOST_IP and TARGET_IP in shared/boards/rpi4.env respectively.
+# NOTE: Do NOT add an 'fdt' line — U-Boot uses the VideoCore firmware-supplied
+#       DTB ($fdt_addr) in high memory to avoid kernel relocation clobbering it.
 DEFAULT linux
 PROMPT 0
 TIMEOUT 0

@@ -34,6 +34,7 @@ nfs/*-rootfs/**/utmp
 nfs/*-rootfs/**/wtmp
 nfs/*-rootfs/**/*.log
 nfs/*-rootfs/**/*.pub
+nfs/*-rootfs/etc/wpa_supplicant/
 
 # IDE & Editor files
 .vscode/

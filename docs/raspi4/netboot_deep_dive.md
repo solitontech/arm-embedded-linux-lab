@@ -83,7 +83,7 @@ The base template configured for our container:
 bind-interfaces
 
 # Pin the Pi MAC to a static IP with infinite lease
-dhcp-host=88:a2:9e:b3:cd:27,192.168.1.150,rpi4,infinite
+# dhcp-host=xx:xx:xx:xx:xx:xx,192.168.1.150,rpi4,infinite
 
 # DHCP IP pool range
 dhcp-range=192.168.1.150,192.168.1.160,255.255.255.0,12h
