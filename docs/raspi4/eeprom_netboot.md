@@ -331,4 +331,4 @@ sudo ufw allow 20048/udp
 
 ---
 
-**Previous:** [U-Boot, TFTP & NFS Boot](uboot_tftp_boot.md)
+**Previous:** [U-Boot, TFTP & NFS Boot](uboot_tftp_boot.md) | **Next:** [Network Boot Deep Dive](netboot_deep_dive.md)
