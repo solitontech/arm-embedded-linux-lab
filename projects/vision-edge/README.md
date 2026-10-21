@@ -62,37 +62,46 @@ To validate the complete platform integration:
 
 ## 3. Core System Stack & Architecture
 
-```
-+-----------------------------------------------------------------------------------+
-|                            APPLICATION / USER SPACE                               |
-|                                                                                   |
-|  +--------------------------+  +------------------------+  +--------------------+ |
-|  |     visiond (C++20)      |  | NEON SIMD Acceleration |  | Embedded Web Server| |
-|  | Multi-threaded Pipeline  |  | Pixel Diff / Threshold |  | Live MJPEG/WebSock | |
-|  +------------+-------------+  +-----------+------------+  +---------+----------+ |
-|               |                            |                         |            |
-|               +--------------------+       |       +-----------------+            |
-|                                    |       |       |                              |
-|                          POSIX IPC |  dma-buf API  | HTTP:8080                    |
-|                                    v       v       v                              |
-+-----------------------------------------------------------------------------------+
-|                             LINUX KERNEL SPACE                                    |
-|                                                                                   |
-|  +-------------------------+  +--------------------------+  +-------------------+ |
-|  |   V4L2 Video Driver     |  |   vision_safety Driver   |  |   GIC Interrupt   | |
-|  |    (Unicam / bcm2835)   |  | (Custom Platform Driver) |  |   Controller      | |
-|  +------------+------------+  +------------+-------------+  +---------+---------+ |
-|               |                            |                          |           |
-|     Zero-Copy | Streaming DMA              | MMIO Register Access     | Top-Half  |
-|               v                            v                          v   <10us   |
-+-----------------------------------------------------------------------------------+
-|                         HARDWARE & SILICON LAYER                                  |
-|                                                                                   |
-|  +-------------------------+  +--------------------------+  +-------------------+ |
-|  |  CSI-2 Camera Module    |  | BCM2711 GPIO Peripherals |  | Hardware Interlock| |
-|  |     (Sony IMX219)       |  |  (MMIO Base 0xFE000000)  |  | Relay / Strobe LED| |
-|  +-------------------------+  +--------------------------+  +-------------------+ |
-+-----------------------------------------------------------------------------------+
+```mermaid
+graph TB
+    subgraph Userspace ["Application / Userspace Layer (EL0)"]
+        direction TB
+        VD["visiond (C++20)<br/>Multi-threaded Orchestrator"]
+        SIMD["ARM NEON SIMD Engine<br/>128-bit Vector Difference & Threshold"]
+        WEB["Embedded Web Server<br/>MJPEG Video & WebSocket Telemetry (:8080)"]
+        RING["Lockless Triple-Buffer<br/>dma-buf Userspace Mapping"]
+        
+        VD <-->|"Vector Intrinsics (1.2 ms/frame)"| SIMD
+        VD <-->|"Frame Pointer Hand-off"| RING
+        VD -->|"Telemetry & Video Stream"| WEB
+    end
+
+    subgraph KernelSpace ["Linux Kernel Space Layer (EL1)"]
+        direction TB
+        V4L2["V4L2 Video Subsystem<br/>(bcm2835-unicam / UVC)"]
+        SAFETY["vision_safety Platform Driver<br/>(/dev/vision_safety Char Dev)"]
+        GIC["ARM GIC-400 Interrupt Controller<br/>Top-Half ISR (< 10 µs)"]
+        DMAC["DMA Subsystem & Cache Controller<br/>Streaming dma-buf Allocator"]
+    end
+
+    subgraph HardwareLayer ["Hardware & Silicon Layer (BCM2711)"]
+        direction TB
+        CAM["MIPI CSI-2 Camera Module<br/>(Sony IMX219 / OV5647)"]
+        GPIO["BCM2711 GPIO Peripherals<br/>(Physical MMIO Base 0xFE200000)"]
+        ACTUATOR["Hardware Safety Interlock<br/>Fast Relay & Strobe LED Indicator"]
+    end
+
+    %% Userspace - Kernel Boundaries
+    RING <==>|"dma-buf zero-copy export/mmap"| DMAC
+    VD -->|"ioctl / poll / sysfs"| SAFETY
+    V4L2 -->|"Buffer Exchange"| DMAC
+
+    %% Kernel - Hardware Boundaries
+    CAM -->|"MIPI CSI-2 Data Lanes"| V4L2
+    DMAC <==>|"Zero-Copy Direct DMA"| CAM
+    SAFETY -->|"devm_ioremap & iowrite32()"| GPIO
+    GIC -->|"Hardware Pin IRQ"| SAFETY
+    GPIO -->|"Emergency Cutoff (< 10 µs)"| ACTUATOR
 ```
 
 ---
@@ -126,7 +135,22 @@ flowchart TD
 
 ---
 
-## 5. Detailed 28-Week Hands-On Curriculum
+## 5. Step-by-Step Implementation Guides
+
+For concrete execution on the Raspberry Pi 4 using the monorepo's active infrastructure (Docker development container, SD-free network boot, and NFS root filesystem), refer to the step-by-step implementation guides in [`phases/`](phases/README.md):
+
+| Implementation Guide | Description | Target Milestone |
+| :--- | :--- | :--- |
+| [**Implementation Roadmap & Hardware Pinout**](phases/README.md) | End-to-end architecture, monorepo infra status, RPi4 40-pin GPIO wiring, and verification gates | Overview |
+| [**Phase 1: Daemon Architecture & Baseline Bringup**](phases/phase1_daemon_bringup.md) | Scaffold C++20 `visiond`, POSIX signals, structured logging, heartbeat worker, `./lab` build and NFS deployment | **Gate 1** (Boot & Daemon Bringup) |
+| [**Phase 2: CPU Internals, Memory Translation & Userspace MMIO**](phases/phase2_cpu_memory_mmio.md) | Remote GDB crash analysis, `/proc/<pid>/pagemap` VA-to-PA translation, direct `/dev/mem` GPIO control, lockless ring buffer | **Gate 2 & 3** (Execution & Memory) |
+| [**Phase 3: Linux Kernel Platform Driver & Fast-Trip IRQ**](phases/phase3_kernel_safety_driver.md) | Device Tree Overlay, `vision_safety` LKM, BCM2711 MMIO, top-half ISR (<10µs response), `cyclictest` latency audit | **Gate 4** (Platform Engineer) |
+| [**Phase 4: High-Throughput Video, Zero-Copy DMA & NEON SIMD**](phases/phase4_video_dma_neon.md) | V4L2 streaming, `dma-buf` zero-copy memory, streaming cache coherency, 128-bit NEON SIMD vectorization, SMP CPU pinning | **Gate 5** (Data-Path Engineer) |
+| [**Phase 5: System Productization, Instant Boot & Hardening**](phases/phase5_productization.md) | Embedded web dashboard (`:8080`), cold-boot optimization (<2.5s), read-only SquashFS + OverlayFS rootfs via Buildroot | **Gate 6** (Master Platform Engineer) |
+
+---
+
+## 6. Detailed 28-Week Hands-On Curriculum
 
 ### Phase 0 - Workspace & Toolchain Setup (Week 0)
 - **Week 0: Host Workspace & Emulation Environment Setup**
@@ -234,7 +258,7 @@ flowchart TD
 
 ---
 
-## 6. Concept Revisit Matrix
+## 7. Concept Revisit Matrix
 
 | Concept | Introduced | Deepened | Mastered |
 | :--- | :--- | :--- | :--- |
@@ -247,7 +271,7 @@ flowchart TD
 
 ---
 
-## 7. Competency Gates
+## 8. Competency Gates
 
 - **Gate 1 - Boot Engineer:** Control, modify, and explain the complete Raspberry Pi 4 boot flow (GPU Firmware $\rightarrow$ U-Boot $\rightarrow$ Kernel $\rightarrow$ NFS/RootFS).
 - **Gate 2 - Cortex-A Execution Engineer:** Reason about C++ source code $\rightarrow$ ELF sections $\rightarrow$ ARM64 assembly $\rightarrow$ CPU register state during crashes.
