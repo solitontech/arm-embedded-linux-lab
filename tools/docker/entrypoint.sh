@@ -36,7 +36,37 @@ else
     /usr/sbin/in.tftpd --listen --user tftp --address :69 --secure "${TFTP_DIR}" &>/dev/null || true
 fi
 
-# 6. Configure and start NFS server for Raspberry Pi root filesystem.
+# 6. Start NTP server so RPi4 (no hardware RTC, no internet route) can sync
+#    its clock against this container on the local lab LAN.
+#    ntpd listens on UDP/123 (all interfaces). The Pi's rcS calls:
+#      ntpd -q -n -p <HOST_IP>   (HOST_IP is the Docker host's LAN IP)
+if command -v ntpd >/dev/null 2>&1; then
+    # Allow the container to serve time to LAN clients even if its own upstream
+    # is unavailable — use local clock (stratum 10) as authoritative fallback.
+    NTP_CONF=/etc/ntp.conf
+    cat > "${NTP_CONF}" <<'NTPEOF'
+# ARM Embedded Linux Lab — Docker NTP server config
+# Upstream servers (best-effort; falls back to local clock if unreachable)
+server 0.pool.ntp.org iburst
+server 1.pool.ntp.org iburst
+# Local clock fallback (stratum 10 = clearly a fallback)
+server 127.127.1.0
+fudge  127.127.1.0 stratum 10
+# Allow LAN clients (192.168.1.x) to query this server
+restrict 192.168.1.0 mask 255.255.255.0 nomodify notrap
+# Allow localhost
+restrict 127.0.0.1
+restrict ::1
+driftfile /var/lib/ntp/ntp.drift
+NTPEOF
+    mkdir -p /var/lib/ntp
+    ntpd -c "${NTP_CONF}" -g 2>/dev/null && \
+        echo "❯ [NTP ] ntpd started — Pi can sync via: ntpd -q -n -p \${HOST_IP:-<docker-host-ip>}" || \
+        echo "⚠ [NTP ] ntpd failed to start"
+fi
+
+# 7. Configure and start NFS server for Raspberry Pi root filesystem.
+
 #    This is best-effort: modprobe nfsd can fail on WSL2 (no nfsd module in
 #    Microsoft kernel) or kernels built without NFS server support. In those
 #    cases we print a clear warning and continue — TFTP boot still works.

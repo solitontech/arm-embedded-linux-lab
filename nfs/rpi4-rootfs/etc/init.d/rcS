@@ -32,11 +32,23 @@ fi
 
 # --- NTP time sync ---
 # The RPi4 has no hardware RTC; clock defaults to 1970-01-01 until synced.
-# Run ntpd in one-shot mode (-q) to set the clock before anything else logs.
+# Primary: Docker container (same LAN, always reachable) running ntpd.
+#   The NFS server IP is the Docker host — extract it from the NFS root mount.
+# Fallback: Google public NTP IP (no DNS needed).
 printf '[init] Syncing time via NTP...\r\n'
-ntpd -q -n -p pool.ntp.org 2>/dev/null && \
+echo "nameserver 8.8.8.8" > /etc/resolv.conf
+_nfs_ip=$(cat /proc/mounts 2>/dev/null | awk -F'[:/]' '/nfs/ {print $1; exit}')
+_synced=false
+if [ -n "${_nfs_ip}" ]; then
+    ntpd -q -n -p "${_nfs_ip}" 2>/dev/null && _synced=true
+fi
+if ! ${_synced}; then
+    ntpd -q -n -p 216.239.35.0 2>/dev/null && _synced=true
+fi
+${_synced} && \
     printf '[init] Time synced: %s\r\n' "$(date)" || \
-    printf '[init] NTP sync failed (no internet?). Current time: %s\r\n' "$(date)"
+    printf '[init] NTP sync failed. Current time: %s\r\n' "$(date)"
+
 
 # --- Dropbear SSH server ---
 # Generate host keys on first boot (persisted on NFS rootfs)
