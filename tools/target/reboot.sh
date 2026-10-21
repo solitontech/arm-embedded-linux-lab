@@ -89,8 +89,8 @@ reboot_uboot_serial() {
 
   # Send reset command over serial port using python / stty
   python3 - <<EOF
-import serial, time
 try:
+    import serial, time
     s = serial.Serial('$SERIAL_PORT', int('$SERIAL_BAUD'), timeout=1)
     s.write(b'\r\n')
     time.sleep(0.2)
@@ -148,8 +148,8 @@ reboot_sysrq_serial() {
   fi
 
   python3 - <<EOF
-import serial, time
 try:
+    import serial, time
     s = serial.Serial('$SERIAL_PORT', int('$SERIAL_BAUD'), timeout=1)
     s.send_break(duration=0.25)
     time.sleep(0.1)
