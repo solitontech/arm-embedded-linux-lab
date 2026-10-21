@@ -50,7 +50,7 @@ nfs/*-rootfs/usr/bin/vision-edge
 # clangd / LSP tooling (machine-specific, generated per-developer)
 compile_commands.json
 .clangd-cache/
-.cache/clangd/
+.cache/
 
 # Python Cache
 __pycache__/
