@@ -178,4 +178,85 @@ The boot banner on the serial console will show the SSH address:
 
 ---
 
+## 7. NTP Time Synchronization (BusyBox `ntpd`)
+
+The Raspberry Pi 4 has **no hardware Real-Time Clock (RTC)**. On every boot, the system clock starts at the Unix Epoch (`1970-01-01 00:00:00 UTC`) and only advances by uptime — so all log timestamps, TLS certificates, and make dependency checks are wrong until the clock is synchronized.
+
+### Why This Matters
+
+| Symptom | Root Cause |
+|---|---|
+| Log timestamps show `1970-01-01` | No RTC, clock not yet synced |
+| `make` always rebuilds targets | File mtimes in the future (2026) vs. system 1970 |
+| TLS handshakes fail | Certificate validity window mismatch |
+
+### How BusyBox `ntpd` Works Here
+
+BusyBox ships `ntpd` as part of its single multi-call binary (enabled by default in `defconfig`). The key flags used in `rcS`:
+
+| Flag | Meaning |
+|---|---|
+| `-q` | **One-shot / quit** — sync once, then exit (don't stay as a background daemon) |
+| `-n` | **Foreground** — don't fork (needed so `rcS` can wait for it to finish) |
+| `-p <server>` | NTP peer to query |
+
+> [!NOTE]
+> `ntpd -q -n` blocks until at least one response is received or it times out (~15 s).
+> If the board has no internet route, the sync simply fails gracefully and boot continues.
+
+### `rcS` Integration
+
+The following block is already present in [`nfs/rpi4-rootfs/etc/init.d/rcS`](../../nfs/rpi4-rootfs/etc/init.d/rcS) (inserted after networking is confirmed, before Dropbear starts):
+
+```sh
+# --- NTP time sync ---
+# The RPi4 has no hardware RTC; clock defaults to 1970-01-01 until synced.
+# Run ntpd in one-shot mode (-q) to set the clock before anything else logs.
+printf '[init] Syncing time via NTP...\r\n'
+ntpd -q -n -p pool.ntp.org 2>/dev/null && \
+    printf '[init] Time synced: %s\r\n' "$(date)" || \
+    printf '[init] NTP sync failed (no internet?). Current time: %s\r\n' "$(date)"
+```
+
+### Verifying on the Target
+
+SSH into the Pi and confirm the clock is correct:
+
+```bash
+# SSH into the Pi
+./lab ssh --board=rpi4
+
+# Check current time
+date
+
+# Run a manual one-shot sync (useful for debugging)
+ntpd -q -n -p pool.ntp.org
+date
+```
+
+Expected boot console output (on the serial/SSH terminal):
+```text
+[init] Syncing time via NTP...
+[init] Time synced: Wed Oct 21 09:05:42 UTC 2026
+```
+
+> [!TIP]
+> If sync fails (e.g., the lab network has no internet gateway), you can manually set the clock via SSH:
+> ```bash
+> date -s "2026-10-21 09:00:00"
+> ```
+> Or add a gateway to the `rcS` networking fallback block to restore internet access.
+
+### Using a Local NTP Server
+
+If your lab network has a local NTP server (e.g., a router at `192.168.1.1`), point `ntpd` at it instead to avoid relying on internet access:
+
+```sh
+ntpd -q -n -p 192.168.1.1 2>/dev/null
+```
+
+Update the `-p` argument in `nfs/rpi4-rootfs/etc/init.d/rcS` accordingly.
+
+---
+
 **Previous:** [Kernel Cross-Compilation](kernel_build.md) | **Next:** [U-Boot, TFTP & NFS Boot](uboot_tftp_boot.md)

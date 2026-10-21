@@ -30,6 +30,14 @@ if ! ifconfig eth0 2>/dev/null | grep -q "inet "; then
     route add default gw 192.168.1.1 2>/dev/null
 fi
 
+# --- NTP time sync ---
+# The RPi4 has no hardware RTC; clock defaults to 1970-01-01 until synced.
+# Run ntpd in one-shot mode (-q) to set the clock before anything else logs.
+printf '[init] Syncing time via NTP...\r\n'
+ntpd -q -n -p pool.ntp.org 2>/dev/null && \
+    printf '[init] Time synced: %s\r\n' "$(date)" || \
+    printf '[init] NTP sync failed (no internet?). Current time: %s\r\n' "$(date)"
+
 # --- Dropbear SSH server ---
 # Generate host keys on first boot (persisted on NFS rootfs)
 if [ ! -f /etc/dropbear/dropbear_ed25519_host_key ]; then
