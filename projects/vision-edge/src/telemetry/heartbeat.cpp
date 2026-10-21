@@ -14,8 +14,8 @@ HeartbeatWorker::~HeartbeatWorker() {
 
 expected<void, Error> HeartbeatWorker::init() {
     if (state_ != SubsystemState::CREATED)
-        return unexpected<Error>({ErrorCode::ALREADY_RUNNING,
-                                  "heartbeat: already initialized"});
+        return unexpected<Error>(Error{ErrorCode::ALREADY_RUNNING,
+                                       "heartbeat: already initialized"});
     state_ = SubsystemState::INITIALIZED;
     logger_.log(LogLevel::INFO, "heartbeat: initialized");
     return {};
@@ -23,11 +23,11 @@ expected<void, Error> HeartbeatWorker::init() {
 
 expected<void, Error> HeartbeatWorker::start() {
     if (state_ != SubsystemState::INITIALIZED)
-        return unexpected<Error>({ErrorCode::NOT_INITIALIZED,
-                                  "heartbeat: not initialized"});
+        return unexpected<Error>(Error{ErrorCode::NOT_INITIALIZED,
+                                       "heartbeat: not initialized"});
     if (running_.exchange(true))
-        return unexpected<Error>({ErrorCode::ALREADY_RUNNING,
-                                  "heartbeat: already running"});
+        return unexpected<Error>(Error{ErrorCode::ALREADY_RUNNING,
+                                       "heartbeat: already running"});
     state_ = SubsystemState::RUNNING;
     thread_ = std::thread(&HeartbeatWorker::worker_loop, this);
     logger_.log(LogLevel::INFO, "heartbeat: started (interval "

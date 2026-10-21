@@ -1,5 +1,5 @@
 #include "visiond/app/daemon.hpp"
-#include <algorithm>
+#include <labkit/term.hpp>
 #include <condition_variable>
 #include <csignal>
 #include <iostream>
@@ -42,14 +42,12 @@ void DaemonOrchestrator::wait_for_shutdown() {
 }
 
 int DaemonOrchestrator::run() {
-    // Banner
-    std::cout << "\033[1;36m"
-              << "====================================================================\n"
-              << "       VisionEdge Industrial In-Line Inspection & Safety Gateway     \n"
-              << "       Flagship Platform Daemon (visiond v0.1.0)                    \n"
-              << "       Hardware: Raspberry Pi 4 (BCM2711 / Quad Cortex-A72 / AArch64)\n"
-              << "====================================================================\n"
-              << "\033[0m" << std::endl;
+    labkit::term::banner(std::cout, {
+        "VisionEdge Industrial In-Line Inspection & Safety Gateway",
+        "Flagship Platform Daemon (visiond v0.1.0)",
+        "Hardware: Raspberry Pi 4 (BCM2711 / Quad Cortex-A72 / AArch64)"
+    });
+    std::cout << '\n';
 
     setup_signal_handlers();
     logger_.log(LogLevel::INFO,

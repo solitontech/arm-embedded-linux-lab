@@ -15,12 +15,10 @@ int main(int argc, char* argv[]) {
     if (config.show_version) { std::cout << "visiond 0.1.0\n"; return 0; }
 
     // Composition root: create shared dependencies
-    visiond::ConsoleLogger logger;
+    visiond::SpdlogLogger logger("visiond");
     logger.set_level(config.log_level);
-    if (!config.log_file.empty()) {
-        if (!logger.set_log_file(config.log_file))
-            std::cerr << "Warning: could not open log file: " << config.log_file << "\n";
-    }
+    if (!config.log_file.empty())
+        logger.add_file_sink(config.log_file);
 
     if (config.daemon_mode) {
         logger.log(visiond::LogLevel::INFO, "Daemonizing...");

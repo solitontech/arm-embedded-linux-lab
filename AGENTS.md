@@ -98,8 +98,33 @@ Whenever any infrastructure file changes, the corresponding skill and/or workflo
 | `tools/lab.py` (`mcp` subcommand) | `.agents/skills/deploy-and-run/SKILL.md` |
 | New project scaffold template | `.agents/workflows/new_project.md` |
 | EEPROM tooling (`tools/eeprom/`) | `.agents/skills/eeprom-netboot/SKILL.md` |
+| Shared C++ library (`shared/lib/`) | `.agents/workflows/shared_library.md` |
 
 If you create a new infrastructure file or tool, also create a new skill or workflow documenting it.
+
+## Shared C++ Library (`shared/lib/` — `labkit::`)
+
+**Any reusable C++ code — interfaces, types, utilities — belongs in `shared/lib/include/labkit/`.** Projects MUST NOT duplicate reusable infrastructure. Before writing a new utility, check if `labkit::` already provides it. If your new component could serve more than one project, implement it in `labkit::` first, then consume it from your project via a forwarding header.
+
+### What belongs in labkit (shared):
+- Abstract interfaces (`ILogger`, `ISubsystem`, `IMetricsSource`)
+- Error/vocabulary types (`ErrorCode`, `Error`, `expected<T,E>`)
+- Generic utilities (`EventBus`, terminal formatting)
+- Third-party vendored headers (`spdlog`, `fmt`, `tl::expected`) in `shared/lib/vendor/`
+
+### What stays in projects:
+- Concrete hardware/platform implementations (`ProcfsMetricsSource`, GPIO controllers)
+- Application-specific configuration (`DaemonConfig`)
+- Composition roots (`main.cpp`, orchestrators)
+- Domain-specific subsystems (`HeartbeatWorker`, trip controllers)
+
+### Namespace convention:
+- Shared library: `labkit::`
+- Projects consume via forwarding headers with `using` declarations: `namespace visiond { using labkit::ILogger; }`
+- Third-party vendored headers are included directly: `<spdlog/spdlog.h>`, `<tl/expected.hpp>`
+
+### Adding to labkit:
+See workflow: `.agents/workflows/shared_library.md`
 
 ## Primary CLI: `lab`
 

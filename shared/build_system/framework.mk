@@ -79,10 +79,14 @@ GDB_SCRIPT     := $(REPO_ROOT)/tools/target/gdb.sh
 # 5. Compiler & Linker Flags Composition
 # ------------------------------------------------------------------------------
 CFLAGS   := -O2 -Wall -Wextra $(BOARD_CFLAGS) $(CFLAGS_EXTRA) \
-            -I$(REPO_ROOT)/shared/lib/include $(INCLUDES_EXTRA)
+            -I$(REPO_ROOT)/shared/lib/include \
+            -I$(REPO_ROOT)/shared/lib/vendor \
+            $(INCLUDES_EXTRA)
 
 CXXFLAGS := -std=c++20 -O2 -Wall -Wextra -Wpedantic $(BOARD_CXXFLAGS) $(CXXFLAGS_EXTRA) \
-            -I$(REPO_ROOT)/shared/lib/include $(INCLUDES_EXTRA)
+            -I$(REPO_ROOT)/shared/lib/include \
+            -I$(REPO_ROOT)/shared/lib/vendor \
+            $(INCLUDES_EXTRA)
 
 LDFLAGS  := $(BOARD_LDFLAGS) $(LDFLAGS_EXTRA)
 LDLIBS   := -pthread $(LDLIBS_EXTRA)
