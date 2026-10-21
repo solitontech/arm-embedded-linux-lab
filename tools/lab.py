@@ -383,7 +383,7 @@ def cmd_run(args: argparse.Namespace):
 def cmd_reboot(args: argparse.Namespace):
     board = select_board(None, args.board)
     env = get_board_env(board)
-    reboot_script = REPO_ROOT / "tools" / "deploy" / "reboot.sh"
+    reboot_script = REPO_ROOT / "tools" / "target" / "reboot.sh"
     
     method = args.method or env.get("BOARD_RESET_METHOD", "uboot_serial")
     

@@ -185,26 +185,27 @@ include ../../shared/build_system/framework.mk
 
 1. **Cross-compile inside Docker:**
    ```bash
-   ./lab build --project=vision-edge --board=rpi4
+   ./lab docker exec -- ./lab build vision-edge --board rpi4
    ```
 
 2. **Deploy to Target:**
-   Because our RPi4 uses an NFS root filesystem hosted by the Docker container, copying the binary into the NFS export directory makes it immediately accessible on the target board with zero network delay:
    ```bash
-   ./lab deploy --project=vision-edge --board=rpi4
+   ./lab docker exec -- ./lab deploy vision-edge --board rpi4
    ```
 
 3. **Verify Execution on Hardware:**
    ```bash
-   ./lab ssh --board=rpi4 "/usr/local/bin/vision-edge"
+   ssh root@192.168.1.150 "/usr/local/bin/vision-edge --help"
+   # Or run directly via lab CLI:
+   ./lab docker exec -- ./lab run vision-edge --board rpi4
    ```
 
 ---
 
 ## 4. Verification & Validation Checklist
 
-- [ ] Binary compiles cleanly with `aarch64-linux-gnu-g++` using `-std=c++20`.
-- [ ] Executable format verified with `readelf -h build/rpi4/bin/vision-edge` (Machine: AArch64).
-- [ ] Signal handling verified: pressing `Ctrl+C` sends `SIGINT`, logs graceful shutdown, and exits with code 0.
-- [ ] Heartbeat logs system uptime and memory status every 1 second without CPU spinning.
-- [ ] Self-assess against **Competency Gate 1 (Boot & Daemon Bringup)**.
+- [x] Binary compiles cleanly with `aarch64-linux-gnu-g++` using `-std=c++20`.
+- [x] Executable format verified with `aarch64-linux-gnu-readelf -h build/rpi4/vision-edge` (Machine: AArch64).
+- [x] Signal handling verified: pressing `Ctrl+C` sends `SIGINT`, logs graceful shutdown, and exits with code 0.
+- [x] Heartbeat logs system uptime, CPU, and memory status every 1 second without CPU spinning.
+- [x] Self-assess against **Competency Gate 1 (Boot & Daemon Bringup)**.

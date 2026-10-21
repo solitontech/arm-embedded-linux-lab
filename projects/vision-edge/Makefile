@@ -8,15 +8,15 @@ PROJECT_NAME    := vision-edge
 PROJECT_TYPE    := app            # app | lib_static | lib_shared | raw
 DEFAULT_BOARD   := rpi4
 
-# Custom build flags (optional)
-# CXXFLAGS_EXTRA  += -std=c++20
-# CFLAGS_EXTRA    += 
-# INCLUDES_EXTRA  += -I./include
-# LDLIBS_EXTRA    += -lpthread
+# Custom build flags
+CXXFLAGS_EXTRA  += -std=c++20 -O2 -Wall -Wextra
+INCLUDES_EXTRA  += -I./include
+LDFLAGS_EXTRA   += -static
+LDLIBS_EXTRA    += -pthread
 
-# Deployment configuration (optional overrides)
-# DEPLOY_METHOD   := ssh          # ssh | tftp | nfs | custom
-# TARGET_DEST_DIR := /usr/local/bin
+# Deployment configuration
+DEPLOY_METHOD   := ssh
+TARGET_DEST_DIR := /usr/bin
 
 # Lifecycle hooks (optional)
 # PRE_BUILD_HOOK   := 
