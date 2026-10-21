@@ -11,28 +11,55 @@
 
 The system is organized into **seven modules** arranged in strict dependency layers. Upper layers depend on lower layers; lower layers never depend on upper layers.
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                        app/ (Daemon Orchestrator)                    │
-│         Subsystem registry, ordered startup/shutdown, signals       │
-├─────────────────────────────────────────────────────────────────────┤
-│  web/                │  safety/              │  telemetry/           │
-│  HTTP server,        │  Trip controller,     │  Heartbeat worker,   │
-│  MJPEG stream,       │  /dev/vision_safety   │  metrics collection  │
-│  WS telemetry        │  ioctl client         │                      │
-├──────────────────────┴───────────────────────┴──────────────────────┤
-│                     pipeline/ (Data Path)                            │
-│     Lockless ring buffer, frame descriptors, pipeline stages,       │
-│     NEON SIMD engine                                                │
-├─────────────────────────────────────────────────────────────────────┤
-│                     platform/ (Hardware Abstraction)                 │
-│     GPIO controller (BCM2711 + stub), MMIO helpers,                 │
-│     V4L2 camera source, DMA buffer management                      │
-├─────────────────────────────────────────────────────────────────────┤
-│                     core/ (Foundation)                               │
-│     Types & errors, logger interface, configuration,                │
-│     subsystem lifecycle interface, event dispatcher                 │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+block-beta
+    columns 3
+
+    block:app:3
+        columns 1
+        A["app/ — Daemon Orchestrator"]
+        A_desc["Subsystem registry, ordered startup/shutdown, signals"]
+    end
+
+    block:web:1
+        W["web/"]
+        W_desc["HTTP server, MJPEG stream, WS telemetry"]
+    end
+    block:safety:1
+        S["safety/"]
+        S_desc["Trip controller, /dev/vision_safety ioctl client"]
+    end
+    block:telemetry:1
+        T["telemetry/"]
+        T_desc["Heartbeat worker, metrics collection"]
+    end
+
+    block:pipeline:3
+        columns 1
+        P["pipeline/ — Data Path"]
+        P_desc["Lockless ring buffer, frame descriptors, pipeline stages, NEON SIMD engine"]
+    end
+
+    block:platform:3
+        columns 1
+        PL["platform/ — Hardware Abstraction"]
+        PL_desc["GPIO controller (BCM2711 + stub), MMIO helpers, V4L2 camera, DMA management"]
+    end
+
+    block:core:3
+        columns 1
+        C["core/ — Foundation"]
+        C_desc["Types & errors, logger interface, configuration, lifecycle interface, event dispatcher"]
+    end
+
+    app --> web
+    app --> safety
+    app --> telemetry
+    web --> pipeline
+    safety --> pipeline
+    telemetry --> pipeline
+    pipeline --> platform
+    platform --> core
 ```
 
 ### Dependency Rules
@@ -187,23 +214,14 @@ int main(int argc, char* argv[]) {
 
 ### 4.1 Hot Path: Video Frame Pipeline (Zero-Copy)
 
-```
-┌──────────────┐    DMA write     ┌──────────────────────┐   atomic swap   ┌──────────────────┐
-│ MIPI CSI-2   │ ──────────────── │  Ring Buffer Slot    │ ───────────────  │ SIMD Worker      │
-│ Camera       │   (0 CPU copy)   │  (pre-allocated DMA) │  (ptr handoff)  │ (NEON 128-bit)   │
-└──────────────┘                  └──────────────────────┘                 └────────┬─────────┘
-                                                                                    │
-                                                              ┌─────────────────────┤
-                                                              │                     │
-                                                     ┌────────▼──────┐    ┌─────────▼─────────┐
-                                                     │ Trip Decision │    │ Frame Renderer     │
-                                                     │ (threshold)   │    │ (bounding boxes)   │
-                                                     └───────┬───────┘    └─────────┬──────────┘
-                                                             │                      │
-                                                    ┌────────▼────────┐   ┌─────────▼──────────┐
-                                                    │ Safety Driver   │   │ MJPEG Stream       │
-                                                    │ (ioctl trip)    │   │ (HTTP :8080)       │
-                                                    └─────────────────┘   └────────────────────┘
+```mermaid
+flowchart TD
+    CAM["MIPI CSI-2 Camera"] -- "DMA write (0 CPU copy)" --> RING["Ring Buffer Slot\n(pre-allocated DMA)"]
+    RING -- "atomic swap (ptr handoff)" --> SIMD["SIMD Worker\n(NEON 128-bit)"]
+    SIMD --> TRIP["Trip Decision\n(threshold)"]
+    SIMD --> RENDER["Frame Renderer\n(bounding boxes)"]
+    TRIP --> DRIVER["Safety Driver\n(ioctl trip)"]
+    RENDER --> MJPEG["MJPEG Stream\n(HTTP :8080)"]
 ```
 
 **Key invariant:** No `memcpy` or `std::copy` on any frame buffer in the hot path. Frames are accessed in-place via pointer from `FrameDescriptor`. Cache coherency is managed explicitly via `DMA_BUF_IOCTL_SYNC` before CPU reads.
@@ -212,15 +230,31 @@ int main(int argc, char* argv[]) {
 
 For infrequent, latency-tolerant events (safety trips, state transitions, telemetry updates), a lightweight typed event dispatcher decouples producers from consumers:
 
-```
-Producer                              EventBus                         Consumers
-────────                              ────────                         ─────────
-TripController ──publish(TripEvent)──►           ──► WebServer (freeze frame, log)
-                                                 ──► DaemonOrchestrator (audit log)
+```mermaid
+flowchart LR
+    subgraph Producers
+        TC["TripController"]
+        HB["HeartbeatWorker"]
+        DO["DaemonOrchestrator"]
+    end
 
-HeartbeatWorker ─publish(MetricsEvent)►          ──► WebServer (WS telemetry push)
+    EB["EventBus"]
 
-DaemonOrchestrator─publish(StateEvent)►          ──► All subsystems (graceful stop)
+    subgraph Consumers
+        WS1["WebServer\n(freeze frame, log)"]
+        DA["DaemonOrchestrator\n(audit log)"]
+        WS2["WebServer\n(WS telemetry push)"]
+        ALL["All subsystems\n(graceful stop)"]
+    end
+
+    TC -- "TripEvent" --> EB
+    HB -- "MetricsEvent" --> EB
+    DO -- "StateEvent" --> EB
+
+    EB --> WS1
+    EB --> DA
+    EB --> WS2
+    EB --> ALL
 ```
 
 The `EventBus` is a simple `std::unordered_map<type_index, vector<function>>` with mutex protection. It is used only for control events (tens of events per second), never for frame data.
@@ -513,16 +547,37 @@ projects/vision-edge/
 
 The Cortex-A72 has 4 cores. Each major workload is pinned to a dedicated core via `pthread_setaffinity_np` to eliminate scheduling jitter on the real-time path:
 
-```
-┌──────────┬──────────────────────────────────────┐
-│  Core 0  │  OS, Dropbear SSH, WebServer (:8080) │
-├──────────┼──────────────────────────────────────┤
-│  Core 1  │  V4L2 Capture & DMA Cache Sync       │
-├──────────┼──────────────────────────────────────┤
-│  Core 2  │  NEON SIMD Worker 0 (top half frame) │
-├──────────┼──────────────────────────────────────┤
-│  Core 3  │  NEON SIMD Worker 1 (bottom half)    │
-└──────────┴──────────────────────────────────────┘
+```mermaid
+block-beta
+    columns 2
+
+    block:c0
+        C0["Core 0"]
+    end
+    block:c0w
+        C0W["OS, Dropbear SSH, WebServer (:8080)"]
+    end
+
+    block:c1
+        C1["Core 1"]
+    end
+    block:c1w
+        C1W["V4L2 Capture & DMA Cache Sync"]
+    end
+
+    block:c2
+        C2["Core 2"]
+    end
+    block:c2w
+        C2W["NEON SIMD Worker 0 (top half frame)"]
+    end
+
+    block:c3
+        C3["Core 3"]
+    end
+    block:c3w
+        C3W["NEON SIMD Worker 1 (bottom half)"]
+    end
 ```
 
 Core pinning is configured via `DaemonConfig` and applied by the `DaemonOrchestrator` during `start()`. The SIMD frame is partitioned vertically (top/bottom halves) so two workers process in parallel without contention.

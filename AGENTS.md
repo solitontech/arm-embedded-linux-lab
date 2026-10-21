@@ -53,6 +53,10 @@ This ensures HOST_INTERFACE and HOST_IP are always correctly injected from the b
 - Always delegate task-specific workflows to their corresponding **Skill** (`.agents/skills/`) or **Workflow** (`.agents/workflows/`).
 - `README.md` should serve only as a welcoming entry point with high-level summaries and direct links to the relevant skills/workflows.
 
+## Diagrams
+
+**Always use Mermaid for diagrams.** All diagrams in documentation, design docs, READMEs, skills, and workflows must use Mermaid (```` ```mermaid ```` code blocks). Never use ASCII art box-drawing, plaintext diagrams, or external image files for architecture, data flow, sequence, or state diagrams.
+
 ## Documentation & Relative Linking Standards
 
 **Always use relative links in repository documentation (`.md` files):**
