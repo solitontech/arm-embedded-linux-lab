@@ -24,11 +24,13 @@ modules.order
 Module.symvers
 
 # nfs rootfs — runtime and generated files (never commit boot/runtime artifacts)
-nfs/rpi4-rootfs/.ash_history
+nfs/*-rootfs/**/.ash_history
 nfs/rpi4-rootfs/etc/dropbear/*_host_key
 nfs/*-rootfs/var/
 nfs/*-rootfs/tmp/
 nfs/*-rootfs/run/
+nfs/*-rootfs/dev/urandom
+nfs/*-rootfs/root/.ssh/
 nfs/*-rootfs/**/*.pid
 nfs/*-rootfs/**/utmp
 nfs/*-rootfs/**/wtmp
