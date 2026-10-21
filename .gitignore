@@ -37,6 +37,8 @@ nfs/*-rootfs/**/wtmp
 nfs/*-rootfs/**/*.log
 nfs/*-rootfs/**/*.pub
 nfs/*-rootfs/etc/wpa_supplicant/
+nfs/*-rootfs/usr/local/
+nfs/*-rootfs/usr/bin/vision-edge
 
 # IDE & Editor files
 .vscode/
@@ -44,6 +46,11 @@ nfs/*-rootfs/etc/wpa_supplicant/
 *.swp
 *~
 .DS_Store
+
+# clangd / LSP tooling (machine-specific, generated per-developer)
+compile_commands.json
+.clangd-cache/
+.cache/clangd/
 
 # Python Cache
 __pycache__/
