@@ -17,6 +17,7 @@ struct DaemonConfig {
 
     static DaemonConfig parse(int argc, char* argv[]);
     static void print_usage(const char* prog_name);
+    static void print_version();
 };
 
 } // namespace visiond

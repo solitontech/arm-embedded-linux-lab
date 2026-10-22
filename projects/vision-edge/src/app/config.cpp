@@ -5,6 +5,10 @@
 
 namespace visiond {
 
+void DaemonConfig::print_version() {
+    std::cout << "visiond " << VISIOND_VERSION << "\n";
+}
+
 void DaemonConfig::print_usage(const char* prog_name) {
     std::cout << "Usage: " << prog_name << " [options]\n\n"
               << "VisionEdge Industrial In-Line Inspection & Safety Gateway\n\n"
