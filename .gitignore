@@ -43,6 +43,7 @@ nfs/*-rootfs/usr/bin/vision-edge
 # IDE & Editor files
 .vscode/
 .idea/
+.devin/
 *.swp
 *~
 .DS_Store
