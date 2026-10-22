@@ -123,6 +123,9 @@ If you create a new infrastructure file or tool, also create a new skill or work
 - Projects consume via forwarding headers with `using` declarations: `namespace visiond { using labkit::ILogger; }`
 - Third-party vendored headers are included directly: `<spdlog/spdlog.h>`, `<tl/expected.hpp>`
 
+### Coding rules:
+See `shared/lib/AGENTS.md` — enforces interface/implementation separation, self-contained headers, and compile-time discipline.
+
 ### Adding to labkit:
 See workflow: `.agents/workflows/shared_library.md`
 
