@@ -1,14 +1,12 @@
 #pragma once
-// Interface and struct forwarded from shared labkit.
-// ProcfsMetricsSource is project-local (platform-specific).
 #include <labkit/metrics.hpp>
-#include "visiond/core/logger.hpp"
+#include <labkit/logger.hpp>
 
 namespace visiond {
-    using labkit::SystemMetrics;
-    using labkit::IMetricsSource;
+using labkit::SystemMetrics;
+using labkit::IMetricsSource;
+using labkit::ILogger;
 
-// Linux /proc implementation — stays in this project
 class ProcfsMetricsSource : public IMetricsSource {
 public:
     explicit ProcfsMetricsSource(ILogger& logger);

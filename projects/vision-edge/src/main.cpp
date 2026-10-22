@@ -1,8 +1,8 @@
-#include "visiond/core/config.hpp"
-#include "visiond/core/logger.hpp"
-#include "visiond/core/event.hpp"
+#include "visiond/app/config.hpp"
 #include "visiond/telemetry/metrics.hpp"
 #include "visiond/telemetry/heartbeat.hpp"
+#include "visiond/platform/gpio_subsystem.hpp"
+#include "visiond/platform/gpio_factory.hpp"
 #include "visiond/app/daemon.hpp"
 #include <labkit/spdlog_logger.hpp>   // heavy — only in composition root
 #include <iomanip>
@@ -22,14 +22,14 @@ int main(int argc, char* argv[]) {
         logger.add_file_sink(config.log_file);
 
     if (config.daemon_mode) {
-        logger.log(visiond::LogLevel::INFO, "Daemonizing...");
+        logger.log(labkit::LogLevel::INFO, "Daemonizing...");
         if (daemon(0, 0) < 0) {
-            logger.log(visiond::LogLevel::ERROR, "daemon() syscall failed");
+            logger.log(labkit::LogLevel::ERROR, "daemon() syscall failed");
             return 1;
         }
     }
 
-    visiond::EventBus event_bus;
+    labkit::EventBus event_bus;
     visiond::ProcfsMetricsSource metrics_source(logger);
 
     // Subscribe to MetricsEvents for logging
@@ -40,13 +40,17 @@ int main(int argc, char* argv[]) {
                << "[event] MetricsEvent: CPU " << e.metrics.cpu_usage_percent
                << "%, Mem " << (e.metrics.mem_available_kb / 1024)
                << "/" << (e.metrics.mem_total_kb / 1024) << " MB";
-            logger.log(visiond::LogLevel::DEBUG, ss.str());
+            logger.log(labkit::LogLevel::DEBUG, ss.str());
         });
 
     // Build orchestrator and register subsystems
     visiond::DaemonOrchestrator daemon(logger, config);
+
     daemon.add(std::make_unique<visiond::HeartbeatWorker>(
         logger, metrics_source, event_bus, config.heartbeat_interval_ms));
+
+    daemon.add(std::make_unique<visiond::GpioSubsystem>(
+        visiond::make_gpio(visiond::GpioBackend::BCM2711, logger)));
 
     return daemon.run();
 }

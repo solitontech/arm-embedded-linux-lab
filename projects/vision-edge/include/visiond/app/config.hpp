@@ -1,9 +1,10 @@
 #pragma once
-#include "visiond/core/logger.hpp"
+#include <labkit/logger.hpp>
 #include <cstdint>
 #include <string>
 
 namespace visiond {
+using labkit::LogLevel;
 
 struct DaemonConfig {
     LogLevel    log_level{LogLevel::INFO};

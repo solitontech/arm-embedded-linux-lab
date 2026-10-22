@@ -1,4 +1,4 @@
-#include "visiond/core/config.hpp"
+#include "visiond/app/config.hpp"
 #include <cstdlib>
 #include <iostream>
 #include <string_view>

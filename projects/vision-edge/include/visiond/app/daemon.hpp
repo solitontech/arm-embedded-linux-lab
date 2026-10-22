@@ -1,11 +1,15 @@
 #pragma once
-#include "visiond/core/lifecycle.hpp"
-#include "visiond/core/logger.hpp"
-#include "visiond/core/config.hpp"
+#include <labkit/lifecycle.hpp>
+#include <labkit/logger.hpp>
+#include "visiond/app/config.hpp"
 #include <memory>
 #include <vector>
 
 namespace visiond {
+using labkit::ILogger;
+using labkit::ISubsystem;
+using labkit::SubsystemState;
+using labkit::LogLevel;
 
 class DaemonOrchestrator {
 public:

@@ -1,6 +1,6 @@
 #pragma once
-#include "visiond/core/lifecycle.hpp"
-#include "visiond/core/event.hpp"
+#include <labkit/lifecycle.hpp>
+#include <labkit/event.hpp>
 #include "visiond/telemetry/metrics.hpp"
 #include <atomic>
 #include <condition_variable>
@@ -8,6 +8,15 @@
 #include <thread>
 
 namespace visiond {
+using labkit::expected;
+using labkit::unexpected;
+using labkit::Error;
+using labkit::ErrorCode;
+using labkit::LogLevel;
+using labkit::ILogger;
+using labkit::SubsystemState;
+using labkit::ISubsystem;
+using labkit::EventBus;
 
 struct MetricsEvent {
     SystemMetrics metrics;
