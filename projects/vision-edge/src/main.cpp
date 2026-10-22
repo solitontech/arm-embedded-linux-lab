@@ -4,6 +4,7 @@
 #include "visiond/telemetry/metrics.hpp"
 #include "visiond/telemetry/heartbeat.hpp"
 #include "visiond/app/daemon.hpp"
+#include <labkit/spdlog_logger.hpp>   // heavy — only in composition root
 #include <iomanip>
 #include <iostream>
 #include <sstream>
@@ -15,7 +16,7 @@ int main(int argc, char* argv[]) {
     if (config.show_version) { std::cout << "visiond 0.1.0\n"; return 0; }
 
     // Composition root: create shared dependencies
-    visiond::SpdlogLogger logger("visiond");
+    labkit::SpdlogLogger logger("visiond");
     logger.set_level(config.log_level);
     if (!config.log_file.empty())
         logger.add_file_sink(config.log_file);

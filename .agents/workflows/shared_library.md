@@ -128,7 +128,8 @@ No per-project Makefile changes are needed.
 |---|---|---|
 | `types.hpp` | `ErrorCode`, `Error` | All projects |
 | `expected.hpp` | `expected<T,E>`, `unexpected` (wraps tl::expected or std::expected) | All projects |
-| `logger.hpp` | `ILogger`, `LogLevel`, `SpdlogLogger` | All projects |
+| `logger.hpp` | `ILogger`, `LogLevel` (lightweight — no spdlog) | All projects |
+| `spdlog_logger.hpp` | `SpdlogLogger` (heavy — include only in `main.cpp`) | Composition roots only |
 | `term.hpp` | `banner()`, `section()`, `separator()`, `kv()`, `status_ok/fail()`, `colored()` | All projects |
 | `event.hpp` | `EventBus` (typed pub/sub) | Event-driven projects |
 | `lifecycle.hpp` | `ISubsystem`, `SubsystemState` | Daemon projects |

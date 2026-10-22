@@ -1,5 +1,6 @@
 #pragma once
 #include "visiond/core/logger.hpp"
+#include <cstdint>
 #include <string>
 
 namespace visiond {

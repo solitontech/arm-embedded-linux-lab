@@ -1,9 +1,9 @@
 #pragma once
-// Forwarding header — logger interface lives in shared labkit.
+// Forwarding header — lightweight logger interface only.
+// SpdlogLogger is in <labkit/spdlog_logger.hpp> — include only in main.cpp.
 #include <labkit/logger.hpp>
 
 namespace visiond {
     using labkit::LogLevel;
     using labkit::ILogger;
-    using labkit::SpdlogLogger;
 } // namespace visiond
