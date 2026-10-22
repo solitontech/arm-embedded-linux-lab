@@ -47,8 +47,8 @@ inline std::string colored(Color c, std::string_view text) {
 // --- Unicode box-drawing banner ---
 //
 // ╔══════════════════════════════════════════════════════════════════════╗
-// ║  Line 1 text                                                       ║
-// ║  Line 2 text                                                       ║
+// ║  Line 1 text                                                         ║
+// ║  Line 2 text                                                         ║
 // ╚══════════════════════════════════════════════════════════════════════╝
 
 inline void banner(std::ostream& os,
