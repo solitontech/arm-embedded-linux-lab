@@ -8,9 +8,64 @@
 
 ---
 
+## 0. Background: How User Space Talks to Hardware
+
+Before diving into the implementation, it helps to understand the layers between your C++ code and the physical GPIO pins on the RPi4.
+
+### The Hardware
+
+The BCM2711 chip controls GPIO pins through **registers** — small memory locations at fixed physical addresses. For example, writing a `1` to bit 18 of the register at physical address `0xFE20001C` makes GPIO pin 18 go HIGH. These registers aren't RAM — they're wired directly to hardware circuits. But the CPU accesses them the same way it accesses RAM: by reading/writing to a memory address. This is called **Memory-Mapped I/O (MMIO)**.
+
+### The Protection Problem
+
+Your daemon runs in **user space (EL0)** — a restricted CPU privilege level. The Linux kernel runs in **kernel space (EL1)** with full hardware access. User space code **cannot** access physical addresses directly; the CPU would fault and kill your process. This is intentional — it prevents a buggy app from corrupting hardware.
+
+So how does user space talk to hardware? Two paths:
+
+### Path A: Kernel Driver (the production way — Phase 3)
+
+A **kernel driver** is code that runs inside the kernel at EL1. Your code makes a **system call** (e.g. `write()`, `read()`) which causes the CPU to switch privilege from EL0 to EL1. The kernel driver validates the request, performs the hardware register access, and returns control to your code. The kernel exposes drivers as device files in `/dev/` — you interact with hardware by reading/writing files.
+
+```
+Your code (EL0) → syscall → Kernel GPIO driver (EL1) → hardware register
+```
+
+Safe, permission-controlled, but adds syscall overhead per operation.
+
+### Path B: /dev/mem + mmap (the learning shortcut — Phase 2)
+
+`/dev/mem` is a special device file that gives raw access to any physical address. By calling `mmap()` on it, the kernel creates a page table entry that maps a virtual pointer in your process directly to the hardware registers. After setup, every read/write through that pointer reaches hardware with zero kernel involvement — no syscalls, no validation, no protection.
+
+```
+Your code (EL0) → mmap(/dev/mem) [one-time setup]
+                → volatile uint32_t* write → hardware register [direct, no kernel]
+```
+
+Fast, but dangerous — nothing stops you from writing to the wrong register. Requires root. Not for production.
+
+### Why Phase 2 Uses /dev/mem
+
+Phase 2 uses the `/dev/mem` path so you see exactly how hardware registers work — the physical addresses, the bit fields, the read-modify-write patterns. Phase 3 replaces the implementation with a proper kernel driver. The `IGpioController` interface stays unchanged; only the factory adds a new backend.
+
+### Key Terms
+
+| Term | What it is |
+|---|---|
+| **Register** | A small memory location wired to hardware circuits (not RAM) |
+| **MMIO** | Hardware registers accessed via memory addresses |
+| **User space (EL0)** | Where your program runs — restricted, can't touch hardware directly |
+| **Kernel space (EL1)** | Where Linux runs — full hardware access |
+| **System call** | The mechanism to ask the kernel to do something (`open`, `read`, `write`, `mmap`) |
+| **Kernel driver** | Code inside the kernel that manages a specific piece of hardware |
+| `/dev/mem` | Backdoor: lets user space map any physical address (requires root) |
+| `/dev/` files | How the kernel exposes drivers to user space |
+| **mmap** | Maps a physical address (or file) into your process's virtual address space |
+
+---
+
 ## 1. Context & Objectives
 
-Phase 1 established the daemon skeleton: `core/` vocabulary types, the `ISubsystem` lifecycle, `EventBus`, telemetry heartbeat, and the `DaemonOrchestrator`. The daemon boots, logs metrics, and shuts down cleanly.
+Phase 1 established the daemon skeleton: the `ISubsystem` lifecycle, `EventBus`, telemetry heartbeat, and the `DaemonOrchestrator`. The daemon boots, logs metrics, and shuts down cleanly.
 
 Phase 2 builds the **hardware abstraction** and **data pipeline** foundations on top of that skeleton. Four capabilities are added — each deepening a different aspect of embedded systems literacy:
 
