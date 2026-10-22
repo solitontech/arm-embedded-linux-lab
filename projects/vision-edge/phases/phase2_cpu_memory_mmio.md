@@ -1,6 +1,6 @@
 # Phase 2: CPU Internals, Memory & GPIO HAL
 
-> **Goal:** Build the GPIO hardware abstraction layer with BCM2711 MMIO and host stub implementations, implement the lockless triple-buffer and frame descriptor for the video pipeline, and deepen low-level ARM Cortex-A72 platform literacy.  
+> **Goal:** Build the GPIO hardware abstraction layer with BCM2711 MMIO, implement the lockless triple-buffer and frame descriptor for the video pipeline, and deepen low-level ARM Cortex-A72 platform literacy.  
 > **Modules Built:** `platform/gpio*`, `platform/mmio`, `pipeline/ring_buffer`, `pipeline/frame`  
 > **Interfaces Introduced:** `IGpioController`, `LocklessTripleBuffer`, `FrameDescriptor`  
 > **Architecture Reference:** [design/architecture.md](../design/architecture.md)  
@@ -125,8 +125,9 @@ graph TD
 |---|---|---|---|
 | platform | `include/visiond/platform/gpio.hpp` | — | `IGpioController` interface, `PinMode`, `PinLevel`, `PullMode` enums |
 | platform | `include/visiond/platform/mmio.hpp` | — | `MmioRegion` RAII wrapper for `mmap`/`munmap` |
+| platform | `include/visiond/platform/gpio_factory.hpp` | `src/platform/gpio_factory.cpp` | `GpioBackend` enum, `make_gpio()` factory |
+| platform | `include/visiond/platform/gpio_subsystem.hpp` | — | `GpioSubsystem` `ISubsystem` adapter |
 | platform | — | `src/platform/gpio_bcm2711.cpp` | `Bcm2711GpioController`: real `/dev/mem` MMIO for BCM2711 |
-| platform | — | `src/platform/gpio_stub.cpp` | `StubGpioController`: logs calls, no hardware (host testing) |
 | pipeline | `include/visiond/pipeline/frame.hpp` | — | `FrameDescriptor` struct (metadata + buffer pointer) |
 | pipeline | `include/visiond/pipeline/ring_buffer.hpp` | — | `LocklessTripleBuffer<T>` template |
 
@@ -141,7 +142,8 @@ Before implementing the GPIO controller, create a reusable RAII wrapper that ope
 ```cpp
 // include/visiond/platform/mmio.hpp
 #pragma once
-#include "visiond/core/types.hpp"
+#include <labkit/types.hpp>
+#include <labkit/expected.hpp>
 #include <cstddef>
 #include <cstdint>
 #include <sys/mman.h>
@@ -149,6 +151,10 @@ Before implementing the GPIO controller, create a reusable RAII wrapper that ope
 #include <unistd.h>
 
 namespace visiond {
+using labkit::expected;
+using labkit::unexpected;
+using labkit::Error;
+using labkit::ErrorCode;
 
 class MmioRegion {
 public:
@@ -156,7 +162,7 @@ public:
     static expected<MmioRegion, Error> create(off_t phys_addr, size_t length) {
         int fd = ::open("/dev/mem", O_RDWR | O_SYNC);
         if (fd < 0)
-            return unexpected<Error>({ErrorCode::PERMISSION_DENIED,
+            return unexpected<Error>(Error{ErrorCode::PERMISSION_DENIED,
                     "Failed to open /dev/mem (requires root or CAP_SYS_RAWIO)"});
 
         void* ptr = ::mmap(nullptr, length, PROT_READ | PROT_WRITE,
@@ -164,7 +170,7 @@ public:
         ::close(fd);  // fd no longer needed after mmap
 
         if (ptr == MAP_FAILED)
-            return unexpected<Error>({ErrorCode::IO_ERROR,
+            return unexpected<Error>(Error{ErrorCode::IO_ERROR,
                     "mmap failed for physical address"});
 
         return MmioRegion(ptr, length);
@@ -220,10 +226,15 @@ Define the hardware abstraction interface from the [architecture doc](../design/
 ```cpp
 // include/visiond/platform/gpio.hpp
 #pragma once
-#include "visiond/core/types.hpp"
+#include <labkit/types.hpp>
+#include <labkit/expected.hpp>
 #include <cstdint>
 
 namespace visiond {
+using labkit::expected;
+using labkit::unexpected;
+using labkit::Error;
+using labkit::ErrorCode;
 
 enum class PinMode  { INPUT, OUTPUT };
 enum class PinLevel { LOW, HIGH };
@@ -242,7 +253,7 @@ public:
 } // namespace visiond
 ```
 
-**Why a virtual interface and not a template policy?** The GPIO implementation is selected once at startup and never changes during runtime. Virtual dispatch adds ~2 ns per call — negligible for GPIO operations (millisecond-scale relay control). The benefit is trivial testability: unit tests inject `StubGpioController` without any template machinery.
+**Why a virtual interface and not a template policy?** The GPIO implementation is selected once at startup and never changes during runtime. Virtual dispatch adds ~2 ns per call — negligible for GPIO operations (millisecond-scale relay control). The benefit is trivial testability: unit tests inject a mock `IGpioController` without any template machinery.
 
 ---
 
@@ -267,9 +278,14 @@ The real hardware implementation. Uses `MmioRegion` to map the BCM2711 GPIO regi
 // src/platform/gpio_bcm2711.cpp
 #include "visiond/platform/gpio.hpp"
 #include "visiond/platform/mmio.hpp"
-#include "visiond/core/logger.hpp"
+#include <labkit/logger.hpp>
+#include <memory>
+#include <optional>
+#include <utility>
 
 namespace visiond {
+using labkit::ILogger;
+using labkit::LogLevel;
 
 namespace {
 constexpr off_t  BCM2711_GPIO_BASE = 0xFE200000;
@@ -293,30 +309,30 @@ public:
         if (!region.has_value())
             return unexpected<Error>(region.error());
 
-        mmio_ = std::move(region.value());
-        regs_ = mmio_.as_u32();
+        mmio_.emplace(std::move(region.value()));
+        regs_ = mmio_->as_u32();
         logger_.log(LogLevel::INFO, "BCM2711 GPIO mapped at PA 0xFE200000");
         return {};
     }
 
     expected<void, Error> set_mode(uint8_t pin, PinMode mode) override {
         if (pin > MAX_GPIO_PIN)
-            return unexpected<Error>({ErrorCode::INVALID_ARG, "Pin out of range"});
+            return unexpected<Error>(Error{ErrorCode::INVALID_ARG, "Pin out of range"});
 
         uint32_t reg_index = GPFSEL0 + (pin / 10);
         uint32_t bit_shift = (pin % 10) * 3;
 
         uint32_t val = regs_[reg_index];
-        val &= ~(0b111 << bit_shift);                     // Clear 3-bit field
+        val &= ~(0b111u << bit_shift);                    // Clear 3-bit field
         if (mode == PinMode::OUTPUT)
-            val |= (0b001 << bit_shift);                   // 001 = output
+            val |= (0b001u << bit_shift);                  // 001 = output
         regs_[reg_index] = val;                            // INPUT = 000 (default)
         return {};
     }
 
     expected<void, Error> set_pull(uint8_t pin, PullMode pull) override {
         if (pin > MAX_GPIO_PIN)
-            return unexpected<Error>({ErrorCode::INVALID_ARG, "Pin out of range"});
+            return unexpected<Error>(Error{ErrorCode::INVALID_ARG, "Pin out of range"});
 
         // BCM2711 uses GPIO_PUP_PDN registers (2 bits per pin, 16 pins per reg)
         uint32_t reg_index = GPIO_PUP_PDN_CNTRL_REG0 + (pin / 16);
@@ -326,7 +342,7 @@ public:
         if (pull == PullMode::DOWN) pull_val = 0b10;
 
         uint32_t val = regs_[reg_index];
-        val &= ~(0b11 << bit_shift);
+        val &= ~(0b11u << bit_shift);
         val |= (pull_val << bit_shift);
         regs_[reg_index] = val;
         return {};
@@ -334,7 +350,7 @@ public:
 
     expected<void, Error> write(uint8_t pin, PinLevel level) override {
         if (pin > MAX_GPIO_PIN)
-            return unexpected<Error>({ErrorCode::INVALID_ARG, "Pin out of range"});
+            return unexpected<Error>(Error{ErrorCode::INVALID_ARG, "Pin out of range"});
 
         uint32_t bank = pin / 32;
         uint32_t bit  = pin % 32;
@@ -349,7 +365,7 @@ public:
 
     expected<PinLevel, Error> read(uint8_t pin) override {
         if (pin > MAX_GPIO_PIN)
-            return unexpected<Error>({ErrorCode::INVALID_ARG, "Pin out of range"});
+            return unexpected<Error>(Error{ErrorCode::INVALID_ARG, "Pin out of range"});
 
         uint32_t bank = pin / 32;
         uint32_t bit  = pin % 32;
@@ -360,9 +376,14 @@ public:
 
 private:
     ILogger&    logger_;
-    MmioRegion  mmio_{MmioRegion(MmioRegion&&)};  // Moved into during init()
+    std::optional<MmioRegion> mmio_;   // Populated during init()
     volatile uint32_t* regs_{nullptr};
 };
+
+// Factory function — allows gpio_factory.cpp to create without seeing the class definition
+std::unique_ptr<IGpioController> make_bcm2711_gpio(ILogger& logger) {
+    return std::make_unique<Bcm2711GpioController>(logger);
+}
 
 } // namespace visiond
 ```
@@ -370,74 +391,110 @@ private:
 **Key design decisions:**
 - `ILogger&` is injected via constructor — no `LOG_ERROR` macros that would require a global logger.
 - `init()` returns `expected<void, Error>` so the `DaemonOrchestrator` can report and handle mapping failures.
+- `mmio_` is `std::optional<MmioRegion>` because `MmioRegion` has no default constructor (it's move-only, created by the `create()` factory). The `init()` method uses `mmio_.emplace(...)` to construct it in place.
 - The GPFSEL calculation uses `pin / 10` and `(pin % 10) * 3` because each GPFSEL register holds 10 pins at 3 bits each.
 - GPSET/GPCLR are write-1-to-set/write-1-to-clear registers — writing a 0 bit has no effect, so there's no read-modify-write race.
+- The file exports a `make_bcm2711_gpio()` free function so the factory (Step 4) can create the controller without including the class definition. This keeps `Bcm2711GpioController` entirely private to the `.cpp` file.
 
 ---
 
-### Step 4: StubGpioController (`src/platform/gpio_stub.cpp`)
+### Step 4: GPIO Factory and Subsystem Adapter
 
-The host-testing implementation. Compiles on x86 and logs every call without touching hardware. This enables the full daemon to run on a development workstation.
+Two small pieces connect the BCM2711 implementation to the daemon lifecycle: a **factory** that selects the GPIO backend, and a **subsystem adapter** that wraps `IGpioController` into the `ISubsystem` interface the orchestrator expects.
+
+#### gpio_factory.hpp / gpio_factory.cpp
+
+The factory decouples `main.cpp` from concrete GPIO implementations. Adding a new backend (e.g. a kernel-driver backend in Phase 3) means adding one enum value and one case — no changes to `main.cpp` or the subsystem adapter.
 
 ```cpp
-// src/platform/gpio_stub.cpp
+// include/visiond/platform/gpio_factory.hpp
+#pragma once
 #include "visiond/platform/gpio.hpp"
-#include "visiond/core/logger.hpp"
-#include <string>
+#include <labkit/logger.hpp>
+#include <memory>
+
+namespace visiond {
+using labkit::ILogger;
+
+enum class GpioBackend {
+    BCM2711,        // Phase 2: userspace MMIO via /dev/mem
+    // KERNEL,      // Phase 3: kernel driver via /dev/visiond-gpio
+};
+
+std::unique_ptr<IGpioController> make_gpio(GpioBackend backend, ILogger& logger);
+
+} // namespace visiond
+```
+
+```cpp
+// src/platform/gpio_factory.cpp
+#include "visiond/platform/gpio_factory.hpp"
 
 namespace visiond {
 
-class StubGpioController : public IGpioController {
+std::unique_ptr<IGpioController> make_bcm2711_gpio(ILogger& logger);
+
+std::unique_ptr<IGpioController> make_gpio(GpioBackend backend, ILogger& logger) {
+    switch (backend) {
+        case GpioBackend::BCM2711: return make_bcm2711_gpio(logger);
+    }
+    return nullptr;
+}
+
+} // namespace visiond
+```
+
+**Design notes:**
+- `make_bcm2711_gpio()` is forward-declared (not `#include`d) — the `Bcm2711GpioController` class stays completely private to `gpio_bcm2711.cpp`.
+- The `switch` has no `default` case so the compiler warns if a new `GpioBackend` enumerator is added without a corresponding factory case.
+- There is no `StubGpioController` and no arch-conditional source exclusion. GPIO compiles on all platforms. On non-RPi4 hosts, `init()` fails gracefully when `/dev/mem` cannot be opened, and the `DaemonOrchestrator` logs the error and continues.
+
+#### gpio_subsystem.hpp
+
+The subsystem adapter wraps any `IGpioController` into the `ISubsystem` lifecycle interface. It lives in its own header so `main.cpp` stays a clean composition root.
+
+```cpp
+// include/visiond/platform/gpio_subsystem.hpp
+#pragma once
+#include "visiond/platform/gpio.hpp"
+#include <labkit/lifecycle.hpp>
+#include <memory>
+#include <string_view>
+#include <utility>
+
+namespace visiond {
+using labkit::SubsystemState;
+using labkit::ISubsystem;
+
+// Adapter: wraps IGpioController into ISubsystem for the orchestrator
+class GpioSubsystem : public ISubsystem {
 public:
-    explicit StubGpioController(ILogger& logger) : logger_(logger) {}
+    explicit GpioSubsystem(std::unique_ptr<IGpioController> ctrl)
+        : ctrl_(std::move(ctrl)) {}
 
     expected<void, Error> init() override {
-        logger_.log(LogLevel::INFO, "StubGpioController initialized (no hardware)");
+        state_ = SubsystemState::INITIALIZED;
+        return ctrl_->init();
+    }
+    expected<void, Error> start() override {
+        state_ = SubsystemState::RUNNING;
         return {};
     }
-
-    expected<void, Error> set_mode(uint8_t pin, PinMode mode) override {
-        logger_.log(LogLevel::DEBUG,
-            "GPIO stub: set_mode pin=" + std::to_string(pin) +
-            " mode=" + (mode == PinMode::OUTPUT ? "OUTPUT" : "INPUT"));
-        return {};
+    void stop() override {
+        state_ = SubsystemState::STOPPED;
     }
-
-    expected<void, Error> set_pull(uint8_t pin, PullMode pull) override {
-        logger_.log(LogLevel::DEBUG,
-            "GPIO stub: set_pull pin=" + std::to_string(pin));
-        return {};
-    }
-
-    expected<void, Error> write(uint8_t pin, PinLevel level) override {
-        logger_.log(LogLevel::DEBUG,
-            "GPIO stub: write pin=" + std::to_string(pin) +
-            " level=" + (level == PinLevel::HIGH ? "HIGH" : "LOW"));
-        return {};
-    }
-
-    expected<PinLevel, Error> read(uint8_t pin) override {
-        logger_.log(LogLevel::DEBUG,
-            "GPIO stub: read pin=" + std::to_string(pin) + " → LOW");
-        return PinLevel::LOW;
-    }
+    std::string_view   name()  const override { return "gpio"; }
+    SubsystemState     state() const override { return state_; }
 
 private:
-    ILogger& logger_;
+    std::unique_ptr<IGpioController> ctrl_;
+    SubsystemState state_{SubsystemState::CREATED};
 };
 
 } // namespace visiond
 ```
 
-The Makefile's `ARCH`-conditional compilation (see [architecture doc §10](../design/architecture.md)) excludes `gpio_bcm2711.cpp` on x86 builds and `gpio_stub.cpp` on ARM builds:
-
-```makefile
-ifeq ($(ARCH),arm64)
-    SRCS_EXCLUDE += src/platform/gpio_stub.cpp
-else
-    SRCS_EXCLUDE += src/platform/gpio_bcm2711.cpp
-endif
-```
+**Why a separate header?** The adapter is trivial (~20 lines) but putting it in `main.cpp` would mix composition-root logic with class definitions. A dedicated header keeps `main.cpp` focused on wiring and lets other translation units (e.g. integration tests) reuse the adapter.
 
 ---
 
@@ -558,64 +615,35 @@ private:
 
 ### Step 7: Wire GPIO into DaemonOrchestrator
 
-The `DaemonOrchestrator` manages subsystems through the `ISubsystem` interface. GPIO needs a thin adapter that wraps `IGpioController` into an `ISubsystem`. This is added in `main.cpp` — zero changes to `core/` or `telemetry/`.
+The `DaemonOrchestrator` manages subsystems through the `ISubsystem` interface. The `GpioSubsystem` adapter (Step 4) wraps `IGpioController` into `ISubsystem`, and the factory (Step 4) selects the concrete backend. Wiring in `main.cpp` is two includes and one `daemon.add()` call — zero changes to `telemetry/`.
 
 ```cpp
-// In src/main.cpp — add to existing composition root
+// src/main.cpp (Phase 2 additions shown in context)
+#include "visiond/app/config.hpp"
+#include "visiond/telemetry/metrics.hpp"
+#include "visiond/telemetry/heartbeat.hpp"
+#include "visiond/platform/gpio_subsystem.hpp"
+#include "visiond/platform/gpio_factory.hpp"
+#include "visiond/app/daemon.hpp"
+#include <labkit/spdlog_logger.hpp>
 
-#include "visiond/platform/gpio.hpp"
-
-// Adapter: wraps IGpioController into ISubsystem for the orchestrator
-class GpioSubsystem : public visiond::ISubsystem {
-public:
-    explicit GpioSubsystem(std::unique_ptr<visiond::IGpioController> ctrl)
-        : ctrl_(std::move(ctrl)) {}
-
-    visiond::expected<void, visiond::Error> init() override {
-        state_ = visiond::SubsystemState::INITIALIZED;
-        return ctrl_->init();
-    }
-    visiond::expected<void, visiond::Error> start() override {
-        state_ = visiond::SubsystemState::RUNNING;
-        return {};
-    }
-    void stop() override {
-        state_ = visiond::SubsystemState::STOPPED;
-    }
-    std::string_view   name()  const override { return "gpio"; }
-    visiond::SubsystemState state() const override { return state_; }
-
-private:
-    std::unique_ptr<visiond::IGpioController> ctrl_;
-    visiond::SubsystemState state_{visiond::SubsystemState::CREATED};
-};
-```
-
-In `main()`, create the appropriate `IGpioController` and register it:
-
-```cpp
 int main(int argc, char* argv[]) {
-    // ... existing config, logger, event_bus, metrics_source setup ...
-
+    // ... config, logger, event_bus, metrics_source ...
     visiond::DaemonOrchestrator daemon(logger, config);
 
-    // Phase 1 subsystem (unchanged)
     daemon.add(std::make_unique<visiond::HeartbeatWorker>(
         logger, metrics_source, event_bus, config.heartbeat_interval_ms));
 
-    // Phase 2: GPIO subsystem
-    #ifdef __aarch64__
-        auto gpio = std::make_unique<visiond::Bcm2711GpioController>(logger);
-    #else
-        auto gpio = std::make_unique<visiond::StubGpioController>(logger);
-    #endif
-    daemon.add(std::make_unique<GpioSubsystem>(std::move(gpio)));
+    daemon.add(std::make_unique<visiond::GpioSubsystem>(
+        visiond::make_gpio(visiond::GpioBackend::BCM2711, logger)));
 
     return daemon.run();
 }
 ```
 
-**What changed:** One `#include`, one adapter class, one `daemon.add()` call. `core/`, `telemetry/`, and the existing `HeartbeatWorker` registration are completely untouched.
+**What changed vs Phase 1:** Two `#include`s (`gpio_subsystem.hpp`, `gpio_factory.hpp`) and one `daemon.add()` call. There is no `#ifdef __aarch64__` — GPIO registers unconditionally. On non-RPi4 hosts, `Bcm2711GpioController::init()` fails gracefully when `/dev/mem` cannot be opened, and the orchestrator logs the error and continues with the remaining subsystems.
+
+**Why no stub?** A stub would mask real initialization errors and add a code path that never runs on the target. The factory pattern makes adding new backends (Phase 3 kernel driver) a one-line change — add a `GpioBackend::KERNEL` case — without touching `main.cpp` or the subsystem adapter.
 
 ---
 
@@ -624,7 +652,7 @@ int main(int argc, char* argv[]) {
 Use the same lab CLI workflow as Phase 1:
 
 ```bash
-# Cross-compile inside Docker (ARM64 target — selects Bcm2711GpioController)
+# Cross-compile inside Docker (ARM64 target)
 ./lab docker exec -- ./lab build vision-edge --board rpi4
 
 # Deploy to RPi4 NFS rootfs
@@ -633,7 +661,7 @@ Use the same lab CLI workflow as Phase 1:
 # Run on target (requires root for /dev/mem access)
 ./lab docker exec -- ./lab run vision-edge --board rpi4
 
-# Host build for development (x86 — selects StubGpioController)
+# Host build for development (GPIO init fails gracefully on non-RPi4)
 ./lab build vision-edge
 ```
 
@@ -801,9 +829,9 @@ This directly impacts Phase 4: NEON SIMD loads (`vld1q_u8`) read 16 contiguous b
 All items must pass before proceeding to Phase 3.
 
 - [ ] `Bcm2711GpioController` toggles GPIO 18 on real RPi4 hardware (relay clicks or LED lights)
-- [ ] `StubGpioController` compiles and runs on x86 host, logs pin operations
+- [ ] Host build compiles and runs — GPIO `init()` fails gracefully with `/dev/mem` error, daemon continues
 - [ ] `LocklessTripleBuffer` sustains 60 FPS exchange between 2 threads with zero mutex locks
 - [ ] `FrameDescriptor` is exactly a lightweight POD (~64 bytes, no heap allocations)
 - [ ] Core dump generated and analyzed via GDB — PC matched to source line
 - [ ] Virtual address resolved to physical DRAM page via pagemap
-- [ ] No changes to `core/` or `telemetry/` modules (Phase 1 code untouched)
+- [ ] No changes to `telemetry/` module (Phase 1 code untouched)

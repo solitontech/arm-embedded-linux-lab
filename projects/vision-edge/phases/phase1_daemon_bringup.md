@@ -1,8 +1,9 @@
 # Phase 1: Foundation & Daemon Bringup
 
-> **Goal:** Build the architectural foundation (`core/`), the first subsystem (`telemetry/`), and the daemon orchestrator (`app/`). Cross-compile inside Docker and deploy to the live RPi4 over NFS.  
-> **Modules Built:** `core/*`, `telemetry/*`, `app/`  
+> **Goal:** Wire the shared library (`labkit::`), build the first subsystem (`telemetry/`), and the daemon orchestrator (`app/`). Cross-compile inside Docker and deploy to the live RPi4 over NFS.  
+> **Modules Built:** `telemetry/*`, `app/*` (core interfaces come from `labkit::`)  
 > **Interfaces Introduced:** `ISubsystem`, `ILogger`, `IMetricsSource`, `EventBus`, `expected<T,E>`  
+> **Shared Library:** `shared/lib/include/labkit/` (types, logger, lifecycle, event, metrics, expected)  
 > **Architecture Reference:** [design/architecture.md](../design/architecture.md)  
 > **Milestone:** Gate 1 (Daemon Bringup)
 
@@ -21,19 +22,22 @@ Verify the lab infrastructure is active before starting:
 
 ## 2. Files Created
 
-This phase establishes the directory scaffold and implements three modules:
+This phase wires the shared `labkit::` library and implements two project modules:
 
-| Module | Header | Source | Purpose |
+| Source | Header | Source | Purpose |
 |---|---|---|---|
-| `core` | `include/visiond/core/types.hpp` | — | `Error` type, `expected<T,E>` polyfill |
-| `core` | `include/visiond/core/logger.hpp` | `src/core/logger.cpp` | `ILogger` interface, `ConsoleLogger` |
-| `core` | `include/visiond/core/lifecycle.hpp` | — | `ISubsystem` interface, `SubsystemState` |
-| `core` | `include/visiond/core/config.hpp` | `src/core/config.cpp` | `DaemonConfig` (CLI parsing) |
-| `core` | `include/visiond/core/event.hpp` | `src/core/event.cpp` | `EventBus` (typed pub/sub) |
-| `telemetry` | `include/visiond/telemetry/metrics.hpp` | `src/telemetry/metrics_procfs.cpp` | `IMetricsSource`, `ProcfsMetricsSource` |
-| `telemetry` | `include/visiond/telemetry/heartbeat.hpp` | `src/telemetry/heartbeat.cpp` | `HeartbeatWorker` (periodic `ISubsystem`) |
+| `labkit` | `shared/lib/include/labkit/types.hpp` | -- | `ErrorCode`, `Error` |
+| `labkit` | `shared/lib/include/labkit/expected.hpp` | -- | `expected<T,E>` via `tl::expected` / `std::expected` |
+| `labkit` | `shared/lib/include/labkit/logger.hpp` | -- | `ILogger` interface, `LogLevel` (header-only) |
+| `labkit` | `shared/lib/include/labkit/spdlog_logger.hpp` | -- | `SpdlogLogger` concrete implementation (header-only) |
+| `labkit` | `shared/lib/include/labkit/lifecycle.hpp` | -- | `ISubsystem`, `SubsystemState` (header-only) |
+| `labkit` | `shared/lib/include/labkit/event.hpp` | -- | `EventBus` typed pub/sub (header-only) |
+| `labkit` | `shared/lib/include/labkit/metrics.hpp` | -- | `SystemMetrics`, `IMetricsSource` (header-only) |
+| `app` | `include/visiond/app/config.hpp` | `src/app/config.cpp` | `DaemonConfig` (CLI parsing) |
 | `app` | `include/visiond/app/daemon.hpp` | `src/app/daemon.cpp` | `DaemonOrchestrator` |
-| — | — | `src/main.cpp` | Minimal entry point |
+| `telemetry` | `include/visiond/telemetry/metrics.hpp` | `src/telemetry/metrics_procfs.cpp` | `ProcfsMetricsSource` (uses `labkit::IMetricsSource`) |
+| `telemetry` | `include/visiond/telemetry/heartbeat.hpp` | `src/telemetry/heartbeat.cpp` | `HeartbeatWorker` (periodic `ISubsystem`) |
+| -- | -- | `src/main.cpp` | Composition root |
 
 ---
 
@@ -44,22 +48,11 @@ This phase establishes the directory scaffold and implements three modules:
 ```
 projects/vision-edge/
 ├── include/visiond/
-│   ├── core/
-│   ├── platform/        # empty — Phase 2
-│   ├── pipeline/        # empty — Phase 2
-│   ├── safety/          # empty — Phase 3
-│   ├── telemetry/
-│   ├── web/             # empty — Phase 5
-│   └── app/
+│   ├── app/
+│   └── telemetry/
 ├── src/
-│   ├── core/
-│   ├── platform/        # empty — Phase 2
-│   ├── pipeline/        # empty — Phase 2
-│   ├── safety/          # empty — Phase 3
-│   ├── telemetry/
-│   ├── web/             # empty — Phase 5
-│   └── app/
-├── kernel/              # empty — Phase 3
+│   ├── app/
+│   └── telemetry/
 ├── tests/
 │   ├── unit/
 │   └── integration/
@@ -68,19 +61,21 @@ projects/vision-edge/
 └── phases/
 ```
 
-### Step 2: Implement `core/types.hpp` — Error type and `expected` polyfill
+> **Note:** `platform/` and `pipeline/` directories are created later in Phase 2. Empty placeholder directories are not used -- directories appear only when they contain code. Core interfaces (`ILogger`, `ISubsystem`, `EventBus`, etc.) live in the shared library at `shared/lib/include/labkit/` and are consumed via `#include <labkit/...>`.
 
-This is the vocabulary header every other file depends on. It provides:
+### Step 2: `labkit/types.hpp` + `labkit/expected.hpp` — Error type and `expected`
+
+These are vocabulary headers every other file depends on. They live in the shared library (`shared/lib/include/labkit/`) and provide:
 - `Error` struct (error code + context string)
-- `expected<T, Error>` alias that forwards to `std::expected` on C++23 or falls back to a minimal polyfill on GCC 11
+- `expected<T, Error>` alias that forwards to `std::expected` on C++23 or falls back to `tl::expected` (vendored at `shared/lib/vendor/tl/expected.hpp`)
 
 ```cpp
-// include/visiond/core/types.hpp
+// shared/lib/include/labkit/types.hpp
 #pragma once
 #include <cstdint>
 #include <string>
 
-namespace visiond {
+namespace labkit {
 
 enum class ErrorCode : uint16_t {
     OK = 0,
@@ -98,34 +93,41 @@ struct Error {
     std::string context;
 };
 
-// --- expected<T, E> polyfill ---
-#if __cpp_lib_expected >= 202211L
-    #include <expected>
-    template <typename T, typename E = Error>
-    using expected = std::expected<T, E>;
-    using std::unexpected;
-#else
-    // Provide a minimal polyfill (~80 lines):
-    // - Discriminated union with has_value(), value(), error()
-    // - Move-constructible, supports void specialization
-    // See architecture doc §3.1 for design rationale
-    template <typename E> class unexpected { /* ... */ };
-    template <typename T, typename E = Error> class expected { /* ... */ };
-#endif
-
-} // namespace visiond
+} // namespace labkit
 ```
 
-### Step 3: Implement `core/logger.hpp` — `ILogger` interface + `ConsoleLogger`
+```cpp
+// shared/lib/include/labkit/expected.hpp
+#pragma once
+#include <labkit/types.hpp>
 
-Every component receives an `ILogger&` via constructor — no singletons.
+#if __cpp_lib_expected >= 202211L
+    #include <expected>
+    namespace labkit {
+        template <typename T, typename E = Error>
+        using expected = std::expected<T, E>;
+        using std::unexpected;
+    }
+#else
+    #include <tl/expected.hpp>
+    namespace labkit {
+        template <typename T, typename E = Error>
+        using expected = tl::expected<T, E>;
+        using tl::unexpected;
+    }
+#endif
+```
+
+### Step 3: `labkit/logger.hpp` — `ILogger` interface + `SpdlogLogger`
+
+Every component receives an `ILogger&` via constructor -- no singletons. The interface is a lightweight header-only abstract class in `labkit::`. The concrete implementation (`SpdlogLogger`) is in a separate heavy header, included only in the composition root (`main.cpp`).
 
 ```cpp
-// include/visiond/core/logger.hpp
+// shared/lib/include/labkit/logger.hpp  (lightweight — safe to include everywhere)
 #pragma once
 #include <string_view>
 
-namespace visiond {
+namespace labkit {
 
 enum class LogLevel { DEBUG, INFO, WARN, ERROR };
 
@@ -136,37 +138,24 @@ public:
     virtual void set_level(LogLevel level) = 0;
 };
 
-// Default implementation: ANSI-colored output to stdout, optional file output
-class ConsoleLogger : public ILogger {
-public:
-    void log(LogLevel level, std::string_view msg) override;
-    void set_level(LogLevel level) override;
-    bool set_log_file(const std::string& path);
-
-private:
-    LogLevel current_level_{LogLevel::INFO};
-    std::mutex mtx_;
-    std::ofstream file_stream_;
-};
-
-} // namespace visiond
+} // namespace labkit
 ```
 
-The `ConsoleLogger` implementation in `src/core/logger.cpp` handles:
-- Thread-safe mutex-guarded output
+The concrete `labkit::SpdlogLogger` lives in `shared/lib/include/labkit/spdlog_logger.hpp` (header-only, backed by vendored spdlog at `shared/lib/vendor/spdlog/`). It provides:
+- Thread-safe colored console output via spdlog
 - ISO 8601 timestamps with millisecond precision
-- ANSI color codes per log level (cyan/green/yellow/red)
-- Optional file logging (plaintext, no ANSI codes)
+- Optional file sink via `add_file_sink(path)`
+- Only `main.cpp` includes this heavy header; all other code depends on `ILogger&`
 
-### Step 4: Implement `core/lifecycle.hpp` — `ISubsystem` contract
+### Step 4: `labkit/lifecycle.hpp` — `ISubsystem` contract
 
 ```cpp
-// include/visiond/core/lifecycle.hpp
+// shared/lib/include/labkit/lifecycle.hpp
 #pragma once
-#include "visiond/core/types.hpp"
+#include <labkit/expected.hpp>
 #include <string_view>
 
-namespace visiond {
+namespace labkit {
 
 enum class SubsystemState { CREATED, INITIALIZED, RUNNING, STOPPED, FAILED };
 
@@ -180,20 +169,22 @@ public:
     virtual SubsystemState    state() const = 0;
 };
 
-} // namespace visiond
+} // namespace labkit
 ```
 
-### Step 5: Implement `core/config.hpp` + `src/core/config.cpp` — CLI parsing
+### Step 5: Implement `app/config.hpp` + `src/app/config.cpp` — CLI parsing
 
-`DaemonConfig` holds all runtime configuration with layered resolution: compiled defaults → CLI args. (Config file support can be added later.)
+`DaemonConfig` is project-specific (not shared) and lives under `app/`. It holds all runtime configuration with layered resolution: compiled defaults -> CLI args. (Config file support can be added later.)
 
 ```cpp
-// include/visiond/core/config.hpp
+// include/visiond/app/config.hpp
 #pragma once
-#include "visiond/core/logger.hpp"
+#include <labkit/logger.hpp>
+#include <cstdint>
 #include <string>
 
 namespace visiond {
+using labkit::LogLevel;
 
 struct DaemonConfig {
     LogLevel    log_level{LogLevel::INFO};
@@ -213,12 +204,12 @@ struct DaemonConfig {
 
 CLI flags: `-h/--help`, `-v/--version`, `-d/--daemon`, `-i/--interval <ms>`, `-p/--port <port>`, `-l/--log-level <level>`, `-f/--log-file <path>`.
 
-### Step 6: Implement `core/event.hpp` + `src/core/event.cpp` — Typed EventBus
+### Step 6: `labkit/event.hpp` — Typed EventBus (header-only)
 
-A lightweight publish/subscribe dispatcher for control events (safety trips, metrics broadcasts, state changes). Not used for frame data.
+A lightweight publish/subscribe dispatcher for control events (safety trips, metrics broadcasts, state changes). Not used for frame data. This is fully header-only in `labkit::` -- there is no corresponding `.cpp` file.
 
 ```cpp
-// include/visiond/core/event.hpp
+// shared/lib/include/labkit/event.hpp
 #pragma once
 #include <any>
 #include <functional>
@@ -227,15 +218,32 @@ A lightweight publish/subscribe dispatcher for control events (safety trips, met
 #include <unordered_map>
 #include <vector>
 
-namespace visiond {
+namespace labkit {
 
 class EventBus {
 public:
     template <typename EventT>
-    void subscribe(std::function<void(const EventT&)> handler);
+    void subscribe(std::function<void(const EventT&)> handler) {
+        std::lock_guard<std::mutex> lock(mtx_);
+        auto key = std::type_index(typeid(EventT));
+        handlers_[key].emplace_back(
+            [h = std::move(handler)](const std::any& a) {
+                h(std::any_cast<const EventT&>(a));
+            });
+    }
 
     template <typename EventT>
-    void publish(const EventT& event);
+    void publish(const EventT& event) {
+        std::vector<std::function<void(const std::any&)>> snapshot;
+        {
+            std::lock_guard<std::mutex> lock(mtx_);
+            auto it = handlers_.find(std::type_index(typeid(EventT)));
+            if (it == handlers_.end()) return;
+            snapshot = it->second;
+        }
+        std::any wrapped = event;
+        for (auto& fn : snapshot) fn(wrapped);
+    }
 
 private:
     std::mutex mtx_;
@@ -243,34 +251,23 @@ private:
                        std::vector<std::function<void(const std::any&)>>> handlers_;
 };
 
-} // namespace visiond
+} // namespace labkit
 ```
 
 ### Step 7: Implement `telemetry/metrics.hpp` + `src/telemetry/metrics_procfs.cpp`
 
-Separate the metrics data structure from the collection strategy via `IMetricsSource`.
+The metrics data structure and `IMetricsSource` interface live in `labkit::`. The project header re-exports them and adds the concrete `ProcfsMetricsSource` implementation.
 
 ```cpp
 // include/visiond/telemetry/metrics.hpp
 #pragma once
-#include "visiond/core/logger.hpp"
-#include <cstdint>
+#include <labkit/metrics.hpp>
+#include <labkit/logger.hpp>
 
 namespace visiond {
-
-struct SystemMetrics {
-    float    cpu_usage_percent{0.0f};
-    double   uptime_seconds{0.0};
-    uint64_t mem_total_kb{0};
-    uint64_t mem_free_kb{0};
-    uint64_t mem_available_kb{0};
-};
-
-class IMetricsSource {
-public:
-    virtual ~IMetricsSource() = default;
-    virtual SystemMetrics sample() = 0;
-};
+using labkit::SystemMetrics;
+using labkit::IMetricsSource;
+using labkit::ILogger;
 
 // Real implementation: parses /proc/stat, /proc/meminfo, /proc/uptime
 class ProcfsMetricsSource : public IMetricsSource {
@@ -280,8 +277,8 @@ public:
 
 private:
     ILogger& logger_;
-    // CPU delta tracking state
-    uint64_t prev_idle_{0}, prev_total_{0};
+    uint64_t prev_idle_{0};
+    uint64_t prev_total_{0};
     bool first_sample_{true};
 };
 
@@ -295,14 +292,24 @@ private:
 ```cpp
 // include/visiond/telemetry/heartbeat.hpp
 #pragma once
-#include "visiond/core/lifecycle.hpp"
-#include "visiond/core/event.hpp"
+#include <labkit/lifecycle.hpp>
+#include <labkit/event.hpp>
 #include "visiond/telemetry/metrics.hpp"
-#include <thread>
 #include <atomic>
 #include <condition_variable>
+#include <mutex>
+#include <thread>
 
 namespace visiond {
+using labkit::expected;
+using labkit::unexpected;
+using labkit::Error;
+using labkit::ErrorCode;
+using labkit::LogLevel;
+using labkit::ILogger;
+using labkit::SubsystemState;
+using labkit::ISubsystem;
+using labkit::EventBus;
 
 struct MetricsEvent {
     SystemMetrics metrics;
@@ -337,6 +344,8 @@ private:
 } // namespace visiond
 ```
 
+Note how `using` declarations bring `labkit::` types into the `visiond` namespace. This pattern keeps project code concise while making the shared library origin explicit at the top of each header.
+
 ### Step 9: Implement `app/daemon.hpp` + `src/app/daemon.cpp` — DaemonOrchestrator
 
 Owns all subsystems. Handles ordered `init()` → `start()`, reverse-ordered `stop()`, POSIX signal handling, and the main wait loop.
@@ -344,13 +353,17 @@ Owns all subsystems. Handles ordered `init()` → `start()`, reverse-ordered `st
 ```cpp
 // include/visiond/app/daemon.hpp
 #pragma once
-#include "visiond/core/lifecycle.hpp"
-#include "visiond/core/logger.hpp"
-#include "visiond/core/config.hpp"
+#include <labkit/lifecycle.hpp>
+#include <labkit/logger.hpp>
+#include "visiond/app/config.hpp"
 #include <memory>
 #include <vector>
 
 namespace visiond {
+using labkit::ILogger;
+using labkit::ISubsystem;
+using labkit::SubsystemState;
+using labkit::LogLevel;
 
 class DaemonOrchestrator {
 public:
@@ -358,7 +371,7 @@ public:
 
     void add(std::unique_ptr<ISubsystem> subsystem);
 
-    // init all → start all → wait for signal → stop all (reverse order)
+    // init all -> start all -> wait for signal -> stop all (reverse order)
     int run();
 
 private:
@@ -373,16 +386,19 @@ private:
 } // namespace visiond
 ```
 
-### Step 10: Implement `src/main.cpp` — Minimal entry point
+### Step 10: Implement `src/main.cpp` — Composition root
+
+This is the only file that includes the heavy `<labkit/spdlog_logger.hpp>` header. Everything else depends on `ILogger&`.
 
 ```cpp
-#include "visiond/core/config.hpp"
-#include "visiond/core/logger.hpp"
-#include "visiond/core/event.hpp"
+#include "visiond/app/config.hpp"
 #include "visiond/telemetry/metrics.hpp"
 #include "visiond/telemetry/heartbeat.hpp"
 #include "visiond/app/daemon.hpp"
+#include <labkit/spdlog_logger.hpp>   // heavy -- only in composition root
+#include <iomanip>
 #include <iostream>
+#include <sstream>
 
 int main(int argc, char* argv[]) {
     auto config = visiond::DaemonConfig::parse(argc, argv);
@@ -390,27 +406,35 @@ int main(int argc, char* argv[]) {
     if (config.show_version) { std::cout << "visiond 0.1.0\n"; return 0; }
 
     // Composition root: create shared dependencies
-    visiond::ConsoleLogger logger;
+    labkit::SpdlogLogger logger("visiond");
     logger.set_level(config.log_level);
+    if (!config.log_file.empty())
+        logger.add_file_sink(config.log_file);
 
-    visiond::EventBus event_bus;
+    labkit::EventBus event_bus;
     visiond::ProcfsMetricsSource metrics_source(logger);
+
+    // Subscribe to MetricsEvents for logging (temporary -- replaced by WebServer in Phase 5)
+    event_bus.subscribe<visiond::MetricsEvent>(
+        [&logger](const visiond::MetricsEvent& e) {
+            std::ostringstream ss;
+            ss << std::fixed << std::setprecision(1)
+               << "[event] MetricsEvent: CPU " << e.metrics.cpu_usage_percent
+               << "%, Mem " << (e.metrics.mem_available_kb / 1024)
+               << "/" << (e.metrics.mem_total_kb / 1024) << " MB";
+            logger.log(labkit::LogLevel::DEBUG, ss.str());
+        });
 
     // Build orchestrator and register subsystems
     visiond::DaemonOrchestrator daemon(logger, config);
     daemon.add(std::make_unique<visiond::HeartbeatWorker>(
         logger, metrics_source, event_bus, config.heartbeat_interval_ms));
 
-    // Subscribe to MetricsEvents for logging (temporary — replaced by WebServer in Phase 5)
-    event_bus.subscribe<visiond::MetricsEvent>([&logger](const visiond::MetricsEvent& e) {
-        // format and log metrics
-    });
-
     return daemon.run();
 }
 ```
 
-### Step 11: Update Makefile for recursive source discovery
+### Step 11: Update Makefile
 
 ```makefile
 PROJECT_NAME    := vision-edge
@@ -422,13 +446,10 @@ INCLUDES_EXTRA  += -I./include
 LDFLAGS_EXTRA   += -static
 LDLIBS_EXTRA    += -pthread
 
-# Override flat SRCS glob with recursive discovery
-SRCS_OVERRIDE   := $(shell find src -name '*.cpp')
-
 include ../../shared/build_system/framework.mk
 ```
 
-> **Note:** `framework.mk` may need a small patch to respect `SRCS_OVERRIDE`. Check `shared/build_system/easymake_base.mk` for where `SRCS` is defined and add a conditional.
+The build framework handles recursive source discovery automatically -- no overrides needed.
 
 ### Step 12: Build and deploy
 
@@ -486,4 +507,4 @@ diff /tmp/func_O0.s /tmp/func_O2.s
 - [ ] Metrics log shows CPU%, memory, and uptime (not zeros)
 - [ ] `Ctrl+C` (SIGINT) triggers clean shutdown: `STOPPING → TERMINATED`, all threads joined, exit 0
 - [ ] `kill -TERM <pid>` also triggers clean shutdown
-- [ ] No singletons anywhere — every component receives deps via constructor
+- [ ] No singletons -- every component receives deps via constructor (`ILogger&`, `EventBus&`, etc.)
