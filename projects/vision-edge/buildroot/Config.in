@@ -1,0 +1,1 @@
+source "$BR2_EXTERNAL_VISIOND_PATH/package/visiond/Config.in"

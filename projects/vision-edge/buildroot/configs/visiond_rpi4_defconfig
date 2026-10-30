@@ -10,13 +10,10 @@
 BR2_aarch64=y
 BR2_cortex_a72=y
 
-# Toolchain — external (matches Docker cross-compiler)
-BR2_TOOLCHAIN_EXTERNAL=y
-BR2_TOOLCHAIN_EXTERNAL_CUSTOM=y
-BR2_TOOLCHAIN_EXTERNAL_PATH="/opt/cross/aarch64-linux-gnu"
-BR2_TOOLCHAIN_EXTERNAL_HEADERS_6_1=y
-BR2_TOOLCHAIN_EXTERNAL_CUSTOM_GLIBC=y
-BR2_TOOLCHAIN_EXTERNAL_CXX=y
+# Toolchain — let Buildroot build its own (avoids distribution toolchain issues)
+BR2_TOOLCHAIN_BUILDROOT=y
+BR2_TOOLCHAIN_BUILDROOT_GLIBC=y
+BR2_TOOLCHAIN_BUILDROOT_CXX=y
 
 # System configuration
 BR2_TARGET_GENERIC_HOSTNAME="visiond"
@@ -44,11 +41,7 @@ BR2_ROOTFS_OVERLAY="$(BR2_EXTERNAL_VISIOND_PATH)/overlay"
 BR2_PACKAGE_BUSYBOX=y
 BR2_PACKAGE_BUSYBOX_SHOW_OTHERS=y
 
-# Kernel modules (out-of-tree, installed via overlay)
-# bcm2835-unicam, imx219, vision_safety — copied from kernel build
-
 # Strip and minimize
 BR2_STRIP_strip=y
 BR2_OPTIMIZE_2=y
 BR2_ENABLE_LOCALE=n
-# BR2_PACKAGE_BUSYBOX_CONFIG_FRAGMENT_FILES=""

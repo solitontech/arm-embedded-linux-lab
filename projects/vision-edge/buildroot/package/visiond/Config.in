@@ -1,0 +1,9 @@
+config BR2_PACKAGE_VISIOND
+	bool "visiond"
+	depends on BR2_INSTALL_LIBSTDCPP
+	help
+	  VisionEdge industrial inspection daemon.
+	  Provides camera capture, SIMD anomaly detection,
+	  safety relay control, and a web telemetry API.
+
+	  https://github.com/example/arm-embedded-linux-lab
