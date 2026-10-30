@@ -1,6 +1,7 @@
 #pragma once
 #include <labkit/lifecycle.hpp>
 #include <labkit/logger.hpp>
+#include <labkit/event.hpp>
 #include "visiond/platform/camera.hpp"
 #include "visiond/pipeline/simd_engine.hpp"
 #include "visiond/pipeline/stage.hpp"
@@ -16,6 +17,7 @@ using labkit::ILogger;
 using labkit::ISubsystem;
 using labkit::SubsystemState;
 using labkit::LogLevel;
+using labkit::EventBus;
 
 class CaptureSubsystem : public ISubsystem {
 public:
@@ -24,6 +26,7 @@ public:
                      std::unique_ptr<ISIMDEngine> simd,
                      LocklessTripleBuffer<FrameDescriptor>& ring_buffer,
                      TripController& trip_controller,
+                     EventBus& event_bus,
                      const CameraConfig& cam_cfg,
                      uint8_t diff_threshold = 25,
                      int capture_core = -1);
@@ -44,6 +47,7 @@ private:
     std::unique_ptr<ISIMDEngine>            simd_;
     LocklessTripleBuffer<FrameDescriptor>&  ring_buffer_;
     TripController&                         trip_controller_;
+    EventBus&                               event_bus_;
     CameraConfig                            cam_cfg_;
     uint8_t                                 diff_threshold_;
     int                                     capture_core_;

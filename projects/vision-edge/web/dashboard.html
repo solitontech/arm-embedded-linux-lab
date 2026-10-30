@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VisionEdge</title>
+<style>
+/* --- Reset & Foundation --- */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0f;
+  --surface: rgba(255, 255, 255, 0.06);
+  --surface-hover: rgba(255, 255, 255, 0.09);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-bright: rgba(255, 255, 255, 0.14);
+  --text-primary: rgba(255, 255, 255, 0.92);
+  --text-secondary: rgba(255, 255, 255, 0.50);
+  --text-tertiary: rgba(255, 255, 255, 0.32);
+  --green: #30d158;
+  --green-dim: rgba(48, 209, 88, 0.16);
+  --red: #ff453a;
+  --red-dim: rgba(255, 69, 58, 0.16);
+  --yellow: #ffd60a;
+  --yellow-dim: rgba(255, 214, 10, 0.12);
+  --radius: 14px;
+  --radius-sm: 10px;
+}
+
+html { height: 100%; }
+
+body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text-primary);
+  font: 100%/1.5 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* --- Toolbar (translucent material) --- */
+.toolbar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: rgba(18, 18, 24, 0.72);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-bottom: 1px solid var(--border);
+}
+
+.toolbar h1 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+
+.conn-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--text-tertiary);
+  transition: color 0.4s ease, opacity 0.4s ease;
+}
+
+.conn-badge .indicator {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+
+.conn-badge.connected { color: var(--text-secondary); }
+.conn-badge.connected .indicator {
+  background: var(--green);
+  box-shadow: 0 0 6px rgba(48, 209, 88, 0.5);
+}
+.conn-badge.error { color: var(--red); }
+.conn-badge.error .indicator {
+  background: var(--red);
+  box-shadow: 0 0 6px rgba(255, 69, 58, 0.4);
+}
+
+/* --- Layout --- */
+.content {
+  flex: 1;
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  min-height: 0;
+}
+
+/* --- Video panel --- */
+.video-panel {
+  flex: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  position: relative;
+}
+
+.video-panel img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.video-panel img.loaded { opacity: 1; }
+
+.video-panel .placeholder {
+  position: absolute;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+/* --- Metrics panel --- */
+.metrics-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 260px;
+  overflow-y: auto;
+}
+
+/* --- Card (translucent material, lighter weight) --- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.card:hover {
+  background: var(--surface-hover);
+  border-color: var(--border-bright);
+}
+
+.card-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.card-value {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.4s ease;
+}
+
+.card-value.ok { color: var(--green); }
+.card-value.warn { color: var(--yellow); }
+.card-value.crit { color: var(--red); }
+.card-value.neutral { color: var(--text-primary); }
+
+/* --- Progress bar --- */
+.progress {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 3px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+              background 0.4s ease;
+}
+
+.progress-fill.ok { background: var(--green); }
+.progress-fill.warn { background: var(--yellow); }
+.progress-fill.crit { background: var(--red); }
+
+/* --- Safety status --- */
+.safety-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.safety-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: background 0.4s ease, box-shadow 0.4s ease;
+}
+
+.safety-dot.armed {
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(48, 209, 88, 0.5);
+}
+
+.safety-dot.tripped {
+  background: var(--red);
+  box-shadow: 0 0 10px rgba(255, 69, 58, 0.6);
+  animation: pulse-glow 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 10px rgba(255, 69, 58, 0.6); }
+  50% { opacity: 0.7; box-shadow: 0 0 18px rgba(255, 69, 58, 0.3); }
+}
+
+.safety-label {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-secondary);
+  transition: color 0.4s ease;
+}
+
+.safety-label.armed { color: var(--green); }
+.safety-label.tripped { color: var(--red); }
+
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  .video-panel img { opacity: 1; }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .toolbar { background: #121218; backdrop-filter: none; }
+  .card { background: #1a1a22; }
+  .video-panel { background: #1a1a22; }
+}
+
+/* --- Responsive --- */
+@media (max-width: 720px) {
+  .content { flex-direction: column; }
+  .video-panel { flex: none; height: 50vh; }
+  .metrics-panel { flex: none; min-width: 0; }
+}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>VisionEdge</h1>
+  <div class="conn-badge" id="conn">
+    <div class="indicator"></div>
+    <span>Connecting</span>
+  </div>
+</div>
+
+<div class="content">
+  <div class="video-panel">
+    <span class="placeholder" id="placeholder">Waiting for stream</span>
+    <img id="stream" alt="Camera Stream">
+  </div>
+  <div class="metrics-panel">
+
+    <div class="card">
+      <div class="card-label">CPU</div>
+      <div class="card-value ok" id="cpu">--</div>
+      <div class="progress"><div class="progress-fill ok" id="cpubar"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Memory</div>
+      <div class="card-value ok" id="mem">--</div>
+      <div class="progress"><div class="progress-fill ok" id="membar"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Anomalies</div>
+      <div class="card-value neutral" id="anomaly">0</div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Safety</div>
+      <div class="safety-row">
+        <div class="safety-dot" id="dot"></div>
+        <span class="safety-label" id="safety">Disarmed</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-label">Trip Count</div>
+      <div class="card-value neutral" id="trips">0</div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+(function () {
+  var host = location.hostname === '' || location.protocol === 'file:'
+    ? 'localhost:8080'
+    : location.host;
+
+  // --- MJPEG stream ---
+  var img = document.getElementById('stream');
+  var placeholder = document.getElementById('placeholder');
+  img.onload = function () { img.classList.add('loaded'); placeholder.style.display = 'none'; };
+  img.onerror = function () { img.classList.remove('loaded'); placeholder.style.display = ''; };
+  img.src = 'http://' + host + '/stream.mjpg';
+
+  // --- Helpers ---
+  function severity(pct) {
+    if (pct > 85) return 'crit';
+    if (pct > 65) return 'warn';
+    return 'ok';
+  }
+
+  // --- WebSocket telemetry ---
+  var connEl = document.getElementById('conn');
+  var connSpan = connEl.querySelector('span');
+
+  function connect() {
+    var ws = new WebSocket('ws://' + host + '/ws/telemetry');
+
+    ws.onopen = function () {
+      connEl.className = 'conn-badge connected';
+      connSpan.textContent = host;
+    };
+
+    ws.onmessage = function (e) {
+      var d = JSON.parse(e.data);
+
+      // CPU
+      var cpuEl = document.getElementById('cpu');
+      var cpuBar = document.getElementById('cpubar');
+      var cpuSev = severity(d.cpu);
+      cpuEl.textContent = d.cpu.toFixed(1) + '%';
+      cpuEl.className = 'card-value ' + cpuSev;
+      cpuBar.style.width = Math.min(d.cpu, 100) + '%';
+      cpuBar.className = 'progress-fill ' + cpuSev;
+
+      // Memory
+      var memEl = document.getElementById('mem');
+      var memBar = document.getElementById('membar');
+      var mp = d.mem_pct || 0;
+      var memSev = severity(mp);
+      memEl.textContent = mp.toFixed(1) + '%';
+      memEl.className = 'card-value ' + memSev;
+      memBar.style.width = Math.min(mp, 100) + '%';
+      memBar.className = 'progress-fill ' + memSev;
+
+      // Anomalies
+      var anomEl = document.getElementById('anomaly');
+      var ac = d.anomaly || 0;
+      anomEl.textContent = ac;
+      anomEl.className = 'card-value ' + (ac > 0 ? 'crit' : 'neutral');
+
+      // Safety
+      var dot = document.getElementById('dot');
+      var st = document.getElementById('safety');
+      if (d.tripped) {
+        dot.className = 'safety-dot tripped';
+        st.className = 'safety-label tripped';
+        st.textContent = 'Tripped';
+      } else if (d.armed) {
+        dot.className = 'safety-dot armed';
+        st.className = 'safety-label armed';
+        st.textContent = 'Armed';
+      } else {
+        dot.className = 'safety-dot';
+        st.className = 'safety-label';
+        st.textContent = 'Disarmed';
+      }
+
+      // Trips
+      var tripsEl = document.getElementById('trips');
+      var tc = d.trips || 0;
+      tripsEl.textContent = tc;
+      tripsEl.className = 'card-value ' + (tc > 0 ? 'warn' : 'neutral');
+    };
+
+    ws.onclose = function () {
+      connEl.className = 'conn-badge error';
+      connSpan.textContent = 'Reconnecting';
+      setTimeout(connect, 3000);
+    };
+  }
+
+  connect();
+})();
+</script>
+</body></html>

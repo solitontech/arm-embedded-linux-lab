@@ -1,5 +1,6 @@
 #include "visiond/pipeline/capture_subsystem.hpp"
 #include "visiond/pipeline/thread_utils.hpp"
+#include "visiond/core/events.hpp"
 #include <chrono>
 
 namespace visiond {
@@ -10,6 +11,7 @@ CaptureSubsystem::CaptureSubsystem(
     std::unique_ptr<ISIMDEngine> simd,
     LocklessTripleBuffer<FrameDescriptor>& ring_buffer,
     TripController& trip_controller,
+    EventBus& event_bus,
     const CameraConfig& cam_cfg,
     uint8_t diff_threshold,
     int capture_core)
@@ -18,6 +20,7 @@ CaptureSubsystem::CaptureSubsystem(
     , simd_(std::move(simd))
     , ring_buffer_(ring_buffer)
     , trip_controller_(trip_controller)
+    , event_bus_(event_bus)
     , cam_cfg_(cam_cfg)
     , diff_threshold_(diff_threshold)
     , capture_core_(capture_core)
@@ -113,6 +116,9 @@ void CaptureSubsystem::pipeline_loop() {
         auto& write_buf = ring_buffer_.get_write_buffer();
         write_buf = frame;
         ring_buffer_.publish();
+
+        // Publish FrameEvent for web dashboard consumers
+        event_bus_.publish(FrameEvent{&frame});
 
         // Return frame to camera for reuse
         camera_->return_frame(frame.index);

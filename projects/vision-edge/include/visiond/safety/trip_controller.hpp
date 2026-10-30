@@ -4,11 +4,6 @@
 
 namespace visiond {
 
-struct TripPolicy {
-    uint32_t anomaly_threshold{500};       // Pixel count to trigger trip
-    uint32_t consecutive_frames{3};        // Must exceed threshold N frames in a row
-};
-
 class TripController {
 public:
     TripController(ISafetyDriver& driver, ILogger& logger, TripPolicy policy = {});

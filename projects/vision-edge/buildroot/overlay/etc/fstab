@@ -1,0 +1,8 @@
+# VisionEdge Production Filesystem Table
+# Read-only SquashFS base — no writes ever touch persistent storage
+# Writable directories are RAM-backed tmpfs — lost on power-off (by design)
+#
+# <device>  <mount>  <type>   <options>                    <dump> <pass>
+none        /tmp     tmpfs    defaults,nosuid,nodev,size=16M   0  0
+none        /var     tmpfs    defaults,nosuid,nodev,size=8M    0  0
+none        /run     tmpfs    defaults,nosuid,nodev,size=4M    0  0

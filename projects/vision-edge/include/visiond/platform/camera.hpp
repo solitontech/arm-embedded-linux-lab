@@ -2,6 +2,7 @@
 #include <labkit/types.hpp>
 #include <labkit/expected.hpp>
 #include <labkit/logger.hpp>
+#include "visiond/platform/camera_types.hpp"
 #include "visiond/pipeline/frame.hpp"
 #include <cstdint>
 #include <memory>
@@ -13,14 +14,6 @@ using labkit::Error;
 using labkit::ErrorCode;
 using labkit::ILogger;
 using labkit::LogLevel;
-
-struct CameraConfig {
-    uint32_t    width{1920};
-    uint32_t    height{1080};
-    uint32_t    fps{30};
-    PixelFormat format{PixelFormat::YUYV};
-    uint32_t    buffer_count{4};
-};
 
 class ICameraSource {
 public:

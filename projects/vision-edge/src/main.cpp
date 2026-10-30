@@ -9,6 +9,7 @@
 #include "visiond/pipeline/simd_engine.hpp"
 #include "visiond/pipeline/ring_buffer.hpp"
 #include "visiond/pipeline/capture_subsystem.hpp"
+#include "visiond/web/server.hpp"
 #include "visiond/app/daemon.hpp"
 #include <labkit/spdlog_logger.hpp>   // heavy — only in composition root
 #include <iomanip>
@@ -91,8 +92,11 @@ int main(int argc, char* argv[]) {
 
     daemon.add(std::make_unique<visiond::CaptureSubsystem>(
         logger, std::move(camera), std::move(simd),
-        ring_buffer, trip_controller, cam_cfg,
+        ring_buffer, trip_controller, event_bus, cam_cfg,
         config.diff_threshold, config.core_capture));
+
+    // Phase 5: embedded web dashboard
+    daemon.add(std::make_unique<visiond::WebServer>(logger, event_bus, config));
 
     return daemon.run();
 }

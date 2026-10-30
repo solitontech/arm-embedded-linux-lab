@@ -1,7 +1,7 @@
 #pragma once
 #include <labkit/lifecycle.hpp>
 #include <labkit/event.hpp>
-#include "visiond/telemetry/metrics.hpp"
+#include "visiond/core/events.hpp"
 #include <atomic>
 #include <condition_variable>
 #include <mutex>
@@ -17,10 +17,6 @@ using labkit::ILogger;
 using labkit::SubsystemState;
 using labkit::ISubsystem;
 using labkit::EventBus;
-
-struct MetricsEvent {
-    SystemMetrics metrics;
-};
 
 class HeartbeatWorker : public ISubsystem {
 public:

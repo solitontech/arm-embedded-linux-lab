@@ -2,6 +2,7 @@
 #include <labkit/types.hpp>
 #include <labkit/expected.hpp>
 #include <labkit/logger.hpp>
+#include "visiond/safety/types.hpp"
 #include <cstdint>
 #include <string>
 
@@ -12,13 +13,6 @@ using labkit::Error;
 using labkit::ErrorCode;
 using labkit::ILogger;
 using labkit::LogLevel;
-
-struct SafetyStatus {
-    bool     armed{false};
-    bool     tripped{false};
-    uint64_t trip_timestamp_ns{0};
-    uint32_t trip_count{0};
-};
 
 // Abstract interface — enables test mocks without hardware
 class ISafetyDriver {

@@ -8,6 +8,8 @@ All projects automatically have these on the include path via `framework.mk`.
 | **spdlog** | v1.14.1 (2024-04-22) | MIT | https://github.com/gabime/spdlog/releases/tag/v1.14.1 |
 | **fmtlib** | bundled with spdlog | MIT | (bundled in `spdlog/fmt/`) |
 | **tl::expected** | v1.1.0 (2023-07-09) | CC0 1.0 | https://github.com/TartanLlama/expected/releases/tag/v1.1.0 |
+| **mongoose** | v7.14 (2024-06-01) | GPLv2 / commercial | https://github.com/cesanta/mongoose/releases/tag/7.14 |
+| **stb_image_write** | v1.16 | Public domain | https://github.com/nothings/stb |
 
 ## Usage
 

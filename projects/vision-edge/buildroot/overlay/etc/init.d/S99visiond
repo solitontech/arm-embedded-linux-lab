@@ -1,0 +1,28 @@
+#!/bin/sh
+# VisionEdge daemon init script
+# Starts visiond as the last service after all hardware is initialized
+
+DAEMON=/usr/local/bin/visiond
+PIDFILE=/var/run/visiond.pid
+
+case "$1" in
+    start)
+        printf "Starting visiond: "
+        start-stop-daemon -S -b -m -p $PIDFILE -x $DAEMON -- -d
+        echo "OK"
+        ;;
+    stop)
+        printf "Stopping visiond: "
+        start-stop-daemon -K -p $PIDFILE
+        echo "OK"
+        ;;
+    restart)
+        $0 stop
+        sleep 1
+        $0 start
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac
