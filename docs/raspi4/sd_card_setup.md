@@ -1,10 +1,21 @@
 # Raspberry Pi 4: SD Card Setup & Firmware Configuration
 
+## Boot Modes
+
+The SD card supports two boot modes, auto-detected by U-Boot at startup:
+
+| Mode | Partition 2 | Root filesystem | Use case |
+|:---|:---|:---|:---|
+| **Development** | Empty or ext4 | NFS rootfs from Docker host | Fast iteration, edit-on-host |
+| **Production** | SquashFS image | Read-only from SD card | Field deployment, instant boot |
+
+The `boot.scr` auto-detect logic: if partition 2 contains a SquashFS image, boot production. Otherwise, fall back to EEPROM netboot + NFS.
+
 ## 1. SD Card Partitioning & Formatting
 
 The Raspberry Pi bootloader requires a specific partition topology:
 * **Partition 1 (`BOOT`):** FAT32 (Type `c` or `0x0c` W95 FAT32 LBA), minimum 256MB.
-* **Partition 2 (`ROOTFS`):** ext4 (Linux native), taking up the remaining capacity.
+* **Partition 2 (`ROOTFS`):** ext4 or SquashFS, taking up the remaining capacity.
 
 ### Step 1.1 Identify Your SD Card Device
 Insert your SD card into your Linux host / workstation:
@@ -64,6 +75,15 @@ make deploy-sd BOARD=rpi4
 ```
 
 This runs [`tools/target/deploy_bootfs.sh`](../../tools/target/deploy_bootfs.sh), which detects the mounted SD card (macOS/Linux), cleans the BOOT partition, compiles `boot.cmd` → `boot.scr`, and copies all required files.
+
+To deploy a **production** image (SquashFS rootfs flashed to partition 2):
+
+```bash
+cd shared/boot
+make deploy-sd BOARD=rpi4 MODE=prod
+```
+
+This does everything the dev deploy does, plus flashes `rootfs.squashfs` to partition 2 via `dd`. The same `boot.scr` is used for both modes — U-Boot auto-detects which rootfs to mount at boot time.
 
 > [!NOTE]
 > If you need to re-fetch firmware from upstream (e.g. after a Pi firmware update):
