@@ -447,8 +447,11 @@ projects/vision-edge/
 ├── Makefile                              # Recursive src/ discovery, ARCH-conditional compilation
 ├── .clangd
 ├── README.md
-├── design/
-│   └── architecture.md                   # This document
+├── docs/
+│   ├── user_guide.md                     # Build, deploy, and operate visiond
+│   ├── design/
+│   │   └── architecture.md               # This document
+│   └── phases/                           # Step-by-step implementation guides
 │
 ├── include/visiond/
 │   ├── core/
@@ -542,7 +545,7 @@ projects/vision-edge/
 │   └── integration/                      # On-target integration tests
 │       └── test_gpio_toggle.cpp
 │
-└── phases/                               # Step-by-step implementation guides
+└── docs/phases/                          # Step-by-step implementation guides
     ├── README.md
     ├── phase1_daemon_bringup.md
     ├── phase2_cpu_memory_mmio.md

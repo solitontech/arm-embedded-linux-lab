@@ -135,18 +135,26 @@ flowchart TD
 
 ---
 
-## 5. Step-by-Step Implementation Guides
+## 5. Documentation
 
-For concrete execution on the Raspberry Pi 4 using the monorepo's active infrastructure (Docker development container, SD-free network boot, and NFS root filesystem), refer to the step-by-step implementation guides in [`phases/`](phases/README.md):
+| Document | Description |
+|---|---|
+| [**User Guide**](docs/user_guide.md) | Build, deploy, and operate visiond (dev + production modes) |
+| [**Software Architecture**](docs/design/architecture.md) | Module decomposition, interfaces, data flow, directory structure |
+| [**Implementation Phases**](docs/phases/README.md) | Step-by-step build guides (Phases 1-5) |
+
+### Phase-by-Phase Implementation Guides
+
+For concrete execution on the Raspberry Pi 4 using the monorepo's active infrastructure (Docker development container, SD-free network boot, and NFS root filesystem), refer to the step-by-step implementation guides in [`docs/phases/`](docs/phases/README.md):
 
 | Implementation Guide | Description | Target Milestone |
 | :--- | :--- | :--- |
-| [**Implementation Roadmap & Hardware Pinout**](phases/README.md) | End-to-end architecture, monorepo infra status, RPi4 40-pin GPIO wiring, and verification gates | Overview |
-| [**Phase 1: Daemon Architecture & Baseline Bringup**](phases/phase1_daemon_bringup.md) | Scaffold C++20 `visiond`, POSIX signals, structured logging, heartbeat worker, `./lab` build and NFS deployment | **Gate 1** (Boot & Daemon Bringup) |
-| [**Phase 2: CPU Internals, Memory Translation & Userspace MMIO**](phases/phase2_cpu_memory_mmio.md) | Remote GDB crash analysis, `/proc/<pid>/pagemap` VA-to-PA translation, direct `/dev/mem` GPIO control, lockless ring buffer | **Gate 2 & 3** (Execution & Memory) |
-| [**Phase 3: Linux Kernel Platform Driver & Fast-Trip IRQ**](phases/phase3_kernel_safety_driver.md) | Device Tree Overlay, `vision_safety` LKM, BCM2711 MMIO, top-half ISR (<10µs response), `cyclictest` latency audit | **Gate 4** (Platform Engineer) |
-| [**Phase 4: High-Throughput Video, Zero-Copy DMA & NEON SIMD**](phases/phase4_video_dma_neon.md) | V4L2 streaming, `dma-buf` zero-copy memory, streaming cache coherency, 128-bit NEON SIMD vectorization, SMP CPU pinning | **Gate 5** (Data-Path Engineer) |
-| [**Phase 5: System Productization, Instant Boot & Hardening**](phases/phase5_productization.md) | Embedded web dashboard (`:8080`), cold-boot optimization (<2.5s), read-only SquashFS + OverlayFS rootfs via Buildroot | **Gate 6** (Master Platform Engineer) |
+| [**Implementation Roadmap & Hardware Pinout**](docs/phases/README.md) | End-to-end architecture, monorepo infra status, RPi4 40-pin GPIO wiring, and verification gates | Overview |
+| [**Phase 1: Daemon Architecture & Baseline Bringup**](docs/phases/phase1_daemon_bringup.md) | Scaffold C++20 `visiond`, POSIX signals, structured logging, heartbeat worker, `./lab` build and NFS deployment | **Gate 1** (Boot & Daemon Bringup) |
+| [**Phase 2: CPU Internals, Memory Translation & Userspace MMIO**](docs/phases/phase2_cpu_memory_mmio.md) | Remote GDB crash analysis, `/proc/<pid>/pagemap` VA-to-PA translation, direct `/dev/mem` GPIO control, lockless ring buffer | **Gate 2 & 3** (Execution & Memory) |
+| [**Phase 3: Linux Kernel Platform Driver & Fast-Trip IRQ**](docs/phases/phase3_kernel_safety_driver.md) | Device Tree Overlay, `vision_safety` LKM, BCM2711 MMIO, top-half ISR (<10µs response), `cyclictest` latency audit | **Gate 4** (Platform Engineer) |
+| [**Phase 4: High-Throughput Video, Zero-Copy DMA & NEON SIMD**](docs/phases/phase4_video_dma_neon.md) | V4L2 streaming, `dma-buf` zero-copy memory, streaming cache coherency, 128-bit NEON SIMD vectorization, SMP CPU pinning | **Gate 5** (Data-Path Engineer) |
+| [**Phase 5: System Productization, Instant Boot & Hardening**](docs/phases/phase5_productization.md) | Embedded web dashboard (`:8080`), cold-boot optimization (<2.5s), read-only SquashFS + OverlayFS rootfs via Buildroot | **Gate 6** (Master Platform Engineer) |
 
 ---
 
