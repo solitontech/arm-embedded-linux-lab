@@ -98,23 +98,17 @@ No manual configuration needed — `boot.scr` handles the detection.
 
 ## 4. Access the dashboard
 
-The dashboard is a standalone HTML file at `projects/vision-edge/web/dashboard.html`.
+The dashboard is embedded in the visiond binary and served directly at the root URL.
 
-### Option A: Open directly in browser
-
-Open `web/dashboard.html` in any browser. Edit the `host` variable at the top of the `<script>` block to point to your RPi4's IP:
+Open a browser and navigate to:
 
 ```
-var host = '192.168.1.150:8080';
+http://<rpi4-ip>:8080/
 ```
 
-### Option B: Serve locally
+No files to distribute or configure — the HTML is compiled into the binary at build time from `web/dashboard.html`.
 
-```bash
-cd projects/vision-edge/web
-python3 -m http.server 3000
-# Open http://localhost:3000/dashboard.html
-```
+For local development, you can also open `web/dashboard.html` directly in a browser (it auto-detects whether to connect to `localhost:8080` or the serving host).
 
 The dashboard connects to visiond's API endpoints:
 
@@ -122,7 +116,8 @@ The dashboard connects to visiond's API endpoints:
 |---|---|---|
 | `/stream.mjpg` | HTTP (MJPEG) | Live camera video stream |
 | `/ws/telemetry` | WebSocket | JSON metrics (CPU, memory, safety state) |
-| `/` | HTTP GET | JSON API descriptor |
+| `/` | HTTP GET | Dashboard HTML (embedded in binary) |
+| `/api/info` | HTTP GET | JSON API descriptor |
 
 ---
 
@@ -130,10 +125,14 @@ The dashboard connects to visiond's API endpoints:
 
 ### `GET /`
 
+Serves the embedded web dashboard (HTML). Navigate to `http://<rpi4-ip>:8080/` in any browser.
+
+### `GET /api/info`
+
 Returns a JSON descriptor of available endpoints.
 
 ```json
-{"name": "visiond", "version": "0.5.0", "endpoints": ["/stream.mjpg", "/ws/telemetry"]}
+{"name": "visiond", "version": "0.5.0", "endpoints": ["/stream.mjpg", "/ws/telemetry", "/api/info"]}
 ```
 
 ### `GET /stream.mjpg`
@@ -216,7 +215,7 @@ projects/vision-edge/
 ├── include/visiond/               ← C++ headers
 ├── src/                           ← C++ sources
 ├── web/
-│   └── dashboard.html             ← standalone web dashboard
+│   └── dashboard.html             ← dashboard source (embedded in binary at build time)
 ├── buildroot/
 │   ├── configs/visiond_rpi4_defconfig
 │   ├── overlay/                   ← rootfs overlay (init script, fstab, binary)

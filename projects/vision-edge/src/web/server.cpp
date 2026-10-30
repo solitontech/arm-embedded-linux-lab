@@ -2,6 +2,7 @@
 #include "visiond/web/shared_state.hpp"
 #include <mongoose/mongoose.h>
 #include <cstdio>
+#include "dashboard_html.h"
 
 namespace visiond {
 
@@ -36,12 +37,22 @@ void http_handler(struct mg_connection* c, int ev, void* ev_data) {
             mg_ws_upgrade(c, hm, nullptr);
             c->data[0] = TAG_WS;
 
-        } else {
+        } else if (mg_match(hm->uri, mg_str("/api/info"), nullptr)) {
             mg_http_reply(c, 200,
                 "Content-Type: application/json\r\n"
                 "Access-Control-Allow-Origin: *\r\n",
                 "{\"name\":\"visiond\",\"version\":\"" VISIOND_VERSION "\","
-                "\"endpoints\":[\"/stream.mjpg\",\"/ws/telemetry\"]}");
+                "\"endpoints\":[\"/stream.mjpg\",\"/ws/telemetry\",\"/api/info\"]}");
+
+        } else {
+            // Serve embedded dashboard HTML for all other routes
+            mg_printf(c,
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Type: text/html; charset=utf-8\r\n"
+                "Content-Length: %u\r\n"
+                "Cache-Control: no-cache\r\n\r\n",
+                dashboard_html_len);
+            mg_send(c, dashboard_html, dashboard_html_len);
         }
 
     } else if (ev == MG_EV_POLL) {

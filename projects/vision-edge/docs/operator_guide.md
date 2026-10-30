@@ -56,8 +56,8 @@ Pull the power plug at any time. The system uses a read-only filesystem — ther
 ### Accessing the Dashboard
 
 1. Connect your computer to the same network as the RPi4
-2. Open `dashboard.html` in any browser (Chrome, Firefox, Edge, Safari)
-3. The dashboard connects to the appliance at its IP address on port 8080
+2. Open a browser and navigate to `http://<rpi4-ip>:8080/`
+3. The dashboard loads directly from the appliance — no files to install
 
 If the dashboard shows "Connecting" — verify the appliance is powered on and reachable on the network.
 

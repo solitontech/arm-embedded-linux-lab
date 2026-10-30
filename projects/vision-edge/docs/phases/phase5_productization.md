@@ -67,7 +67,7 @@ graph TD
 | `web` | — | `src/web/telemetry.cpp` | `WsTelemetry` (metrics/trip → JSON → SharedState) |
 | `web` | — | `src/web/vendor_mongoose.c` | Compiles mongoose v7.14 from `shared/lib/vendor/` |
 | `web` | — | `src/web/vendor_stb.cpp` | Compiles stb_image_write v1.16 from `shared/lib/vendor/` |
-| — | — | `web/dashboard.html` | Standalone frontend (connects to visiond API via CORS) |
+| — | — | `web/dashboard.html` | Dashboard source (embedded in binary at build time via `xxd -i`) |
 | — | `buildroot/configs/visiond_rpi4_defconfig` | — | Buildroot defconfig for minimal rootfs |
 | — | `buildroot/overlay/` | — | Rootfs overlay (init script, fstab, visiond binary) |
 
@@ -81,11 +81,12 @@ graph TD
 
 | Route | Method | Content-Type | Purpose |
 |---|---|---|---|
-| `/` | `GET` | `application/json` | JSON API descriptor (name, version, endpoints) |
+| `/` | `GET` | `text/html` | Embedded dashboard (compiled into binary at build time) |
+| `/api/info` | `GET` | `application/json` | JSON API descriptor (name, version, endpoints) |
 | `/stream.mjpg` | `GET` | `multipart/x-mixed-replace` | Live MJPEG video stream |
 | `/ws/telemetry` | Upgrade | WebSocket | Real-time JSON metrics push |
 
-The dashboard is a **standalone HTML file** (`web/dashboard.html`) that connects to visiond's data API via configurable host. visiond serves only data endpoints with CORS headers — the frontend and backend are fully separated.
+The dashboard HTML (`web/dashboard.html`) is **embedded in the binary** at build time via `xxd -i`. Operators navigate to `http://<rpi4-ip>:8080/` and get the full UI — no files to distribute. The source file is kept for local development (auto-detects `localhost` vs serving host).
 
 The critical architectural decision: `WebServer` **subscribes to `EventBus` events** rather than polling or calling into other subsystems. It receives `MetricsEvent` from `HeartbeatWorker` and `FrameEvent` from the pipeline via the same typed pub/sub dispatcher used throughout the system. This means **zero changes to `pipeline/`, `safety/`, `telemetry/`, or `core/` modules**.
 
@@ -570,7 +571,7 @@ Track the delta at each step. A well-optimized VisionEdge rootfs should compress
 
 ## 7. Verification Gate
 
-- [ ] `WebServer` binds to `:8080` and serves JSON API descriptor at `GET /`
+- [ ] `WebServer` binds to `:8080` and serves embedded dashboard at `GET /`
 - [ ] MJPEG stream renders live video in Chrome/Firefox at `/stream.mjpg`
 - [ ] WebSocket telemetry pushes JSON metrics at `/ws/telemetry`
 - [ ] SquashFS rootfs is under 25 MB compressed

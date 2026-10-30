@@ -174,7 +174,7 @@ Lightweight HTTP + WebSocket server embedded directly in `visiond`.
 
 | Component | Responsibility |
 |---|---|
-| `server.hpp` | `WebServer` — `ISubsystem` implementation using mongoose v7.14. Binds to configurable port (default `:8080`). Routes: `/` (JSON API descriptor), `/stream.mjpg` (MJPEG), `/ws/telemetry` (WebSocket). Dashboard is a standalone HTML file (`web/dashboard.html`) connected via CORS. |
+| `server.hpp` | `WebServer` — `ISubsystem` implementation using mongoose v7.14. Binds to configurable port (default `:8080`). Routes: `/` (embedded dashboard HTML), `/stream.mjpg` (MJPEG), `/ws/telemetry` (WebSocket), `/api/info` (JSON). Dashboard is compiled into the binary at build time from `web/dashboard.html` via `xxd -i`. |
 | `stream.hpp` | `MjpegStream` — subscribes to pipeline frame events, JPEG-encodes processed frames, pushes multipart boundaries to HTTP clients. `WsTelemetry` — subscribes to heartbeat and safety events, broadcasts JSON over WebSocket. |
 
 ### 3.7 `app/` — Daemon Orchestrator
