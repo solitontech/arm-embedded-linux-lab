@@ -174,7 +174,7 @@ Lightweight HTTP + WebSocket server embedded directly in `visiond`.
 
 | Component | Responsibility |
 |---|---|
-| `server.hpp` | `WebServer` — `ISubsystem` implementation. Binds to configurable port (default `:8080`). Routes: `/` (dashboard HTML), `/stream.mjpg` (MJPEG), `/ws/telemetry` (WebSocket). |
+| `server.hpp` | `WebServer` — `ISubsystem` implementation using mongoose v7.14. Binds to configurable port (default `:8080`). Routes: `/` (JSON API descriptor), `/stream.mjpg` (MJPEG), `/ws/telemetry` (WebSocket). Dashboard is a standalone HTML file (`web/dashboard.html`) connected via CORS. |
 | `stream.hpp` | `MjpegStream` — subscribes to pipeline frame events, JPEG-encodes processed frames, pushes multipart boundaries to HTTP clients. `WsTelemetry` — subscribes to heartbeat and safety events, broadcasts JSON over WebSocket. |
 
 ### 3.7 `app/` — Daemon Orchestrator
@@ -456,12 +456,14 @@ projects/vision-edge/
 │   │   ├── logger.hpp                    # ILogger interface
 │   │   ├── config.hpp                    # DaemonConfig (defaults → file → CLI)
 │   │   ├── lifecycle.hpp                 # ISubsystem, SubsystemState
-│   │   └── event.hpp                     # EventBus (typed pub/sub)
+│   │   ├── event.hpp                     # EventBus (typed pub/sub)
+│   │   └── events.hpp                    # MetricsEvent, FrameEvent, TripEvent
 │   │
 │   ├── platform/
 │   │   ├── gpio.hpp                      # IGpioController, PinMode, PinLevel
 │   │   ├── mmio.hpp                      # MmioRegion RAII helper
-│   │   ├── camera.hpp                    # ICameraSource, CameraConfig
+│   │   ├── camera.hpp                    # ICameraSource
+│   │   ├── camera_types.hpp              # CameraConfig (extracted model)
 │   │   └── dma.hpp                       # DmaBufHandle, cache sync helpers
 │   │
 │   ├── pipeline/
@@ -471,7 +473,8 @@ projects/vision-edge/
 │   │   └── simd_engine.hpp               # ISIMDEngine interface
 │   │
 │   ├── safety/
-│   │   ├── driver_client.hpp             # ISafetyDriver, SafetyStatus
+│   │   ├── driver_client.hpp             # ISafetyDriver
+│   │   ├── types.hpp                     # SafetyStatus, TripPolicy (extracted models)
 │   │   └── trip_controller.hpp           # TripController policy
 │   │
 │   ├── telemetry/
@@ -480,7 +483,9 @@ projects/vision-edge/
 │   │
 │   └── web/
 │       ├── server.hpp                    # WebServer (ISubsystem)
-│       └── stream.hpp                    # MjpegStream, WsTelemetry
+│       ├── stream.hpp                    # MjpegStream, WsTelemetry classes
+│       ├── jpeg.hpp                      # JPEG encoding utility
+│       └── shared_state.hpp              # Thread-safe bridge (EventBus ↔ mongoose)
 │
 ├── src/
 │   ├── main.cpp                          # Minimal: parse config, build orchestrator, run
@@ -512,7 +517,12 @@ projects/vision-edge/
 │   │   └── heartbeat.cpp                 # HeartbeatWorker (periodic sampler)
 │   │
 │   └── web/
-│       └── server.cpp                    # WebServer (HTTP + WS + MJPEG)
+│       ├── server.cpp                    # WebServer subsystem + mongoose routing
+│       ├── stream.cpp                    # MjpegStream (frame → JPEG → SharedState)
+│       ├── telemetry.cpp                 # WsTelemetry (metrics/trip → JSON → SharedState)
+│       ├── jpeg.cpp                      # JPEG encoding (stb_image_write wrapper)
+│       ├── vendor_mongoose.c             # Compiles mongoose v7.14 from vendor/
+│       └── vendor_stb.cpp               # Compiles stb_image_write from vendor/
 │
 ├── kernel/                               # Phase 3 — out-of-tree kernel module
 │   ├── vision_safety.c                   # Platform driver source

@@ -29,7 +29,7 @@ Once your board boots successfully into userspace:
 - [x] Kernel + DTB served over TFTP (Docker container running)
 - [x] BusyBox NFS rootfs built and exported from Docker NFS server
 - [x] U-Boot PXE boot via `pxelinux.cfg/default` with NFS root
-- [x] EEPROM reprogrammed with `BOOT_ORDER=0xf12` (network-first, SD-card eliminated)
+- [x] EEPROM reprogrammed with `BOOT_ORDER=0xf21` (SD-first, network fallback)
 - [x] dnsmasq DHCP inside Docker, TFTP from `/workspace/tftp/`
 - [x] Dropbear SSH: `./lab ssh --board=rpi4`
 - [x] Build and deploy projects: `./lab build --project=<name> --board=rpi4`

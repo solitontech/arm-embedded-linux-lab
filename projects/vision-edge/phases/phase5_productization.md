@@ -43,13 +43,13 @@ graph TD
     end
 
     subgraph Web ["Embedded Web Dashboard :8080"]
-        SRV["WebServer ISubsystem\nHTTP + WS + MJPEG"]
+        SRV["WebServer ISubsystem\nmongoose + stb_image_write"]
         MJP["GET /stream.mjpg\nMultipart MJPEG Stream"]
         WST["GET /ws/telemetry\nWebSocket JSON Metrics"]
-        DSH["GET /\nDashboard HTML Page"]
+        API["GET /\nJSON API Descriptor"]
         SRV --> MJP
         SRV --> WST
-        SRV --> DSH
+        SRV --> API
     end
 ```
 
@@ -59,10 +59,17 @@ graph TD
 
 | Module | Header | Source | Purpose |
 |---|---|---|---|
-| `web` | `include/visiond/web/server.hpp` | `src/web/server.cpp` | `WebServer` `ISubsystem`: HTTP + WS + MJPEG |
-| `web` | `include/visiond/web/stream.hpp` | — | `MjpegStream` + `WsTelemetry` helpers |
+| `core` | `include/visiond/core/events.hpp` | — | Consolidated event types: `MetricsEvent`, `FrameEvent`, `TripEvent` |
+| `web` | `include/visiond/web/server.hpp` | `src/web/server.cpp` | `WebServer` `ISubsystem`: mongoose HTTP + WS routing |
+| `web` | `include/visiond/web/stream.hpp` | `src/web/stream.cpp` | `MjpegStream` (frame → JPEG → SharedState) |
+| `web` | `include/visiond/web/jpeg.hpp` | `src/web/jpeg.cpp` | JPEG encoding utility (stb_image_write wrapper) |
+| `web` | `include/visiond/web/shared_state.hpp` | — | Thread-safe bridge between EventBus and mongoose poll loop |
+| `web` | — | `src/web/telemetry.cpp` | `WsTelemetry` (metrics/trip → JSON → SharedState) |
+| `web` | — | `src/web/vendor_mongoose.c` | Compiles mongoose v7.14 from `shared/lib/vendor/` |
+| `web` | — | `src/web/vendor_stb.cpp` | Compiles stb_image_write v1.16 from `shared/lib/vendor/` |
+| — | — | `web/dashboard.html` | Standalone frontend (connects to visiond API via CORS) |
 | — | `buildroot/configs/visiond_rpi4_defconfig` | — | Buildroot defconfig for minimal rootfs |
-| — | `buildroot/overlay/` | — | Rootfs overlay (init script, fstab, etc.) |
+| — | `buildroot/overlay/` | — | Rootfs overlay (init script, fstab, visiond binary) |
 
 ---
 
@@ -74,11 +81,15 @@ graph TD
 
 | Route | Method | Content-Type | Purpose |
 |---|---|---|---|
-| `/` | `GET` | `text/html` | Dashboard HTML page (static, embedded in binary) |
+| `/` | `GET` | `application/json` | JSON API descriptor (name, version, endpoints) |
 | `/stream.mjpg` | `GET` | `multipart/x-mixed-replace` | Live MJPEG video stream |
 | `/ws/telemetry` | Upgrade | WebSocket | Real-time JSON metrics push |
 
+The dashboard is a **standalone HTML file** (`web/dashboard.html`) that connects to visiond's data API via configurable host. visiond serves only data endpoints with CORS headers — the frontend and backend are fully separated.
+
 The critical architectural decision: `WebServer` **subscribes to `EventBus` events** rather than polling or calling into other subsystems. It receives `MetricsEvent` from `HeartbeatWorker` and `FrameEvent` from the pipeline via the same typed pub/sub dispatcher used throughout the system. This means **zero changes to `pipeline/`, `safety/`, `telemetry/`, or `core/` modules**.
+
+The HTTP/WebSocket server uses **mongoose v7.14** (GPLv2) and JPEG encoding uses **stb_image_write v1.16** (public domain), both vendored in `shared/lib/vendor/`.
 
 ```mermaid
 flowchart LR
@@ -310,8 +321,8 @@ Configure Buildroot to assemble a production root filesystem under 25 MB. The de
 - Target ABI: `LP64`
 
 **Toolchain:**
-- Toolchain type: External toolchain (Linaro `aarch64-linux-gnu`)
-- C library: glibc (matches Docker cross-compiler)
+- Toolchain type: Buildroot internal toolchain (avoids distribution toolchain issues)
+- C library: glibc
 
 **System Configuration:**
 - Init system: BusyBox init (or custom `/sbin/init` script for fastest boot)
@@ -559,7 +570,7 @@ Track the delta at each step. A well-optimized VisionEdge rootfs should compress
 
 ## 7. Verification Gate
 
-- [ ] `WebServer` binds to `:8080` and serves dashboard HTML at `GET /`
+- [ ] `WebServer` binds to `:8080` and serves JSON API descriptor at `GET /`
 - [ ] MJPEG stream renders live video in Chrome/Firefox at `/stream.mjpg`
 - [ ] WebSocket telemetry pushes JSON metrics at `/ws/telemetry`
 - [ ] SquashFS rootfs is under 25 MB compressed
