@@ -139,7 +139,8 @@ flowchart TD
 
 | Document | Description |
 |---|---|
-| [**User Guide**](docs/user_guide.md) | Build, deploy, and operate visiond (dev + production modes) |
+| [**Operator Guide**](docs/operator_guide.md) | End-user manual: dashboard, safety system, LED indicators, configuration |
+| [**User Guide**](docs/user_guide.md) | Developer manual: build, deploy, and operate visiond (dev + production modes) |
 | [**Software Architecture**](docs/design/architecture.md) | Module decomposition, interfaces, data flow, directory structure |
 | [**Implementation Phases**](docs/phases/README.md) | Step-by-step build guides (Phases 1-5) |
 
