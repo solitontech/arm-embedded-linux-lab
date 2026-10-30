@@ -6,3 +6,7 @@
 	path = shared/rootfs/busybox
 	url = https://github.com/mirror/busybox.git
 	branch = 1_36_stable
+[submodule "shared/kernel/rpi-linux"]
+	path = shared/kernel/rpi-linux
+	url = https://github.com/raspberrypi/linux.git
+	branch = rpi-6.18.y

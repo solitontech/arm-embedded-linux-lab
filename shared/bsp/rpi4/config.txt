@@ -5,3 +5,10 @@ uart_2ndstage=1
 # Tell VideoCore GPU to load U-Boot instead of Linux kernel
 kernel=u-boot.bin
 device_tree=bcm2711-rpi-4-b.dtb
+
+# Camera: Sony IMX219 on CSI-2 port
+# GPU firmware applies this overlay to the DTB before passing to U-Boot.
+# Allocate GPU memory for camera DMA buffers.
+dtoverlay=imx219
+gpu_mem=128
+start_x=1

@@ -3,8 +3,12 @@
 #include "visiond/telemetry/heartbeat.hpp"
 #include "visiond/platform/gpio_subsystem.hpp"
 #include "visiond/platform/gpio_factory.hpp"
+#include "visiond/platform/camera.hpp"
 #include "visiond/safety/driver_client.hpp"
 #include "visiond/safety/trip_controller.hpp"
+#include "visiond/pipeline/simd_engine.hpp"
+#include "visiond/pipeline/ring_buffer.hpp"
+#include "visiond/pipeline/capture_subsystem.hpp"
 #include "visiond/app/daemon.hpp"
 #include <labkit/spdlog_logger.hpp>   // heavy — only in composition root
 #include <iomanip>
@@ -53,8 +57,25 @@ int main(int argc, char* argv[]) {
         // Continue without safety — not fatal on host builds
     }
 
-    // Trip controller with default policy (wired to SIMD pipeline in Phase 4)
+    // Trip controller with default policy
     visiond::TripController trip_controller(safety_driver, logger);
+
+    // Select camera and SIMD implementations at compile time
+#ifdef __aarch64__
+    auto camera = visiond::make_v4l2_camera(logger);
+    auto simd   = visiond::make_neon_simd_engine();
+#else
+    auto camera = visiond::make_synthetic_camera(logger);
+    auto simd   = visiond::make_scalar_simd_engine();
+#endif
+
+    // Shared ring buffer: capture thread publishes, web stream consumes (Phase 5)
+    visiond::LocklessTripleBuffer<visiond::FrameDescriptor> ring_buffer;
+
+    visiond::CameraConfig cam_cfg;
+    cam_cfg.width  = config.cam_width;
+    cam_cfg.height = config.cam_height;
+    cam_cfg.fps    = config.cam_fps;
 
     // Build orchestrator and register subsystems
     visiond::DaemonOrchestrator daemon(logger, config);
@@ -62,8 +83,16 @@ int main(int argc, char* argv[]) {
     daemon.add(std::make_unique<visiond::HeartbeatWorker>(
         logger, metrics_source, event_bus, config.heartbeat_interval_ms));
 
+    // GPIO MMIO requires /dev/mem — only meaningful on RPi4
+#ifdef __aarch64__
     daemon.add(std::make_unique<visiond::GpioSubsystem>(
         visiond::make_gpio(visiond::GpioBackend::BCM2711, logger)));
+#endif
+
+    daemon.add(std::make_unique<visiond::CaptureSubsystem>(
+        logger, std::move(camera), std::move(simd),
+        ring_buffer, trip_controller, cam_cfg,
+        config.diff_threshold, config.core_capture));
 
     return daemon.run();
 }

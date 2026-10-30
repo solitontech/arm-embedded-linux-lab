@@ -9,7 +9,7 @@ PROJECT_TYPE    := app            # app | lib_static | lib_shared | raw
 DEFAULT_BOARD   := rpi4
 
 # Version — single source of truth, injected as preprocessor macro
-VISIOND_VERSION := 0.3.0
+VISIOND_VERSION := 0.4.0
 
 # Custom build flags
 CXXFLAGS_EXTRA  += -std=c++20 -O2 -Wall -Wextra -DVISIOND_VERSION=\"$(VISIOND_VERSION)\"

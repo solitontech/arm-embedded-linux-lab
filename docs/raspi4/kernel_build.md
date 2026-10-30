@@ -57,7 +57,27 @@ make deploy-sd BOARD=rpi4
 
 See [U-Boot, TFTP & NFS Boot](uboot_tftp_boot.md) for the full TFTP workflow.
 
-## 6. Install Kernel Modules to `ROOTFS` Partition
+## 6. Enable Camera Support (IMX219 on CSI-2)
+
+To capture video frames from a Raspberry Pi Camera Module v2 (Sony IMX219), merge the camera config fragment before building:
+
+```bash
+scripts/kconfig/merge_config.sh .config /workspace/shared/bsp/rpi4/camera_kconfig.cfg
+make -j$(nproc) Image modules dtbs
+```
+
+This enables `bcm2835-unicam` (CSI-2 receiver) and `imx219` (sensor driver) as loadable modules. After booting, the kernel creates `/dev/video0` when the camera is connected and the modules are loaded.
+
+Also ensure `config.txt` on the SD card has:
+```
+dtoverlay=imx219
+gpu_mem=128
+start_x=1
+```
+
+See `shared/bsp/rpi4/camera_kconfig.cfg` for the full list of required kernel configs.
+
+## 7. Install Kernel Modules to `ROOTFS` Partition
 ```bash
 sudo make modules_install INSTALL_MOD_PATH=/tmp/rpi-rootfs
 ```

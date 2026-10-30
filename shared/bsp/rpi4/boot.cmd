@@ -23,10 +23,13 @@ echo "==> Server IP: ${serverip}"
 echo "==> Fetching kernel Image via TFTP..."
 tftp 0x02000000 Image
 
-echo "==> Fetching Device Tree Blob via TFTP..."
-tftp 0x06000000 bcm2711-rpi-4-b.dtb
+# Use the DTB provided by the GPU firmware (at ${fdt_addr}) instead of loading
+# a fresh one via TFTP. The GPU applies dtoverlay= entries from config.txt
+# (e.g. imx219 camera) to the DTB before passing it to U-Boot. Loading a
+# separate DTB via TFTP would discard those overlays.
+echo "==> Using GPU-provided DTB at ${fdt_addr} (overlays preserved)"
 
 setenv bootargs "console=ttyS0,115200 console=tty1 root=/dev/nfs rw rootwait nfsroot=192.168.1.220:/workspace/nfs/rpi4-rootfs,tcp,v3 ip=192.168.1.150:::255.255.255.0:rpi4:eth0:off earlycon=bcm2835aux,0xfe215040"
 
 echo "==> Booting Linux kernel..."
-booti 0x02000000 - 0x06000000
+booti 0x02000000 - ${fdt_addr}
