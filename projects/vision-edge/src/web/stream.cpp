@@ -16,7 +16,7 @@ void MjpegStream::on_frame(const FrameEvent& event) {
     auto* s = static_cast<SharedState*>(state_);
     std::lock_guard<std::mutex> lock(s->frame_mtx);
     s->latest_jpeg = std::move(jpeg);
-    s->frame_ready = true;
+    s->frame_seq++;
 }
 
 } // namespace visiond

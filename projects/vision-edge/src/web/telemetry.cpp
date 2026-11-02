@@ -38,7 +38,7 @@ void WsTelemetry::on_metrics(const MetricsEvent& event) {
     auto* s = static_cast<SharedState*>(state_);
     std::lock_guard<std::mutex> lock(s->metrics_mtx);
     s->latest_json = buf;
-    s->metrics_ready = true;
+    s->metrics_seq++;
 }
 
 void WsTelemetry::on_trip(const TripEvent& event) {

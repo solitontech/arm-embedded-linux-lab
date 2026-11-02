@@ -115,11 +115,10 @@ body {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  opacity: 0;
-  transition: opacity 0.5s ease;
+  opacity: 1;
+  position: relative;
+  z-index: 2;
 }
-
-.video-panel img.loaded { opacity: 1; }
 
 .video-panel .placeholder {
   position: absolute;
@@ -127,6 +126,7 @@ body {
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.02em;
+  z-index: 1;
 }
 
 /* --- Metrics panel --- */
@@ -322,9 +322,14 @@ body {
   // --- MJPEG stream ---
   var img = document.getElementById('stream');
   var placeholder = document.getElementById('placeholder');
-  img.onload = function () { img.classList.add('loaded'); placeholder.style.display = 'none'; };
-  img.onerror = function () { img.classList.remove('loaded'); placeholder.style.display = ''; };
-  img.src = 'http://' + host + '/stream.mjpg';
+  img.onload = function () { placeholder.style.display = 'none'; };
+  img.onerror = function () { placeholder.style.display = 'block'; placeholder.textContent = 'Stream offline'; };
+  var streamUrl = (location.protocol === 'file:' || location.hostname === '')
+    ? 'http://localhost:8080/stream.mjpg'
+    : '/stream.mjpg';
+  img.src = streamUrl;
+  // Chromium browsers do not fire onload on multipart MJPEG streams; hide placeholder after init
+  setTimeout(function () { placeholder.style.display = 'none'; }, 400);
 
   // --- Helpers ---
   function severity(pct) {

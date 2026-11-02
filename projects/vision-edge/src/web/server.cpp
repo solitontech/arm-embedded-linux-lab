@@ -2,6 +2,7 @@
 #include "visiond/web/shared_state.hpp"
 #include <mongoose/mongoose.h>
 #include <cstdio>
+#include <cstring>
 #include "dashboard_html.h"
 
 namespace visiond {
@@ -28,14 +29,20 @@ void http_handler(struct mg_connection* c, int ev, void* ev_data) {
             mg_printf(c,
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Type: multipart/x-mixed-replace; boundary=visiond-frame\r\n"
-                "Cache-Control: no-cache\r\n"
+                "Cache-Control: no-cache, no-store, must-revalidate\r\n"
+                "Pragma: no-cache\r\n"
+                "Expires: 0\r\n"
                 "%s"
                 "Connection: keep-alive\r\n\r\n", CORS);
             c->data[0] = TAG_MJPEG;
+            uint64_t zero = 0;
+            std::memcpy(&c->data[8], &zero, sizeof(zero));
 
         } else if (mg_match(hm->uri, mg_str("/ws/telemetry"), nullptr)) {
             mg_ws_upgrade(c, hm, nullptr);
             c->data[0] = TAG_WS;
+            uint64_t zero = 0;
+            std::memcpy(&c->data[8], &zero, sizeof(zero));
 
         } else if (mg_match(hm->uri, mg_str("/api/info"), nullptr)) {
             mg_http_reply(c, 200,
@@ -59,7 +66,10 @@ void http_handler(struct mg_connection* c, int ev, void* ev_data) {
         // Push MJPEG frames to tagged clients
         if (c->data[0] == TAG_MJPEG) {
             std::lock_guard<std::mutex> lock(state->frame_mtx);
-            if (state->frame_ready) {
+            uint64_t client_seq = 0;
+            std::memcpy(&client_seq, &c->data[8], sizeof(client_seq));
+
+            if (client_seq < state->frame_seq && !state->latest_jpeg.empty()) {
                 auto& jpeg = state->latest_jpeg;
                 mg_printf(c,
                     "--visiond-frame\r\n"
@@ -68,15 +78,22 @@ void http_handler(struct mg_connection* c, int ev, void* ev_data) {
                     static_cast<unsigned long>(jpeg.size()));
                 mg_send(c, jpeg.data(), jpeg.size());
                 mg_send(c, "\r\n", 2);
-                state->frame_ready = false;  // consume — wait for next frame
+
+                client_seq = state->frame_seq;
+                std::memcpy(&c->data[8], &client_seq, sizeof(client_seq));
             }
         }
         // Push telemetry JSON to WebSocket clients
         if (c->data[0] == TAG_WS) {
             std::lock_guard<std::mutex> lock(state->metrics_mtx);
-            if (state->metrics_ready) {
+            uint64_t client_seq = 0;
+            std::memcpy(&client_seq, &c->data[8], sizeof(client_seq));
+
+            if (client_seq < state->metrics_seq && !state->latest_json.empty()) {
                 mg_ws_send(c, state->latest_json.data(),
                            state->latest_json.size(), WEBSOCKET_OP_TEXT);
+                client_seq = state->metrics_seq;
+                std::memcpy(&c->data[8], &client_seq, sizeof(client_seq));
             }
         }
     }
