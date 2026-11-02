@@ -4,6 +4,7 @@
 #include <csignal>
 #include <iostream>
 #include <mutex>
+#include <string>
 
 namespace {
 
@@ -44,7 +45,7 @@ void DaemonOrchestrator::wait_for_shutdown() {
 int DaemonOrchestrator::run() {
     labkit::term::banner(std::cout, {
         "VisionEdge Industrial In-Line Inspection & Safety Gateway",
-        "Flagship Platform Daemon (visiond v0.1.0)",
+        "Flagship Platform Daemon (visiond v" VISIOND_VERSION ")",
         "Hardware: Raspberry Pi 4 (BCM2711 / Quad Cortex-A72 / AArch64)"
     });
     std::cout << '\n';
