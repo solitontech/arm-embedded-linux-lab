@@ -15,6 +15,7 @@
 #include <iomanip>
 #include <sstream>
 #include <unistd.h>
+#include <cstdlib>  // system()
 
 int main(int argc, char* argv[]) {
     auto config = visiond::DaemonConfig::parse(argc, argv);
@@ -26,6 +27,16 @@ int main(int argc, char* argv[]) {
     logger.set_level(config.log_level);
     if (!config.log_file.empty())
         logger.add_file_sink(config.log_file);
+
+    // Sync system clock via NTP on embedded targets (no RTC — clock starts at epoch on boot).
+    // Uses the NTP server exported by the Docker dev container on the host.
+    if (!config.ntp_server.empty()) {
+        logger.log(labkit::LogLevel::INFO, "Syncing clock from NTP server: " + config.ntp_server);
+        std::string cmd = "ntpd -q -p " + config.ntp_server + " 2>/dev/null || true";
+        if (::system(cmd.c_str()) != 0) {
+            logger.log(labkit::LogLevel::WARN, "NTP sync failed — timestamps may show epoch (1970)");
+        }
+    }
 
     if (config.daemon_mode) {
         logger.log(labkit::LogLevel::INFO, "Daemonizing...");

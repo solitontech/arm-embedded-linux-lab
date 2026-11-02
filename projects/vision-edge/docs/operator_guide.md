@@ -55,9 +55,29 @@ Pull the power plug at any time. The system uses a read-only filesystem — ther
 
 ### Accessing the Dashboard
 
+#### Same network (direct access)
+
 1. Connect your computer to the same network as the RPi4
 2. Open a browser and navigate to `http://<rpi4-ip>:8080/`
 3. The dashboard loads directly from the appliance — no files to install
+
+#### Different network (SSH tunnel)
+
+If your workstation is on a different subnet from the Pi (e.g., office Wi-Fi vs lab LAN), use an SSH tunnel through the Linux dev host:
+
+**On Windows (PowerShell) or macOS/Linux terminal:**
+
+```bash
+ssh -L 8080:<rpi4-ip>:8080 <user>@<linux-host-ip> -N
+```
+
+Example:
+
+```bash
+ssh -L 8080:192.168.1.150:8080 soliton@192.168.1.220 -N
+```
+
+Keep the terminal open, then navigate to `http://localhost:8080/` in your browser. The `-N` flag opens the tunnel without a shell; omit it to get a shell and tunnel simultaneously.
 
 If the dashboard shows "Connecting" — verify the appliance is powered on and reachable on the network.
 
@@ -183,6 +203,7 @@ The appliance runs with sensible defaults. For custom settings, pass command-lin
 | `-p, --port <port>` | `8080` | Web server port |
 | `-i, --interval <ms>` | `1000` | Telemetry update interval (milliseconds) |
 | `-l, --log-level <level>` | `info` | Logging: `debug`, `info`, `warn`, `error` |
+| `--ntp-server <ip>` | *(none)* | NTP server IP — syncs system clock on startup (use dev host IP in NFS boot mode) |
 | `--cam-width <px>` | `1920` | Camera capture width |
 | `--cam-height <px>` | `1080` | Camera capture height |
 | `--cam-fps <fps>` | `30` | Camera frame rate |
@@ -193,6 +214,12 @@ Example — run with 720p at 60 FPS with a tighter threshold:
 
 ```bash
 /usr/local/bin/visiond --cam-width 1280 --cam-height 720 --cam-fps 60 --diff-threshold 15
+```
+
+Example — NFS/network boot (no RTC): sync clock from Docker dev host on startup:
+
+```bash
+vision-edge -d --port 8080 --ntp-server 192.168.1.220
 ```
 
 In production mode, these options are set in the init script at `/etc/init.d/S99visiond`.
@@ -215,9 +242,10 @@ In production mode, these options are set in the init script at `/etc/init.d/S99
 |---|---|---|
 | No video in dashboard | Camera ribbon cable seated? | Reseat the MIPI CSI-2 cable, power cycle |
 | Dashboard shows "Connecting" | Is the RPi4 powered on? | Check power LED, verify Ethernet link |
-| Dashboard shows "Reconnecting" | Network issue | Verify both devices are on the same subnet |
+| Dashboard shows "Reconnecting" | Network issue | Verify both devices are on the same subnet; if on different subnets use SSH tunnel (see [Accessing the Dashboard](#accessing-the-dashboard)) |
 | High CPU (red) | Normal under load | If sustained >95%, reduce `--cam-fps` or resolution |
 | False trips | Threshold too sensitive | Increase `--diff-threshold` (default 25, try 40-50) |
 | No trips when expected | Threshold too loose | Decrease `--diff-threshold` (try 10-15) |
 | Relay not firing | Wiring | Verify GPIO 18 connection, check relay module power |
 | System won't boot | SD card / network | Dev mode: check Docker is running. Prod mode: reseat SD card |
+| Log timestamps show 1970-01-01 | No RTC, NTP not synced | Pi has no hardware clock. Sync on startup: `vision-edge --ntp-server <docker-host-ip>`. Or set manually: `ssh root@<pi-ip> "date -s \"$(date -u '+%Y-%m-%d %H:%M:%S')\""` |

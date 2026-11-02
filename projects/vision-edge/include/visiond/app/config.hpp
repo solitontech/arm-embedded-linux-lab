@@ -11,6 +11,7 @@ struct DaemonConfig {
     uint32_t    heartbeat_interval_ms{1000};
     uint16_t    web_port{8080};
     std::string log_file;
+    std::string ntp_server;          // NTP server for clock sync on boot (empty = skip)
     bool        daemon_mode{false};
     bool        show_version{false};
     bool        show_help{false};

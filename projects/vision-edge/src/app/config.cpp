@@ -20,6 +20,7 @@ void DaemonConfig::print_usage(const char* prog_name) {
               << "  -p, --port <port>          Embedded web server port (default: 8080)\n"
               << "  -l, --log-level <level>    Log level: debug|info|warn|error (default: info)\n"
               << "  -f, --log-file <path>      Log file destination path\n"
+              << "  --ntp-server <ip>          NTP server IP for clock sync on boot\n"
               << "  --cam-width <px>           Camera capture width (default: 1920)\n"
               << "  --cam-height <px>          Camera capture height (default: 1080)\n"
               << "  --cam-fps <fps>            Camera frame rate (default: 30)\n"
@@ -53,6 +54,8 @@ DaemonConfig DaemonConfig::parse(int argc, char* argv[]) {
             else if (lv == "error" || lv == "ERROR") config.log_level = LogLevel::ERROR;
         } else if ((arg == "-f" || arg == "--log-file") && i + 1 < argc) {
             config.log_file = argv[++i];
+        } else if (arg == "--ntp-server" && i + 1 < argc) {
+            config.ntp_server = argv[++i];
         } else if (arg == "--cam-width" && i + 1 < argc) {
             config.cam_width =
                 static_cast<uint32_t>(std::strtoul(argv[++i], nullptr, 10));
