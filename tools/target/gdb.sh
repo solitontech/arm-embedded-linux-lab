@@ -53,7 +53,7 @@ echo "[INFO] Target binary: $TARGET_ELF"
 if [ -n "$TARGET_IP" ]; then
   echo "[INFO] Auto-connecting to target remote $TARGET_IP:$GDB_PORT..."
   exec "$GDB_BIN" \
-    -ex "set architecture arm64" \
+    -ex "set architecture aarch64" \
     -ex "target remote $TARGET_IP:$GDB_PORT" \
     "$TARGET_ELF"
 else

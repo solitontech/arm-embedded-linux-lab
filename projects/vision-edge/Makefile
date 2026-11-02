@@ -12,7 +12,7 @@ DEFAULT_BOARD   := rpi4
 VISIOND_VERSION := 0.5.0
 
 # Custom build flags
-CXXFLAGS_EXTRA  += -std=c++20 -O2 -Wall -Wextra -DVISIOND_VERSION=\"$(VISIOND_VERSION)\"
+CXXFLAGS_EXTRA  += -std=c++20 -g -O2 -Wall -Wextra -DVISIOND_VERSION=\"$(VISIOND_VERSION)\"
 INCLUDES_EXTRA  += -I./include -I./$(BUILD_DIR)/generated
 LDFLAGS_EXTRA   += -static
 LDLIBS_EXTRA    += -pthread

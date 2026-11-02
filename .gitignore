@@ -38,6 +38,23 @@ shared/nfs/*-rootfs/etc/wpa_supplicant/
 shared/nfs/*-rootfs/usr/local/
 shared/nfs/*-rootfs/usr/bin/vision-edge
 
+# NFS rootfs (top-level) — runtime and generated files
+nfs/*-rootfs/**/.ash_history
+nfs/rpi4-rootfs/etc/dropbear/*_host_key
+nfs/*-rootfs/var/
+nfs/*-rootfs/tmp/
+nfs/*-rootfs/run/
+nfs/*-rootfs/dev/urandom
+nfs/*-rootfs/root/.ssh/
+nfs/*-rootfs/**/*.pid
+nfs/*-rootfs/**/utmp
+nfs/*-rootfs/**/wtmp
+nfs/*-rootfs/**/*.log
+nfs/*-rootfs/**/*.pub
+nfs/*-rootfs/etc/wpa_supplicant/
+nfs/*-rootfs/usr/local/
+nfs/*-rootfs/usr/bin/vision-edge
+
 # TFTP — deployed artifacts served by Docker
 tftp/*
 !tftp/.gitkeep

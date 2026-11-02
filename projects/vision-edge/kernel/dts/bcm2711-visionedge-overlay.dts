@@ -20,7 +20,7 @@
         __overlay__ {
             vision_safety: vision_safety@fe200000 {
                 compatible = "cortexlab,vision-safety";
-                reg = <0x0 0xfe200000 0x0 0x1000>; /* GPIO register block */
+                reg = <0x0 0xfe200000 0x1000>; /* GPIO register block: 2 addr cells (0x0 0xfe200000) + 1 size cell (0x1000) */
                 pinctrl-names = "default";
                 pinctrl-0 = <&vision_pins>;
                 gpios = <&gpio 18 0>,   /* relay output   */
