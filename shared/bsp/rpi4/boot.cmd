@@ -1,32 +1,41 @@
 # ==============================================================================
-# boot.cmd — RPi4 U-Boot TFTP Boot Script
+# boot.cmd — RPi4 U-Boot Boot Script (Dev/Prod auto-detect)
 #
-# This script is compiled into boot.scr (via mkimage inside Docker) and placed
-# on the SD card BOOT partition. U-Boot auto-executes it on startup.
+# Boot modes (auto-detected):
+#   PRODUCTION  — SD card has partition 2: kernel + rootfs from SD, no network
+#   DEVELOPMENT — no partition 2: kernel via TFTP, rootfs via NFS from Docker
 #
 # HOW TO COMPILE (inside Docker container):
 #   mkimage -C none -A arm64 -T script -d shared/bsp/rpi4/boot.cmd shared/bsp/rpi4/boot.scr
 #
-# HOW TO DEPLOY (host machine, SD card mounted):
-#   cp shared/bsp/rpi4/boot.scr /media/$USER/BOOT/
+# HOW TO DEPLOY:
+#   make -C shared/boot deploy-sd BOARD=rpi4          (dev — BOOT partition only)
+#   make -C shared/boot deploy-sd BOARD=rpi4 MODE=prod (prod — BOOT + SquashFS)
 # ==============================================================================
 
-# Static IP configuration — must match cmdline.txt and shared/boards/rpi4.env
-setenv ipaddr    192.168.1.150
-# Host machine LAN IP (confirmed: enp2s0 on 192.168.0.0/23)
-setenv serverip  192.168.1.220
+setenv console "console=ttyS0,115200 console=tty1 earlycon=bcm2835aux,0xfe215040"
 
 echo "==> Soliton ARM Embedded Linux Lab"
-echo "==> Board IP : ${ipaddr}"
-echo "==> Server IP: ${serverip}"
 
-echo "==> Fetching kernel Image via TFTP..."
-tftp 0x02000000 Image
+# Use the DTB provided by the GPU firmware (at ${fdt_addr}) instead of loading
+# a fresh one via TFTP. The GPU applies dtoverlay= entries from config.txt
+# (e.g. imx219 camera) to the DTB before passing it to U-Boot. Loading a
+# separate DTB via TFTP would discard those overlays.
+echo "==> Using GPU-provided DTB at ${fdt_addr} (overlays preserved)"
 
-echo "==> Fetching Device Tree Blob via TFTP..."
-tftp 0x06000000 bcm2711-rpi-4-b.dtb
-
-setenv bootargs "console=ttyS0,115200 console=tty1 root=/dev/nfs rw rootwait nfsroot=192.168.1.220:/workspace/nfs/rpi4-rootfs,tcp,v3 ip=192.168.1.150:::255.255.255.0:rpi4:eth0:off earlycon=bcm2835aux,0xfe215040"
+# Auto-detect boot mode: partition 2 on SD → production, otherwise → dev
+if mmc dev 0 && mmc rescan && part number mmc 0 2 partnum; then
+    echo "==> PRODUCTION: kernel + SquashFS from SD card"
+    load mmc 0:1 0x02000000 Image
+    setenv bootargs "${console} root=/dev/mmcblk0p2 rootfstype=squashfs ro rootwait"
+else
+    # Network boot — need IP configuration for TFTP + NFS
+    setenv ipaddr    192.168.1.150
+    setenv serverip  192.168.1.220
+    echo "==> DEVELOPMENT: TFTP kernel + NFS rootfs from ${serverip}"
+    tftp 0x02000000 Image
+    setenv bootargs "${console} root=/dev/nfs rw rootwait nfsroot=${serverip}:/workspace/nfs/rpi4-rootfs,tcp,v3 ip=${ipaddr}:::255.255.255.0:rpi4:eth0:off"
+fi
 
 echo "==> Booting Linux kernel..."
-booti 0x02000000 - 0x06000000
+booti 0x02000000 - ${fdt_addr}

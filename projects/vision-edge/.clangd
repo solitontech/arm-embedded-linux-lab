@@ -1,0 +1,23 @@
+CompileFlags:
+  # Use compile_commands.json for flag inference.
+  # Strip cross-compiler flags that confuse the host clangd.
+  Remove:
+    - -static         # clangd doesn't need to link
+  Add:
+    - -std=c++20
+    - -I./include
+
+Diagnostics:
+  UnusedIncludes: Strict
+  ClangTidy:
+    Add:
+      - modernize-*
+      - performance-*
+      - readability-*
+    Remove:
+      - modernize-use-trailing-return-type
+
+InlayHints:
+  Enabled: Yes
+  ParameterNames: Yes
+  DeducedTypes: Yes

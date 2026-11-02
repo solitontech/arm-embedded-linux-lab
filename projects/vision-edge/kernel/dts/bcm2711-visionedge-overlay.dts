@@ -1,0 +1,35 @@
+/dts-v1/;
+/plugin/;
+
+/ {
+    compatible = "brcm,bcm2711";
+
+    fragment@0 {
+        target = <&gpio>;
+        __overlay__ {
+            vision_pins: vision_pins {
+                brcm,pins = <18 23 24>;
+                brcm,function = <1 0 1>; /* 18: Output (relay), 23: Input (sensor), 24: Output (strobe) */
+                brcm,pull = <0 2 0>;     /* 18: None, 23: Pull-up, 24: None */
+            };
+        };
+    };
+
+    fragment@1 {
+        target-path = "/";
+        __overlay__ {
+            vision_safety: vision_safety@fe200000 {
+                compatible = "cortexlab,vision-safety";
+                reg = <0x0 0xfe200000 0x1000>; /* GPIO register block: 2 addr cells (0x0 0xfe200000) + 1 size cell (0x1000) */
+                pinctrl-names = "default";
+                pinctrl-0 = <&vision_pins>;
+                gpios = <&gpio 18 0>,   /* relay output   */
+                        <&gpio 23 0>,   /* sensor input   */
+                        <&gpio 24 0>;   /* strobe output  */
+                interrupt-parent = <&gpio>;
+                interrupts = <23 2>;    /* IRQ_TYPE_EDGE_FALLING on GPIO 23 */
+                status = "okay";
+            };
+        };
+    };
+};

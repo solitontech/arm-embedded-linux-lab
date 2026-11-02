@@ -5,25 +5,41 @@
 *.a
 *.img
 
-# BSP binaries in shared/bsp/ ARE committed (small firmware blobs + DTBs)
-# Only ignore large generated binaries from build trees
-shared/boot/build/**/*.bin
-shared/boot/build/**/*.elf
-
 # Linux / Kernel / U-Boot build trees
 build/
 output/
 shared/boot/build/
-# shared/boot/firmware/ — replaced by shared/bsp/ (committed)
 shared/boot/firmware/
+shared/kernel/build/
 .config
 .config.old
-# Kernel build command files (not U-Boot boot scripts)
-shared/boot/build/**/*.cmd
 modules.order
 Module.symvers
 
-# nfs rootfs — runtime and generated files (never commit boot/runtime artifacts)
+# NFS rootfs — ignore all modules except committed camera drivers
+shared/nfs/*/lib/modules/
+!shared/nfs/*/lib/modules/*/kernel/
+!shared/nfs/*/lib/modules/*/kernel/drivers/
+!shared/nfs/*/lib/modules/*/kernel/drivers/media/
+!shared/nfs/*/lib/modules/*/kernel/drivers/media/**
+shared/nfs/*-rootfs/**/.ash_history
+shared/nfs/rpi4-rootfs/etc/dropbear/*_host_key
+shared/nfs/*-rootfs/var/
+shared/nfs/*-rootfs/tmp/
+shared/nfs/*-rootfs/run/
+shared/nfs/*-rootfs/dev/urandom
+shared/nfs/*-rootfs/root/.ssh/
+shared/nfs/*-rootfs/**/*.pid
+shared/nfs/*-rootfs/**/utmp
+shared/nfs/*-rootfs/**/wtmp
+shared/nfs/*-rootfs/**/*.log
+shared/nfs/*-rootfs/**/*.pub
+shared/nfs/*-rootfs/etc/wpa_supplicant/
+shared/nfs/*-rootfs/usr/local/
+shared/nfs/*-rootfs/usr/bin/vision-edge
+nfs/*-rootfs/usr/bin/visiond
+
+# NFS rootfs (top-level) — runtime and generated files
 nfs/*-rootfs/**/.ash_history
 nfs/rpi4-rootfs/etc/dropbear/*_host_key
 nfs/*-rootfs/var/
@@ -37,23 +53,31 @@ nfs/*-rootfs/**/wtmp
 nfs/*-rootfs/**/*.log
 nfs/*-rootfs/**/*.pub
 nfs/*-rootfs/etc/wpa_supplicant/
+nfs/*-rootfs/usr/local/
+nfs/*-rootfs/usr/bin/vision-edge
+nfs/*-rootfs/usr/bin/visiond
+
+# TFTP — deployed artifacts served by Docker
+tftp/*
+!tftp/.gitkeep
 
 # IDE & Editor files
 .vscode/
 .idea/
+.devin/
 *.swp
 *~
 .DS_Store
+
+# clangd / LSP tooling (machine-specific, generated per-developer)
+compile_commands.json
+.clangd-cache/
+.cache/
 
 # Python Cache
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Local TFTP staging/server directory
-tftp/*
-!tftp/.gitkeep
-!tftp/test.txt
 
 # Lab environment secrets (real IPs, SSH key paths — copy from *.env.example)
 tools/target/lab_host.env

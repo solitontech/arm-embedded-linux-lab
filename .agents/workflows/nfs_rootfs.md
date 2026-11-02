@@ -128,6 +128,7 @@ Only commit files you intentionally changed. The `dev/`, `proc/`, `sys/`, `tmp/`
 - `[MODIFY]` `nfs/rpi4-rootfs/etc/passwd`, `etc/group`, `etc/shells` — userspace config for SSH login
 - `[MODIFY]` `nfs/rpi4-rootfs/etc/inittab` — if init config changed
 - `[MODIFY]` `nfs/rpi4-rootfs/etc/init.d/rcS` — if startup script changed
+- `[ADD]` `nfs/rpi4-rootfs/etc/init.d/S99visiond` — daemon init script (SysV service launched by rcS)
 - `[MODIFY]` `shared/bsp/rpi4/boot.cmd` + `boot.scr` — only if NFS path or IP changed
 
 ## Notes

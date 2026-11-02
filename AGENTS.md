@@ -53,6 +53,10 @@ This ensures HOST_INTERFACE and HOST_IP are always correctly injected from the b
 - Always delegate task-specific workflows to their corresponding **Skill** (`.agents/skills/`) or **Workflow** (`.agents/workflows/`).
 - `README.md` should serve only as a welcoming entry point with high-level summaries and direct links to the relevant skills/workflows.
 
+## Diagrams
+
+**Always use Mermaid for diagrams.** All diagrams in documentation, design docs, READMEs, skills, and workflows must use Mermaid (```` ```mermaid ```` code blocks). Never use ASCII art box-drawing, plaintext diagrams, or external image files for architecture, data flow, sequence, or state diagrams.
+
 ## Documentation & Relative Linking Standards
 
 **Always use relative links in repository documentation (`.md` files):**
@@ -94,8 +98,36 @@ Whenever any infrastructure file changes, the corresponding skill and/or workflo
 | `tools/lab.py` (`mcp` subcommand) | `.agents/skills/deploy-and-run/SKILL.md` |
 | New project scaffold template | `.agents/workflows/new_project.md` |
 | EEPROM tooling (`tools/eeprom/`) | `.agents/skills/eeprom-netboot/SKILL.md` |
+| Shared C++ library (`shared/lib/`) | `.agents/workflows/shared_library.md` |
 
 If you create a new infrastructure file or tool, also create a new skill or workflow documenting it.
+
+## Shared C++ Library (`shared/lib/` — `labkit::`)
+
+**Any reusable C++ code — interfaces, types, utilities — belongs in `shared/lib/include/labkit/`.** Projects MUST NOT duplicate reusable infrastructure. Before writing a new utility, check if `labkit::` already provides it. If your new component could serve more than one project, implement it in `labkit::` first, then consume it from your project via a forwarding header.
+
+### What belongs in labkit (shared):
+- Abstract interfaces (`ILogger`, `ISubsystem`, `IMetricsSource`)
+- Error/vocabulary types (`ErrorCode`, `Error`, `expected<T,E>`)
+- Generic utilities (`EventBus`, terminal formatting)
+- Third-party vendored headers (`spdlog`, `fmt`, `tl::expected`) in `shared/lib/vendor/`
+
+### What stays in projects:
+- Concrete hardware/platform implementations (`ProcfsMetricsSource`, GPIO controllers)
+- Application-specific configuration (`DaemonConfig`)
+- Composition roots (`main.cpp`, orchestrators)
+- Domain-specific subsystems (`HeartbeatWorker`, trip controllers)
+
+### Namespace convention:
+- Shared library: `labkit::`
+- Projects consume via forwarding headers with `using` declarations: `namespace visiond { using labkit::ILogger; }`
+- Third-party vendored headers are included directly: `<spdlog/spdlog.h>`, `<tl/expected.hpp>`
+
+### Coding rules:
+See `shared/lib/AGENTS.md` — enforces interface/implementation separation, self-contained headers, and compile-time discipline.
+
+### Adding to labkit:
+See workflow: `.agents/workflows/shared_library.md`
 
 ## Primary CLI: `lab`
 

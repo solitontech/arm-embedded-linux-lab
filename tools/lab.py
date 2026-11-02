@@ -383,7 +383,7 @@ def cmd_run(args: argparse.Namespace):
 def cmd_reboot(args: argparse.Namespace):
     board = select_board(None, args.board)
     env = get_board_env(board)
-    reboot_script = REPO_ROOT / "tools" / "deploy" / "reboot.sh"
+    reboot_script = REPO_ROOT / "tools" / "target" / "reboot.sh"
     
     method = args.method or env.get("BOARD_RESET_METHOD", "uboot_serial")
     
@@ -481,9 +481,9 @@ def cmd_docker(args: argparse.Namespace):
     if action == "run":
         board = args.board
         if not board:
-            boards = get_boards()
-            if len(boards) == 1:
-                board = list(boards.keys())[0]
+            target_boards = [b for b in get_boards().keys() if b != "host"]
+            if len(target_boards) == 1:
+                board = target_boards[0]
         if board:
             env = get_board_env(board)
             iface = env.get("HOST_INTERFACE", "")
@@ -740,6 +740,27 @@ def cmd_doctor(args: argparse.Namespace):
             else:
                 print(f"  {Style.B_RED}✖{Style.RESET} Host UFW Firewall: ACTIVE but 69/udp BLOCKED")
                 print(f"    {Style.B_YELLOW}Run on host PC:{Style.RESET} {Style.BOLD}sudo ufw allow 69/udp{Style.RESET}")
+    except Exception:
+        pass
+
+    # 5.5 NTP Server & Clock Sync Diagnostics
+    try:
+        res = subprocess.run(["ss", "-ulpn"], capture_output=True, text=True, check=False)
+        if ":123" in res.stdout or "*:123" in res.stdout:
+            print(f"  {Style.B_GREEN}✔{Style.RESET} UDP Port 123: Listening for NTP time sync clients")
+        else:
+            print(f"  {Style.B_YELLOW}⚠{Style.RESET} UDP Port 123: Not listening (run: ./lab docker run)")
+    except Exception:
+        print(f"  {Style.DIM}• Could not query socket status via ss -ulpn{Style.RESET}")
+
+    try:
+        res = subprocess.run(["sudo", "-n", "ufw", "status"], capture_output=True, text=True, check=False, stderr=subprocess.DEVNULL)
+        if "Status: active" in res.stdout:
+            if "123/udp" in res.stdout or "123 " in res.stdout:
+                print(f"  {Style.B_GREEN}✔{Style.RESET} Host UFW Firewall: 123/udp ALLOWED")
+            else:
+                print(f"  {Style.B_RED}✖{Style.RESET} Host UFW Firewall: ACTIVE but 123/udp BLOCKED")
+                print(f"    {Style.B_YELLOW}Run on host PC:{Style.RESET} {Style.BOLD}sudo ufw allow 123/udp{Style.RESET}")
     except Exception:
         pass
 
