@@ -37,6 +37,7 @@ shared/nfs/*-rootfs/**/*.pub
 shared/nfs/*-rootfs/etc/wpa_supplicant/
 shared/nfs/*-rootfs/usr/local/
 shared/nfs/*-rootfs/usr/bin/vision-edge
+nfs/*-rootfs/usr/bin/visiond
 
 # NFS rootfs (top-level) — runtime and generated files
 nfs/*-rootfs/**/.ash_history
@@ -54,6 +55,7 @@ nfs/*-rootfs/**/*.pub
 nfs/*-rootfs/etc/wpa_supplicant/
 nfs/*-rootfs/usr/local/
 nfs/*-rootfs/usr/bin/vision-edge
+nfs/*-rootfs/usr/bin/visiond
 
 # TFTP — deployed artifacts served by Docker
 tftp/*

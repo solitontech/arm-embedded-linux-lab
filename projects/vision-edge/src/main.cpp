@@ -63,7 +63,13 @@ int main(int argc, char* argv[]) {
 
     // Select camera and SIMD implementations at compile time
 #ifdef __aarch64__
-    auto camera = visiond::make_v4l2_camera(logger);
+    std::unique_ptr<visiond::ICameraSource> camera;
+    if (::access("/dev/video0", F_OK) == 0) {
+        camera = visiond::make_v4l2_camera(logger);
+    } else {
+        logger.log(visiond::LogLevel::WARN, "/dev/video0 not found; falling back to synthetic camera");
+        camera = visiond::make_synthetic_camera(logger);
+    }
     auto simd   = visiond::make_neon_simd_engine();
 #else
     auto camera = visiond::make_synthetic_camera(logger);
