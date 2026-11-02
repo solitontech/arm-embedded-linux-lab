@@ -19,18 +19,17 @@ std::vector<uint8_t> jpeg_encode_gray(const uint8_t* data,
                                        uint32_t stride, int quality) {
     std::vector<uint8_t> out;
     out.reserve(width * height / 4);
-    // stb wants contiguous rows — if stride == width, pass directly
-    if (stride == width) {
-        stbi_write_jpg_to_func(jpeg_write_cb, &out,
-            static_cast<int>(width), static_cast<int>(height), 1, data, quality);
-    } else {
-        // Pack rows into contiguous buffer
-        std::vector<uint8_t> packed(width * height);
-        for (uint32_t y = 0; y < height; y++)
-            std::memcpy(packed.data() + y * width, data + y * stride, width);
-        stbi_write_jpg_to_func(jpeg_write_cb, &out,
-            static_cast<int>(width), static_cast<int>(height), 1, packed.data(), quality);
-    }
+
+    // YUYV: 2 bytes per pixel — extract Y (luminance) at every even byte offset.
+    // packed[] holds one contiguous grayscale byte per pixel, row-major.
+    std::vector<uint8_t> packed(width * height);
+    for (uint32_t y = 0; y < height; ++y)
+        for (uint32_t x = 0; x < width; ++x)
+            packed[y * width + x] = data[y * stride + x * 2];  // Y channel only
+
+    stbi_write_jpg_to_func(jpeg_write_cb, &out,
+        static_cast<int>(width), static_cast<int>(height), 1,
+        packed.data(), quality);
     return out;
 }
 

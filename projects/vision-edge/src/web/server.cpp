@@ -68,6 +68,7 @@ void http_handler(struct mg_connection* c, int ev, void* ev_data) {
                     static_cast<unsigned long>(jpeg.size()));
                 mg_send(c, jpeg.data(), jpeg.size());
                 mg_send(c, "\r\n", 2);
+                state->frame_ready = false;  // consume — wait for next frame
             }
         }
         // Push telemetry JSON to WebSocket clients
