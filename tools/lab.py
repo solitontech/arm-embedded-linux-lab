@@ -481,9 +481,9 @@ def cmd_docker(args: argparse.Namespace):
     if action == "run":
         board = args.board
         if not board:
-            boards = get_boards()
-            if len(boards) == 1:
-                board = list(boards.keys())[0]
+            target_boards = [b for b in get_boards().keys() if b != "host"]
+            if len(target_boards) == 1:
+                board = target_boards[0]
         if board:
             env = get_board_env(board)
             iface = env.get("HOST_INTERFACE", "")
