@@ -112,9 +112,12 @@ body {
 }
 
 .video-panel img {
+  width: 100%;
+  height: 100%;
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  display: block;
   opacity: 1;
   position: relative;
   z-index: 2;
@@ -319,17 +322,44 @@ body {
     ? 'localhost:8080'
     : location.host;
 
-  // --- MJPEG stream ---
+  // --- Video stream with automatic fallback ---
   var img = document.getElementById('stream');
   var placeholder = document.getElementById('placeholder');
-  img.onload = function () { placeholder.style.display = 'none'; };
-  img.onerror = function () { placeholder.style.display = 'block'; placeholder.textContent = 'Stream offline'; };
+  var fallbackActive = false;
+  var fallbackTimer = null;
+
+  function hidePlaceholder() {
+    if (placeholder) placeholder.style.display = 'none';
+  }
+
+  function startSnapshotFallback() {
+    if (fallbackActive) return;
+    fallbackActive = true;
+    fallbackTimer = setInterval(function () {
+      img.src = '/snapshot.jpg?t=' + Date.now();
+    }, 120);
+  }
+
+  img.onload = function () {
+    hidePlaceholder();
+  };
+
+  img.onerror = function () {
+    startSnapshotFallback();
+  };
+
   var streamUrl = (location.protocol === 'file:' || location.hostname === '')
     ? 'http://localhost:8080/stream.mjpg'
     : '/stream.mjpg';
   img.src = streamUrl;
-  // Chromium browsers do not fire onload on multipart MJPEG streams; hide placeholder after init
-  setTimeout(function () { placeholder.style.display = 'none'; }, 400);
+
+  setTimeout(function () {
+    if (!fallbackActive && img.naturalWidth === 0) {
+      startSnapshotFallback();
+    } else {
+      hidePlaceholder();
+    }
+  }, 1000);
 
   // --- Helpers ---
   function severity(pct) {

@@ -49,7 +49,25 @@ void http_handler(struct mg_connection* c, int ev, void* ev_data) {
                 "Content-Type: application/json\r\n"
                 "Access-Control-Allow-Origin: *\r\n",
                 "{\"name\":\"visiond\",\"version\":\"" VISIOND_VERSION "\","
-                "\"endpoints\":[\"/stream.mjpg\",\"/ws/telemetry\",\"/api/info\"]}");
+                "\"endpoints\":[\"/stream.mjpg\",\"/snapshot.jpg\",\"/ws/telemetry\",\"/api/info\"]}");
+
+        } else if (mg_match(hm->uri, mg_str("/snapshot.jpg"), nullptr) ||
+                   mg_match(hm->uri, mg_str("/api/snapshot.jpg"), nullptr)) {
+            std::lock_guard<std::mutex> lock(state->frame_mtx);
+            if (!state->latest_jpeg.empty()) {
+                mg_printf(c,
+                    "HTTP/1.1 200 OK\r\n"
+                    "Content-Type: image/jpeg\r\n"
+                    "Content-Length: %lu\r\n"
+                    "Cache-Control: no-cache, no-store, must-revalidate\r\n"
+                    "%s"
+                    "Connection: close\r\n\r\n",
+                    static_cast<unsigned long>(state->latest_jpeg.size()), CORS);
+                mg_send(c, state->latest_jpeg.data(), state->latest_jpeg.size());
+            } else {
+                mg_http_reply(c, 503, CORS, "No frame available\r\n");
+            }
+            c->is_draining = 1;
 
         } else {
             // Serve embedded dashboard HTML for all other routes
