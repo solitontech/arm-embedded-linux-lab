@@ -185,9 +185,14 @@ visiond starts automatically via `/etc/init.d/S99visiond` on boot. Manage it wit
 /etc/init.d/S99visiond stop
 /etc/init.d/S99visiond start
 /etc/init.d/S99visiond restart
+/etc/init.d/S99visiond status
 ```
 
-Logs go to stdout (serial console). The rootfs is read-only — `/tmp`, `/var`, `/run` are RAM-backed tmpfs.
+Logs are written to `/var/log/visiond.log` and stdout (serial console). Tail live daemon logs with:
+
+```bash
+tail -f /var/log/visiond.log
+```
 
 ---
 

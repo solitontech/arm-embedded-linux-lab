@@ -63,6 +63,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     dnsmasq \
     u-boot-tools \
     python3-serial \
+    iptables \
     ntp \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*

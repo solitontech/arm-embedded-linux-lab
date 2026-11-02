@@ -34,13 +34,17 @@ fi
 # The RPi4 has no hardware RTC; clock defaults to 1970-01-01 until synced.
 # Primary: Docker container (same LAN, always reachable) running ntpd.
 #   The NFS server IP is the Docker host — extract it from the NFS root mount.
-# Fallback: Google public NTP IP (no DNS needed).
+# Fallback: Gateway IP or Google public NTP IP.
 printf '[init] Syncing time via NTP...\r\n'
 echo "nameserver 8.8.8.8" > /etc/resolv.conf
 _nfs_ip=$(cat /proc/mounts 2>/dev/null | awk -F'[:/]' '/nfs/ {print $1; exit}')
 _synced=false
 if [ -n "${_nfs_ip}" ]; then
     ntpd -q -n -p "${_nfs_ip}" 2>/dev/null && _synced=true
+fi
+if ! ${_synced}; then
+    _gw=$(route -n 2>/dev/null | awk '$1=="0.0.0.0" {print $2; exit}')
+    [ -n "${_gw}" ] && ntpd -q -n -p "${_gw}" 2>/dev/null && _synced=true
 fi
 if ! ${_synced}; then
     ntpd -q -n -p 216.239.35.0 2>/dev/null && _synced=true
@@ -68,4 +72,11 @@ printf '%s\r\n' ' Welcome to Soliton ARM Embedded Linux Lab'
 printf ' Kernel: %s on %s\r\n' "$(uname -r)" "$(uname -m)"
 printf ' SSH:    root@%s:22\r\n' "${SSH_IP:-unknown}"
 printf '%s\r\n' '=========================================================='
+
+# --- System V init scripts ---
+printf '[init] Starting services...\r\n'
+for script in /etc/init.d/S??*; do
+    [ -x "${script}" ] && "${script}" start
+done
+
 

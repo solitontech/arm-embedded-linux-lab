@@ -173,6 +173,22 @@ The container includes `dnsmasq` for providing DHCP to the Pi's EEPROM bootloade
   ```
 - See [EEPROM Network Boot](../../docs/raspi4/eeprom_netboot.md) for the full setup guide.
 
+## NTP Server for Target Clock Synchronization
+
+The Docker container runs an NTP server (`ntpd`) listening on UDP port 123 to synchronize clocks for target boards (like the RPi4) that lack a hardware real-time clock (RTC).
+
+- **Activation**: `/usr/local/bin/entrypoint.sh` starts `ntpd` and configures fallback to local clock if upstream servers are unreachable.
+- **Firewall Rule**:
+  ```bash
+  sudo ufw allow 123/udp
+  ```
+- **Target Verification**:
+  From target board:
+  ```bash
+  ntpd -q -n -p <HOST_IP>
+  ```
+
+
 ## Docker Layer Caching & Dockerfile Modifications
 
 To ensure fast rebuild times when adding or updating packages:

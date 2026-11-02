@@ -41,6 +41,15 @@ fi
 #    ntpd listens on UDP/123 (all interfaces). The Pi's rcS calls:
 #      ntpd -q -n -p <HOST_IP>   (HOST_IP is the Docker host's LAN IP)
 if command -v ntpd >/dev/null 2>&1; then
+    # Ensure firewall allows incoming NTP queries on UDP port 123 (host networking)
+    if command -v iptables >/dev/null 2>&1; then
+        iptables -C INPUT -p udp --dport 123 -j ACCEPT 2>/dev/null || \
+            iptables -I INPUT 1 -p udp --dport 123 -j ACCEPT 2>/dev/null || true
+    fi
+    if command -v ufw >/dev/null 2>&1; then
+        ufw allow 123/udp &>/dev/null || true
+    fi
+
     # Allow the container to serve time to LAN clients even if its own upstream
     # is unavailable — use local clock (stratum 10) as authoritative fallback.
     NTP_CONF=/etc/ntp.conf
@@ -52,14 +61,18 @@ server 1.pool.ntp.org iburst
 # Local clock fallback (stratum 10 = clearly a fallback)
 server 127.127.1.0
 fudge  127.127.1.0 stratum 10
-# Allow LAN clients (192.168.1.x) to query this server
-restrict 192.168.1.0 mask 255.255.255.0 nomodify notrap
+# Allow LAN clients (RFC 1918 private subnets) to query this server
+restrict 192.168.0.0 mask 255.255.0.0 nomodify notrap
+restrict 10.0.0.0 mask 255.0.0.0 nomodify notrap
+restrict 172.16.0.0 mask 255.240.0.0 nomodify notrap
 # Allow localhost
 restrict 127.0.0.1
 restrict ::1
 driftfile /var/lib/ntp/ntp.drift
 NTPEOF
     mkdir -p /var/lib/ntp
+    # Stop any existing ntpd before restarting
+    killall ntpd 2>/dev/null || true
     ntpd -c "${NTP_CONF}" -g 2>/dev/null && \
         echo "❯ [NTP ] ntpd started — Pi can sync via: ntpd -q -n -p \${HOST_IP:-<docker-host-ip>}" || \
         echo "⚠ [NTP ] ntpd failed to start"

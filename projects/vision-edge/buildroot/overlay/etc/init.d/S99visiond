@@ -3,17 +3,27 @@
 # Starts visiond as the last service after all hardware is initialized
 
 DAEMON=/usr/local/bin/visiond
+[ -x "$DAEMON" ] || DAEMON=/usr/bin/vision-edge
+[ -x "$DAEMON" ] || DAEMON=/usr/bin/visiond
 PIDFILE=/var/run/visiond.pid
+
+[ -r /etc/default/visiond ] && . /etc/default/visiond
+VISIOND_ARGS="${VISIOND_ARGS:---log-file /var/log/visiond.log}"
 
 case "$1" in
     start)
         printf "Starting visiond: "
-        start-stop-daemon -S -b -m -p $PIDFILE -x $DAEMON -- -d
+        if [ ! -x "$DAEMON" ]; then
+            echo "FAIL (binary not found)"
+            exit 1
+        fi
+        start-stop-daemon -S -b -m -p $PIDFILE -x $DAEMON -- ${VISIOND_ARGS:-}
         echo "OK"
         ;;
     stop)
         printf "Stopping visiond: "
-        start-stop-daemon -K -p $PIDFILE
+        start-stop-daemon -K -p $PIDFILE 2>/dev/null || killall $(basename "$DAEMON") 2>/dev/null
+        rm -f $PIDFILE
         echo "OK"
         ;;
     restart)
@@ -21,8 +31,16 @@ case "$1" in
         sleep 1
         $0 start
         ;;
+    status)
+        if [ -f $PIDFILE ] && kill -0 $(cat $PIDFILE) 2>/dev/null; then
+            echo "visiond is running (PID $(cat $PIDFILE))"
+        else
+            echo "visiond is not running"
+            exit 1
+        fi
+        ;;
     *)
-        echo "Usage: $0 {start|stop|restart}"
+        echo "Usage: $0 {start|stop|restart|status}"
         exit 1
         ;;
 esac

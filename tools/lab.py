@@ -743,6 +743,27 @@ def cmd_doctor(args: argparse.Namespace):
     except Exception:
         pass
 
+    # 5.5 NTP Server & Clock Sync Diagnostics
+    try:
+        res = subprocess.run(["ss", "-ulpn"], capture_output=True, text=True, check=False)
+        if ":123" in res.stdout or "*:123" in res.stdout:
+            print(f"  {Style.B_GREEN}✔{Style.RESET} UDP Port 123: Listening for NTP time sync clients")
+        else:
+            print(f"  {Style.B_YELLOW}⚠{Style.RESET} UDP Port 123: Not listening (run: ./lab docker run)")
+    except Exception:
+        print(f"  {Style.DIM}• Could not query socket status via ss -ulpn{Style.RESET}")
+
+    try:
+        res = subprocess.run(["sudo", "-n", "ufw", "status"], capture_output=True, text=True, check=False, stderr=subprocess.DEVNULL)
+        if "Status: active" in res.stdout:
+            if "123/udp" in res.stdout or "123 " in res.stdout:
+                print(f"  {Style.B_GREEN}✔{Style.RESET} Host UFW Firewall: 123/udp ALLOWED")
+            else:
+                print(f"  {Style.B_RED}✖{Style.RESET} Host UFW Firewall: ACTIVE but 123/udp BLOCKED")
+                print(f"    {Style.B_YELLOW}Run on host PC:{Style.RESET} {Style.BOLD}sudo ufw allow 123/udp{Style.RESET}")
+    except Exception:
+        pass
+
     # 6. NFS Server & Rootfs Diagnostics
     print(f"\n{Style.BOLD}6. NFS Server & Rootfs Diagnostics:{Style.RESET}")
     nfs_dir = Path("/workspace/nfs") if Path("/workspace").exists() else (REPO_ROOT / "nfs")
