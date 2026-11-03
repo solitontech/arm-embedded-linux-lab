@@ -65,19 +65,11 @@ You are adding Session N to the KSS series in `docs/kss/` — a reviewed narrati
 
    Structural check that catches the common mistakes (run from the repo root):
    ```bash
-   python3 - <<'EOF'
-   import re, sys, glob
-   for page in glob.glob('docs/kss/session-*/index.html'):
-       src = open(page).read()
-       ids = set(re.findall(r'\bid="([^"]+)"', src))
-       nav = re.search(r'class="kss-rail-nav".*?</nav>', src, re.S)
-       dead = [h for h in re.findall(r'href="#([^"]+)"', nav.group(0) if nav else '') if h not in ids]
-       stages = re.findall(r'<article class="kss-stage" id="([^"]+)"([^>]*)>', src)
-       rail_keys = set(re.findall(r'data-rail="(\w+)"', src))
-       missing = [(s, k) for s, a in stages for k in rail_keys if f'data-rail-{k}=' not in a]
-       print(page, '| stages:', len(stages), '| dead nav links:', dead or 'none', '| missing rail attrs:', missing or 'none')
-   EOF
+   python3 docs/kss/_shared/check.py
    ```
+   It verifies, for every session page: no dead rail-nav links, every stage carries every `data-rail-*` key the rail reads, balanced HTML tags, every class used is defined in `kss.css`. For `kss.css` it strips comments the way a browser does and confirms the critical rules (`:root` tokens, `.kss-page` grid, `body` background) survived — this catches a `*/` accidentally written inside a comment, which silently discards the next rule and renders the page unstyled.
+
+   Then look at the page in a browser. If it renders as plain black-on-white text, the stylesheet failed to parse; run the check above before anything else.
 
 7. **Commit**
    One commit for the session (story + page + README row). Shared-component changes may be a separate preceding commit if they're substantial.

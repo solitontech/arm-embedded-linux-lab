@@ -35,6 +35,7 @@ docs/kss/
 ├── _shared/
 │   ├── kss.css                   ← design system (tokens, typography, stage chain, diagrams)
 │   ├── kss.js                    ← interactions (expand/collapse, rail sync, keyboard, deep links)
+│   ├── check.py                  ← structural checks for pages + stylesheet (run before committing)
 │   └── COMPONENTS.md             ← component catalogue: copy-paste markup for every block
 └── session-NN-slug/
     ├── STORY.md                  ← the reviewed narrative — source of truth for the page

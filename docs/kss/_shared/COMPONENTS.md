@@ -206,3 +206,13 @@ Built in — nothing to do per page:
 - **New interaction:** add to `kss.js` behind a `data-kss-*` attribute so pages opt in, and document the markup contract at the top of the file.
 
 Do not fork `kss.css` into a session folder. If a session genuinely needs a one-off, put a `<style>` block in that page with a comment explaining why it isn't shared.
+
+## Checking your work
+
+```bash
+python3 docs/kss/_shared/check.py
+```
+
+Runs on every session page and on `kss.css`. It exits non-zero on: dead rail-nav links, stages missing a `data-rail-*` key, unbalanced tags, classes used but not defined, and — the one that bit us — a stylesheet whose comment ended early.
+
+> **Never type `*/` inside a CSS comment.** A glob like `session-*/index.html` ends the comment at `*/`; the browser then treats the rest of the comment plus the next selector as one invalid rule and drops it. If that rule is `:root`, every `var()` fails and the page renders as plain black-on-white text. `check.py` strips comments the way a browser does and verifies `:root` survived.

@@ -1,6 +1,11 @@
+@charset "utf-8";
 /* ==========================================================================
    KSS Shared Design System
-   Used by every session page under docs/kss/session-*/index.html
+   Used by every session page under docs/kss/session-NN-slug/index.html
+
+   NOTE: never write the two characters star-slash inside a CSS comment
+   (e.g. a glob like "session-STAR/index.html"); it ends the comment early
+   and the next rule is silently discarded.
 
    Principles (from the design skill):
    - System font, size-specific tracking (tight headings, neutral body)
@@ -207,8 +212,18 @@ pre code { background: none; border: 0; padding: 0; font-size: inherit; }
 }
 
 @media (max-width: 900px) {
+  /* Narrow screens: the hero must be the first thing seen, so the rail
+     becomes a compact, horizontally-wrapping nav at the top and the
+     hardware-state block hides (the panels carry that information). */
   .kss-rail { position: static; }
-  .kss-rail-state { display: none; }   /* on narrow screens the panels carry this info */
+  .kss-rail-state { display: none; }
+  .kss-rail-nav { flex-direction: row; flex-wrap: wrap; gap: 0.35rem; }
+  .kss-rail-nav a {
+    padding: 0.35rem 0.7rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.82rem;
+  }
 }
 
 .kss-rail-nav { display: flex; flex-direction: column; gap: 2px; }
