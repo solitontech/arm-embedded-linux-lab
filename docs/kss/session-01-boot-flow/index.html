@@ -3,536 +3,78 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>KSS 1 — From Power-On to a Shell</title>
-<meta name="description" content="How a generic ARM Cortex-A Linux system boots: ROM bootloader, SPL, U-Boot, kernel + Device Tree, root filesystem — and why developers boot over the network.">
+<title>KSS 1 — From power-on to a shell</title>
 <link rel="stylesheet" href="../_shared/kss.css">
+<style>
+  /* Launcher-only layout; everything else comes from kss.css */
+  .launch { max-width: 860px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+  .launch .t-micro { margin-bottom: 1rem; }
+  .launch .t-display { margin-bottom: 0.75rem; }
+  .launch .t-lead { margin-bottom: 2.5rem; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2.5rem; }
+  @media (max-width: 700px) { .cards { grid-template-columns: 1fr; } }
+  .card {
+    display: block; padding: 1.4rem 1.5rem;
+    border: 1px solid var(--border-strong); border-radius: var(--radius);
+    background: var(--surface); color: var(--text);
+    transition: background var(--dur-fast) ease, transform var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+  .card:hover { background: var(--surface-strong); text-decoration: none; border-color: var(--accent); }
+  .card:active { transform: scale(0.99); }
+  .card .t-micro { margin-bottom: 0.4rem; }
+  .card h2 { font-size: 1.25rem; font-weight: 650; letter-spacing: -0.012em; margin-bottom: 0.35rem; }
+  .card p { color: var(--text-2); font-size: 0.95rem; }
+  .card[data-kind="show"] .t-micro { color: var(--accent); }
+  .card[data-kind="present"] .t-micro { color: var(--warm); }
+  .steps { border-top: 1px solid var(--border); padding-top: 1.75rem; }
+  .steps ol { padding-left: 1.3em; }
+  .steps li { margin-bottom: 0.55rem; color: var(--text-2); }
+  .steps li b { color: var(--text); font-weight: 600; }
+  .warn { margin-top: 1.5rem; padding: 0.9rem 1.1rem; border-left: 3px solid var(--warm); background: var(--warm-dim); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; color: var(--text-2); font-size: 0.95rem; }
+  .warn code { font-size: 0.85em; }
+  .warn[data-ok="true"] { display: none; }
+</style>
 </head>
 <body>
+<main class="launch">
+  <div class="t-micro">KSS · Session 1 · Embedded Linux</div>
+  <h1 class="t-display">From power-on to a shell</h1>
+  <p class="t-lead">How a generic ARM Cortex-A Linux system boots — ROM bootloader, SPL, U-Boot, kernel + Device Tree, root filesystem — and why developers boot over the network.</p>
 
-<div class="kss-page">
+  <div class="cards">
+    <a class="card" data-kind="present" href="present.html" target="kss-present-session-01">
+      <div class="t-micro">1 · Open first · your screen</div>
+      <h2>Presenter view</h2>
+      <p>Live mirror of the audience, full notes for the current step, your cues, next step, timer, and controls. Keep this window private.</p>
+    </a>
+    <a class="card" data-kind="show" href="show.html" target="kss-show-session-01">
+      <div class="t-micro">2 · Share this one on Teams</div>
+      <h2>Audience view</h2>
+      <p>One title, one visual, one line per step. Follows the presenter window automatically. Press <kbd>F</kbd> for fullscreen.</p>
+    </a>
+  </div>
 
-  <!-- ================================================================
-       Side rail: wayfinding + "where are we in the hardware"
-       ================================================================ -->
-  <aside class="kss-rail" aria-label="Session navigation">
-    <nav class="kss-rail-nav" aria-label="Sections">
-      <a href="#soc">The chip and the board</a>
-      <a href="#stage-rbl">1 · ROM Bootloader</a>
-      <a href="#stage-spl">2 · SPL</a>
-      <a href="#stage-uboot">3 · U-Boot</a>
-      <a href="#stage-kernel">4 · Kernel + Device Tree</a>
-      <a href="#stage-rootfs">5 · Root filesystem</a>
-      <a href="#summary">The whole chain</a>
-      <a href="#workflow">Booting over the network</a>
-      <a href="#rpi4">Our RPi4</a>
-    </nav>
+  <div class="warn" id="origin-warn">
+    The two windows stay in sync only when served over <code>http://</code>. Opened from a file path, each window runs alone (navigation still works in each).
+    From the repo root: <code>python3 -m http.server 8765 --directory docs/kss</code> then open <code>http://localhost:8765/session-01-boot-flow/</code>.
+  </div>
 
-    <div class="kss-rail-state" aria-live="polite">
-      <div class="t-micro">Hardware state</div>
-      <dl data-kss-rail>
-        <div><dt>Memory</dt><dd data-rail="memory">Select a stage</dd></div>
-        <div><dt>CPU</dt><dd data-rail="cpu">—</dd></div>
-        <div><dt>Code</dt><dd data-rail="code">—</dd></div>
-      </dl>
-    </div>
-  </aside>
+  <section class="steps">
+    <h2 class="t-heading" style="margin-bottom:0.9rem">Presenting on Teams</h2>
+    <ol>
+      <li><b>Open the presenter view</b> on your own display. Click <em>Open audience window</em> in its header (or use the card above).</li>
+      <li><b>Move the audience window to your second display</b> (or just keep it behind). Press <kbd>F</kbd> in it for fullscreen.</li>
+      <li>In Teams, <b>Share → Window → "… — audience"</b>. Never share your whole screen; the presenter view would leak.</li>
+      <li>Drive from the presenter window: <kbd>→</kbd> / <kbd>←</kbd> or a clicker. The audience window follows; the header dot turns green when it has caught up.</li>
+      <li>For the live demo press <kbd>B</kbd> to blank the audience window, switch the Teams share to your terminal, then come back.</li>
+    </ol>
+  </section>
 
-  <!-- ================================================================
-       Main column
-       ================================================================ -->
-  <main class="kss-main">
-
-    <!-- Hero -------------------------------------------------------- -->
-    <header class="kss-hero">
-      <div class="t-micro">KSS · Session 1 · Embedded Linux</div>
-      <h1 class="t-display">From power-on to a shell</h1>
-      <p class="t-lead">Imagine you plug a power cable into an embedded board. A second later, you see a blinking cursor on a serial terminal. Linux is running. A shell is waiting for your command.</p>
-      <p class="t-lead">But what happened in that one second? What ran first? Who decided what to run? And where was all of this code sitting before power existed?</p>
-      <p class="t-lead">This is the story of how an ARM Cortex-A system boots — told in five stages, each handing off to the next, like a relay race where every runner exists because the previous one physically couldn't go any further.</p>
-    </header>
-
-    <!-- Section: SoC & board ---------------------------------------- -->
-    <section class="kss-section" id="soc">
-      <div class="t-micro">Before the chain</div>
-      <h2 class="t-title">What is an SoC, and who builds what?</h2>
-
-      <div class="kss-compare">
-        <div>
-          <h4>The chip — System-on-Chip</h4>
-          <p>A microcontroller like the STM32 or ATmega has a processor, some flash, some RAM and a few peripherals in one package. An <strong>SoC</strong> is the same idea, scaled up dramatically. On a single piece of silicon:</p>
-          <ul>
-            <li><strong>CPU cores</strong> — one or more ARM Cortex-A processors</li>
-            <li><strong>On-chip SRAM</strong> — a small, fast memory (tens to hundreds of KB), available immediately at power-on</li>
-            <li><strong>DRAM controller</strong> — the interface to the large external RAM. The RAM chips themselves are <em>not</em> on the SoC</li>
-            <li><strong>Peripheral controllers</strong> — UART, SPI, I2C, GPIO, USB, Ethernet, DMA, interrupt controller, timers</li>
-            <li><strong>Boot ROM</strong> — a small permanent program burned in during manufacturing</li>
-            <li>Sometimes a <strong>GPU</strong>, <strong>DSP</strong> or <strong>NPU</strong></li>
-          </ul>
-          <p style="margin-top:.8rem">Designed and manufactured by a <strong>silicon vendor</strong>: Texas Instruments, NXP, STMicroelectronics, Broadcom, Qualcomm, MediaTek, Allwinner…</p>
-        </div>
-        <div>
-          <h4>The board — built around the SoC</h4>
-          <p>The SoC alone can't do anything. It's a bare chip with hundreds of tiny pins. A <strong>board manufacturer</strong> builds a complete circuit board around it:</p>
-          <ul>
-            <li><strong>DDR memory chips</strong> soldered next to the SoC, wired to the DRAM controller</li>
-            <li><strong>Boot media</strong> — an SD card slot, an eMMC flash chip, or SPI NOR flash</li>
-            <li><strong>Connectors</strong> — USB, Ethernet, GPIO header, camera, HDMI</li>
-            <li><strong>Power regulation</strong> — turning your 5 V input into the several voltages the SoC and memory need</li>
-          </ul>
-          <p style="margin-top:.8rem">The Raspberry Pi Foundation is a board manufacturer. So are BeagleBoard.org, Toradex and Variscite. They all buy SoCs from silicon vendors and design boards around them.</p>
-        </div>
-      </div>
-
-      <figure class="kss-visual" style="position:static; margin-top:1.5rem; max-width:820px">
-        <div class="dg">
-          <div class="dg-group" data-tone="">
-            <span class="dg-label">Software — open source + you</span>
-            <div class="dg-row">
-              <div class="dg-box" data-state="focus"><b>SPL</b><small>U-Boot project</small></div>
-              <div class="dg-box" data-state="focus"><b>U-Boot</b><small>open source, configured by you</small></div>
-              <div class="dg-box" data-state="focus"><b>Kernel + Device Tree</b><small>community + vendors + you</small></div>
-              <div class="dg-box" data-state="you"><b>Root filesystem</b><small>your application</small></div>
-            </div>
-          </div>
-          <div class="dg-group">
-            <span class="dg-label">Board — board manufacturer</span>
-            <div class="dg-row">
-              <div class="dg-box"><b>DDR chips</b><small>the gigabytes of RAM</small></div>
-              <div class="dg-box"><b>Boot media</b><small>SD · eMMC · SPI flash</small></div>
-              <div class="dg-box"><b>Connectors</b><small>USB · Ethernet · GPIO</small></div>
-              <div class="dg-box"><b>Power</b><small>regulators</small></div>
-            </div>
-            <div class="dg-group">
-              <span class="dg-label">SoC — silicon vendor</span>
-              <div class="dg-row">
-                <div class="dg-box"><b>CPU cores</b><small>Cortex-A</small></div>
-                <div class="dg-box"><b>SRAM</b><small>small, on-chip</small></div>
-                <div class="dg-box"><b>Boot ROM</b><small>permanent</small></div>
-                <div class="dg-box"><b>DRAM controller</b><small>talks to the DDR chips</small></div>
-                <div class="dg-box"><b>Peripherals</b><small>UART · GPIO · I2C · …</small></div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <figcaption>Three layers, three authors. The SoC lives inside the board; the software runs on top of both.</figcaption>
-      </figure>
-    </section>
-
-    <!-- Section: the boot chain ------------------------------------- -->
-    <section class="kss-section" id="chain">
-      <div class="t-micro">The boot chain</div>
-      <h2 class="t-title">Five stages, one relay race</h2>
-      <p class="t-lead" style="margin-bottom:2rem">Click a stage to open it. <kbd>↓</kbd> / <kbd>↑</kbd> step through them.</p>
-
-      <div class="kss-chain" data-kss-chain>
-
-        <!-- Stage 1: RBL ------------------------------------------- -->
-        <article class="kss-stage" id="stage-rbl"
-                 data-rail-memory="On-chip SRAM only" data-rail-memory-tone="blocked"
-                 data-rail-cpu="Executing from ROM"
-                 data-rail-code="Immutable — mask ROM">
-          <button class="kss-stage-head" type="button" aria-expanded="false">
-            <span class="kss-stage-num">1</span>
-            <span class="kss-stage-title">
-              <span class="t-heading">ROM Bootloader (RBL)</span>
-              <span class="t-small">The one you can't change</span>
-            </span>
-            <span class="kss-stage-meta">
-              <span class="kss-tag" data-owner="vendor">SoC vendor</span>
-              <svg class="kss-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-          </button>
-          <div class="kss-stage-body"><div>
-            <div class="kss-stage-inner">
-              <div class="prose t-body">
-                <p>When you apply power to an ARM SoC, the processor cores wake up and do exactly one thing: fetch an instruction from a fixed address. This address is the <strong>reset vector</strong> — a hardwired "start here" sign that the silicon itself enforces.</p>
-                <p>At that address, the SoC vendor has placed a small program in <strong>mask ROM</strong> — memory etched into the chip during fabrication. This is the ROM Bootloader. You cannot modify it, update it, or patch it. If it has bugs, the vendor publishes an <em>errata</em> document and you work around it.</p>
-                <p>The RBL has a very limited world to work with. The only memory available is the on-chip <strong>SRAM</strong> — a few hundred kilobytes at most. The large external <strong>DRAM</strong> — the gigabytes on the board's spec sheet — is not usable yet. DRAM needs a configuration sequence before it can store a single byte, and the ROM doesn't know how to do that for your specific board.</p>
-                <h4>So the RBL does the minimum</h4>
-                <ol>
-                  <li>Reads boot-configuration pins or <strong>eFuses</strong> (one-time-programmable bits inside the chip) to decide where to look for the next piece of software — SD card? SPI flash? eMMC? UART?</li>
-                  <li>Reads a small binary from that boot media</li>
-                  <li>Copies it into SRAM</li>
-                  <li>Jumps to it</li>
-                </ol>
-                <p>That small binary is the SPL. The RBL loads <em>it</em> rather than the Linux kernel for a simple reason: <strong>the kernel is tens of megabytes and SRAM is a few hundred kilobytes. There is nowhere to put it.</strong> The DRAM that could hold it doesn't work yet.</p>
-                <h4>Who writes it</h4>
-                <p>The SoC vendor. It ships with the silicon. You never compile it, never flash it. It's just there, waiting for every power-on.</p>
-              </div>
-
-              <figure class="kss-visual">
-                <div class="dg">
-                  <div class="dg-row">
-                    <div class="dg-box" data-state="focus"><b>Reset vector</b><small>fixed address, enforced by hardware</small></div>
-                    <div class="dg-arrow" data-dir="right"></div>
-                    <div class="dg-box" data-state="focus"><b>Boot ROM</b><small>RBL runs here</small></div>
-                  </div>
-                  <div class="dg-group">
-                    <span class="dg-label">Inside the SoC</span>
-                    <div class="dg-row">
-                      <div class="dg-box" data-state="on"><b>SRAM</b><small>~128–256 KB · usable</small></div>
-                      <div class="dg-box" data-state="off"><b>DRAM controller</b><small>not initialised</small></div>
-                    </div>
-                  </div>
-                  <div class="dg-group" data-tone="faded">
-                    <span class="dg-label">On the board — not visible yet</span>
-                    <div class="dg-row">
-                      <div class="dg-box" data-state="off"><b>DDR chips</b><small>gigabytes, dark</small></div>
-                      <div class="dg-box"><b>SD / SPI / eMMC</b><small>RBL can read a small binary from here</small></div>
-                    </div>
-                  </div>
-                  <div class="dg-legend"><span data-k="on">usable</span><span data-k="off">not yet</span><span data-k="focus">this stage</span></div>
-                </div>
-                <figcaption>The RBL can see the inside of the chip and just enough of the boot media to pull in one small binary.</figcaption>
-              </figure>
-            </div>
-          </div></div>
-        </article>
-
-        <!-- Stage 2: SPL ------------------------------------------- -->
-        <article class="kss-stage" id="stage-spl"
-                 data-rail-memory="SRAM → DRAM coming online" data-rail-memory-tone="ok"
-                 data-rail-cpu="Executing from SRAM"
-                 data-rail-code="First stage you can change">
-          <button class="kss-stage-head" type="button" aria-expanded="false">
-            <span class="kss-stage-num">2</span>
-            <span class="kss-stage-title">
-              <span class="t-heading">SPL — Secondary Program Loader</span>
-              <span class="t-small">The one that unlocks the big memory</span>
-            </span>
-            <span class="kss-stage-meta">
-              <span class="kss-tag" data-owner="open">U-Boot + board vendor</span>
-              <svg class="kss-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-          </button>
-          <div class="kss-stage-body"><div>
-            <div class="kss-stage-inner">
-              <div class="prose t-body">
-                <p>The SPL is the first piece of software that <em>you</em> — or your board vendor — can change. It's typically a stripped-down build of U-Boot, compiled small enough to fit in the chip's SRAM.</p>
-                <p>The RBL loaded it from boot media and placed it in SRAM. Now it runs.</p>
-                <p>The SPL has one critical job that nothing before it could do: <strong>initialise the DRAM controller.</strong></p>
-                <p>Every board has different DDR memory chips soldered to its PCB. The DRAM controller inside the SoC must be configured with parameters specific to those chips before DRAM will work. The SoC vendor's ROM can't contain those parameters — they depend on which memory the board manufacturer chose. So the ROM hands this job to the SPL.</p>
-                <p>Once the SPL has configured the controller, the full DRAM lights up. Instead of a few hundred KB of SRAM you now have gigabytes. The SPL then:</p>
-                <ol>
-                  <li>Reads the full U-Boot binary from boot media</li>
-                  <li>Copies it into DRAM</li>
-                  <li>Jumps to it</li>
-                </ol>
-                <h4>Why not load the kernel directly?</h4>
-                <p>It technically can — U-Boot calls this "Falcon mode" and it's used for fast-boot products. But normally the kernel expects a prepared environment: boot arguments, a Device Tree at a known address, the CPU in a particular state. Setting that up is the job of a full bootloader. The SPL stays small and focused: <strong>init DRAM, load U-Boot, hand off.</strong></p>
-                <h4>Who writes it</h4>
-                <p>The SPL framework comes from the U-Boot project. The DRAM configuration comes from the SoC vendor's reference design, adapted by the board manufacturer for their board.</p>
-              </div>
-
-              <figure class="kss-visual">
-                <div class="dg">
-                  <div class="dg-row">
-                    <div class="dg-col">
-                      <div class="t-micro" style="text-align:center">Before</div>
-                      <div class="dg-box" data-state="on"><b>SRAM</b><small>SPL running here</small></div>
-                      <div class="dg-box" data-state="off"><b>DRAM</b><small>dark</small></div>
-                    </div>
-                    <div class="dg-arrow" data-dir="right">configure<br>DRAM controller</div>
-                    <div class="dg-col">
-                      <div class="t-micro" style="text-align:center">After</div>
-                      <div class="dg-box" data-state="on"><b>SRAM</b><small>still there</small></div>
-                      <div class="dg-box" data-state="on" style="min-height:5.5rem"><b>DRAM</b><small>gigabytes, now usable</small><small style="margin-top:.5rem;color:var(--accent)">→ U-Boot copied in here</small></div>
-                    </div>
-                  </div>
-                  <div class="dg-legend"><span data-k="on">usable</span><span data-k="off">not yet</span></div>
-                </div>
-                <figcaption>One job: turn the big memory on, then put the real bootloader in it.</figcaption>
-              </figure>
-            </div>
-          </div></div>
-        </article>
-
-        <!-- Stage 3: U-Boot ---------------------------------------- -->
-        <article class="kss-stage" id="stage-uboot"
-                 data-rail-memory="Full DRAM" data-rail-memory-tone="ok"
-                 data-rail-cpu="Executing from DRAM"
-                 data-rail-code="Open source, configured by you">
-          <button class="kss-stage-head" type="button" aria-expanded="false">
-            <span class="kss-stage-num">3</span>
-            <span class="kss-stage-title">
-              <span class="t-heading">U-Boot</span>
-              <span class="t-small">The one that finds your kernel</span>
-            </span>
-            <span class="kss-stage-meta">
-              <span class="kss-tag" data-owner="open">Open source · you configure</span>
-              <svg class="kss-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-          </button>
-          <div class="kss-stage-body"><div>
-            <div class="kss-stage-inner">
-              <div class="prose t-body">
-                <p>U-Boot — "Das U-Boot", the Universal Bootloader — is now running in DRAM. After two stages of constrained bootstrap in tiny SRAM, this is the first stage with room to breathe. It has a full C runtime, drivers for storage, networking and serial, and an interactive command shell.</p>
-                <p>Its job: <strong>load the Linux kernel and its hardware description (the Device Tree) into DRAM, then hand control to the kernel.</strong></p>
-                <h4>On a typical boot, U-Boot</h4>
-                <ol>
-                  <li>Loads the kernel image (<code>Image</code> on ARM64, <code>zImage</code> on ARM32) into a DRAM address</li>
-                  <li>Loads the Device Tree Blob (<code>.dtb</code>) into a separate, non-overlapping DRAM address</li>
-                  <li>Prepares <strong>boot arguments</strong> (<code>bootargs</code>) — a string telling the kernel which console to use, where the root filesystem is, and other options</li>
-                  <li>Hands off — <code>booti</code> jumps to the kernel's entry point. U-Boot never runs again until the next reboot</li>
-                </ol>
-                <h4>Environment variables</h4>
-                <p>U-Boot keeps its configuration as <strong>environment variables</strong> — key/value pairs such as <code>bootargs</code>, <code>serverip</code>, <code>bootcmd</code>. They control where it loads files from, what it passes to the kernel, and what it does automatically on power-on. You read them with <code>printenv</code>, change them with <code>setenv</code>, and persist them with <code>saveenv</code> (when the board provides storage for the environment). A boot script (<code>boot.scr</code>) is essentially a saved sequence of these commands, so you don't retype them every boot.</p>
-                <h4>The serial shell</h4>
-                <p>Connect a serial cable and press a key during the boot countdown, and you get a <code>U-Boot&gt;</code> prompt. From there you can run load commands by hand, inspect memory, and change variables. During early bring-up of a new board, this shell is invaluable.</p>
-                <h4>Why you customise U-Boot</h4>
-                <p>U-Boot is generic — one codebase supports hundreds of SoCs and boards. But every product boots differently: where the kernel is stored (SD? eMMC? network?), which console device, which root filesystem, how long to wait before autobooting.</p>
-                <ul>
-                  <li>The <strong>defconfig</strong> selects your SoC and board, so U-Boot includes the right drivers and memory map</li>
-                  <li>The <strong>boot script</strong> defines your load sequence</li>
-                  <li><strong>bootargs</strong> tell the kernel about your board's console and rootfs</li>
-                </ul>
-                <p>You customise these because U-Boot can't assume any of them. Your product's boot flow is yours to define.</p>
-                <p>The key flexibility is <em>where it loads from</em>: SD card, eMMC, USB, SPI flash — or, critically for development, <strong>over the network via TFTP</strong>. That's what makes the SD-card-free workflow possible (<a href="#workflow">below</a>).</p>
-                <h4>Who writes it</h4>
-                <p>An open-source project maintained at denx.de. SoC and board vendors contribute board configurations and drivers. You customise the boot flow.</p>
-              </div>
-
-              <figure class="kss-visual">
-                <div class="dg">
-                  <div class="t-micro">DRAM after U-Boot has loaded everything</div>
-                  <div class="dg-mem">
-                    <div class="dg-mem-addr">0x0200_0000</div>
-                    <div class="dg-mem-seg" data-state="focus"><b>Kernel <code>Image</code></b>tens of MB, fetched from boot source</div>
-                    <div class="dg-mem-addr"></div>
-                    <div class="dg-mem-seg" data-state="gap">gap — the two must not overlap</div>
-                    <div class="dg-mem-addr">0x0600_0000</div>
-                    <div class="dg-mem-seg" data-state="focus"><b>Device Tree Blob</b>a few tens of KB</div>
-                    <div class="dg-mem-addr">…</div>
-                    <div class="dg-mem-seg"><b>U-Boot itself</b>relocated near the top of RAM</div>
-                  </div>
-                  <div class="t-micro" style="margin-top:.5rem">Boot source — interchangeable</div>
-                  <div class="dg-row">
-                    <div class="dg-box"><b>SD / eMMC</b><small>product</small></div>
-                    <div class="dg-box"><b>USB / SPI</b><small>recovery</small></div>
-                    <div class="dg-box" data-state="focus"><b>TFTP</b><small>development</small></div>
-                  </div>
-<pre style="margin-top:.5rem; font-size:.8rem"><code>U-Boot&gt; printenv bootargs
-bootargs=console=ttyS0,115200 root=/dev/nfs …
-U-Boot&gt; setenv serverip 192.168.1.220
-U-Boot&gt; tftp 0x02000000 Image</code></pre>
-                </div>
-                <figcaption>Addresses are illustrative; the point is "two things, two places, don't overlap".</figcaption>
-              </figure>
-            </div>
-          </div></div>
-        </article>
-
-        <!-- Stage 4: Kernel + DT ----------------------------------- -->
-        <article class="kss-stage" id="stage-kernel"
-                 data-rail-memory="Virtual — MMU on" data-rail-memory-tone="ok"
-                 data-rail-cpu="Kernel mode"
-                 data-rail-code="Community + vendor drivers + your overlay">
-          <button class="kss-stage-head" type="button" aria-expanded="false">
-            <span class="kss-stage-num">4</span>
-            <span class="kss-stage-title">
-              <span class="t-heading">Linux kernel + Device Tree</span>
-              <span class="t-small">The operating system takes over</span>
-            </span>
-            <span class="kss-stage-meta">
-              <span class="kss-tag" data-owner="open">Community · vendors · you</span>
-              <svg class="kss-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-          </button>
-          <div class="kss-stage-body"><div>
-            <div class="kss-stage-inner">
-              <div class="prose t-body">
-                <p>U-Boot has placed the kernel and Device Tree in DRAM and jumped to the kernel. From this moment the kernel owns the CPU and never gives control back.</p>
-                <h4>What the kernel does first</h4>
-                <p>It enables the <strong>MMU</strong> (Memory Management Unit) — a hardware block in the CPU that translates memory addresses. Before this point, an address meant a physical location on the memory bus. After the MMU is on, addresses are <strong>virtual</strong> — a program sees one address, and the MMU translates it to wherever the physical memory actually is. This is what lets many programs run without stepping on each other's memory.</p>
-                <p>The kernel then sets up the interrupt controller, starts its scheduler, and begins probing hardware drivers.</p>
-                <h4>But how does the kernel know what hardware is on this board?</h4>
-                <p>On a desktop PC, hardware announces itself: plug in a USB device and the USB controller detects it and reads its descriptor; PCI cards announce themselves during bus enumeration.</p>
-                <p>ARM SoCs don't work that way. The UART, GPIO controller, SPI bus, I2C controller, DMA engine — they're fixed peripherals at fixed addresses. Nobody announces them. They just sit there, silent, until something accesses them.</p>
-                <p><strong>The Device Tree is the announcement.</strong></p>
-                <p>It's a data file, not code. Written in a readable source format (<code>.dts</code>), compiled to a compact binary (<code>.dtb</code>). It says things like: <em>"there is a UART at address 0xFE201000, on interrupt 57, clocked at 48 MHz."</em></p>
-                <p>The kernel reads the Device Tree, walks its nodes, and for each one looks for a driver whose <code>compatible</code> string matches. When it finds one, it calls that driver's <code>probe()</code> function. That's how <code>/dev/ttyS0</code> appears: a Device Tree entry described the UART, the kernel matched it to a driver, and the driver created the device node.</p>
-                <h4>The Device Tree is layered, because different people know different parts</h4>
-                <ul>
-                  <li><strong>SoC <code>.dtsi</code></strong> (e.g. <code>bcm2711.dtsi</code>) — written by the <strong>SoC vendor</strong>. Describes every peripheral on the chip. Shared by all boards using that SoC.</li>
-                  <li><strong>Board <code>.dts</code></strong> (e.g. <code>bcm2711-rpi-4-b.dts</code>) — written by the <strong>board vendor</strong>. Includes the SoC file and adds the board's wiring: which GPIO drives an LED, which I2C bus has a sensor.</li>
-                  <li><strong>Your overlay</strong> — written by <strong>you</strong>, for hardware the board vendor didn't know about: a sensor on a GPIO, a relay for a safety system.</li>
-                </ul>
-                <p>The kernel itself is written by the open-source Linux community, with SoC vendors contributing drivers and board vendors submitting board-specific patches.</p>
-                <p>After probing drivers, the kernel mounts a <strong>root filesystem</strong> and launches the first userspace process.</p>
-              </div>
-
-              <figure class="kss-visual">
-                <div class="dg">
-                  <div class="dg-box" data-state="you"><b>Your overlay</b><small>adds: the hardware you wired up</small></div>
-                  <div class="dg-arrow">includes</div>
-                  <div class="dg-box"><b>Board <code>.dts</code></b><small>extends: LEDs, buses, board wiring — board vendor</small></div>
-                  <div class="dg-arrow">includes</div>
-                  <div class="dg-box"><b>SoC <code>.dtsi</code></b><small>base: every on-chip peripheral — SoC vendor</small></div>
-<pre style="margin-top:.75rem; font-size:.8rem"><code>uart@fe201000 {
-    compatible = "arm,pl011";
-    reg = &lt;0xfe201000 0x200&gt;;
-};</code></pre>
-                  <div class="dg-row" style="margin-top:.25rem">
-                    <div class="dg-box" data-state="focus"><b>Device Tree node</b><small>"there is a PL011 UART here"</small></div>
-                    <div class="dg-arrow" data-dir="right">match<br><code>compatible</code></div>
-                    <div class="dg-box" data-state="focus"><b>Driver <code>probe()</code></b><small>creates <code>/dev/ttyS0</code></small></div>
-                  </div>
-                </div>
-                <figcaption>Data describes the hardware; the kernel pairs each description with a driver.</figcaption>
-              </figure>
-            </div>
-          </div></div>
-        </article>
-
-        <!-- Stage 5: Rootfs ---------------------------------------- -->
-        <article class="kss-stage" id="stage-rootfs"
-                 data-rail-memory="Virtual, per process" data-rail-memory-tone="ok"
-                 data-rail-cpu="User mode"
-                 data-rail-code="Yours">
-          <button class="kss-stage-head" type="button" aria-expanded="false">
-            <span class="kss-stage-num">5</span>
-            <span class="kss-stage-title">
-              <span class="t-heading">Root filesystem</span>
-              <span class="t-small">Your application starts here</span>
-            </span>
-            <span class="kss-stage-meta">
-              <span class="kss-tag" data-owner="you">You</span>
-              <svg class="kss-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-          </button>
-          <div class="kss-stage-body"><div>
-            <div class="kss-stage-inner">
-              <div class="prose t-body">
-                <p>The kernel is running and drivers are loaded. But a kernel on its own is not a usable system. It needs a <strong>root filesystem</strong> (rootfs) — the "disk" it mounts as <code>/</code> — to provide a shell, utilities, configuration, and your application.</p>
-                <p>The kernel's last act during boot is to mount this filesystem — from an SD card partition, a flash chip, or over the network via NFS — and execute <code>/sbin/init</code>. From then on you're in userspace.</p>
-                <h4>How is a rootfs built?</h4>
-                <ul>
-                  <li><strong>BusyBox</strong> (~2 MB) — a single binary containing small implementations of 200+ Unix commands. Used for first bring-up and minimal appliances.</li>
-                  <li><strong>Buildroot</strong> — compiles a complete custom rootfs from source; you choose the packages. Typically 5–25 MB.</li>
-                  <li><strong>Yocto / OpenEmbedded</strong> — industrial-grade, layer-based build system. Maximum flexibility and reproducibility; used across automotive, industrial and consumer electronics.</li>
-                </ul>
-                <p>Buildroot and Yocto are actually <strong>full system build tools</strong> — they can compile everything: U-Boot, the kernel, the Device Tree <em>and</em> the rootfs, from source, in one build. They appear here because the rootfs is where their output is most visible.</p>
-                <p>The rootfs is separate from the kernel: you can update your application without rebuilding the kernel, and vice versa.</p>
-                <h4>Who builds it</h4>
-                <p>You — the developer or system integrator.</p>
-              </div>
-
-              <figure class="kss-visual">
-                <div class="dg">
-<pre style="font-size:.82rem"><code>/
-├── sbin/init          ← first process (PID 1)
-├── bin/sh             ← a shell
-├── etc/init.d/rcS     ← startup script
-├── dev/               ← device nodes
-├── proc/              ← kernel state, as files
-└── your-application   ← your binary</code></pre>
-                  <div class="dg-row">
-                    <div class="dg-box" data-state="focus"><b>BusyBox</b><small>one binary…</small></div>
-                    <div class="dg-arrow" data-dir="right">is</div>
-                    <div class="dg-box"><b><code>ls cat sh mount ifconfig …</code></b><small>…200+ commands</small></div>
-                  </div>
-                  <div class="t-micro" style="margin-top:.5rem">Size spectrum</div>
-                  <div class="dg-row">
-                    <div class="dg-box" data-state="you"><b>BusyBox</b><small>~2 MB</small></div>
-                    <div class="dg-box"><b>Buildroot</b><small>5–25 MB</small></div>
-                    <div class="dg-box"><b>Yocto</b><small>as small or large as you make it</small></div>
-                    <div class="dg-box" data-state="off"><b>Full distro</b><small>500 MB+</small></div>
-                  </div>
-                </div>
-                <figcaption>The kernel mounts a directory tree and runs one program from it. Everything after that is yours.</figcaption>
-              </figure>
-            </div>
-          </div></div>
-        </article>
-
-      </div><!-- /.kss-chain -->
-    </section>
-
-    <!-- Section: summary -------------------------------------------- -->
-    <section class="kss-section" id="summary">
-      <div class="t-micro">The complete chain</div>
-      <h2 class="t-title">One picture</h2>
-      <div class="kss-summary">
-        <div class="kss-summary-row"><b>ROM Bootloader</b><span>Ran from on-chip ROM. Found the boot media. Loaded SPL into SRAM.</span></div>
-        <div class="kss-summary-row"><b>SPL</b><span>Ran from SRAM. Initialised DRAM. Loaded U-Boot into DRAM.</span></div>
-        <div class="kss-summary-row"><b>U-Boot</b><span>Ran from DRAM. Loaded kernel + Device Tree. Set boot arguments. Jumped to the kernel.</span></div>
-        <div class="kss-summary-row"><b>Kernel + Device Tree</b><span>Enabled the MMU. Probed drivers from the Device Tree. Mounted the rootfs. Launched <code>init</code>.</span></div>
-        <div class="kss-summary-row"><b>Root filesystem</b><span>Userspace. Shell. Your application. You're here.</span></div>
-      </div>
-    </section>
-
-    <!-- Section: dev workflow --------------------------------------- -->
-    <section class="kss-section" id="workflow">
-      <div class="t-micro">Development workflow</div>
-      <h2 class="t-title">Throw away the SD card</h2>
-
-      <div class="prose t-body">
-        <p>Every time you change code during development, the SD-card workflow is:</p>
-      </div>
-      <div class="kss-loop" style="margin:1rem 0 1.5rem">
-        <span>Edit</span><i>→</i><span>Compile</span><i>→</i><span data-pain>Power off</span><i>→</i><span data-pain>Pull SD</span><i>→</i><span data-pain>Mount on host</span><i>→</i><span>Copy</span><i>→</i><span data-pain>Unmount</span><i>→</i><span data-pain>Insert</span><i>→</i><span>Power on</span><i>→</i><span>Test</span><i>→</i><span>repeat</span>
-      </div>
-      <div class="prose t-body">
-        <p>Minutes per cycle, dozens of cycles a day.</p>
-        <h3 class="t-heading">The solution: make U-Boot load over the network</h3>
-        <ul>
-          <li><strong>U-Boot fetches the kernel and DTB via TFTP</strong> from your development machine on every boot</li>
-          <li><strong>The kernel mounts the rootfs via NFS</strong> from your development machine</li>
-          <li>Files live on your host. Edit, reboot, the change is live. No card handling.</li>
-        </ul>
-        <h3 class="t-heading">How this works in our lab</h3>
-        <p>A Docker container on your development machine runs three services. The board connects over Ethernet, gets an IP from DHCP, fetches boot files over TFTP, and mounts its rootfs over NFS.</p>
-      </div>
-
-      <figure class="kss-visual" style="position:static; margin-top:1.5rem; max-width:820px">
-        <div class="dg">
-          <div class="dg-group">
-            <span class="dg-label">Your development machine</span>
-            <div class="dg-group">
-              <span class="dg-label">Docker container · <code>./lab docker run</code></span>
-              <div class="dg-row">
-                <div class="dg-box"><b>dnsmasq</b><small>DHCP — "here's your IP; TFTP is at …"</small></div>
-                <div class="dg-box"><b>tftpd-hpa</b><small>TFTP — serves <code>Image</code>, <code>.dtb</code>, <code>boot.scr</code></small></div>
-                <div class="dg-box"><b>nfs-kernel-server</b><small>NFS — exports the rootfs directory</small></div>
-              </div>
-            </div>
-          </div>
-          <div class="dg-arrow">Ethernet</div>
-          <div class="dg-group">
-            <span class="dg-label">ARM board</span>
-            <div class="dg-row">
-              <div class="dg-box" data-state="focus"><b>U-Boot</b><small>DHCP → IP · TFTP → kernel + DTB</small></div>
-              <div class="dg-box" data-state="focus"><b>Kernel</b><small>NFS → mounts <code>/</code> from your machine</small></div>
-              <div class="dg-box" data-state="you"><b>Your app</b><small>runs from the NFS rootfs</small></div>
-            </div>
-          </div>
-        </div>
-        <figcaption>Same five-stage chain — only the <em>source</em> of stages 3–5 moved from the SD card to your machine.</figcaption>
-      </figure>
-
-      <div class="kss-callout" data-tone="neutral" style="margin-top:1.5rem">
-        <b>Why Docker?</b> The same container works on macOS, Linux and Windows. One container, three services, one command. Host networking and firewall rules still need a one-time setup per machine — see the lab's docker-setup skill.
-      </div>
-    </section>
-
-    <!-- Section: RPi4 footnote -------------------------------------- -->
-    <section class="kss-section" id="rpi4">
-      <div class="t-micro">Footnote</div>
-      <h2 class="t-title">How our RPi4 maps to this</h2>
-      <div class="prose t-body">
-        <p>The Raspberry Pi 4 has a non-standard early boot. Instead of an ARM-side ROM Bootloader loading an SPL, a <strong>VideoCore GPU</strong> loads proprietary firmware (<code>start4.elf</code>) that initialises DRAM and loads U-Boot. The GPU firmware combines the RBL and SPL roles.</p>
-        <p>From U-Boot onward, everything is identical to the flow above. Most production ARM SoCs — TI, NXP, ST, Allwinner, Qualcomm — follow the conventional RBL → SPL → U-Boot pattern described in this session.</p>
-      </div>
-    </section>
-
-    <footer class="kss-footer">
-      <span>KSS · Session 1 · <a href="STORY.md">Story source</a></span>
-      <span>Next: Session 2 — Your code doesn't own the hardware anymore</span>
-    </footer>
-
-  </main>
-</div>
-
-<script src="../_shared/kss.js"></script>
+  <p class="t-small" style="margin-top:2.5rem">Story source: <a href="STORY.md">STORY.md</a> · Series index: <a href="../README.md">docs/kss</a></p>
+</main>
+<script>
+  // Hide the http:// note when it doesn't apply.
+  if (location.protocol.startsWith("http")) document.getElementById("origin-warn").dataset.ok = "true";
+</script>
 </body>
 </html>
