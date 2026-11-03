@@ -6,7 +6,7 @@ This repository contains our learning tracks, shared build tools, scripts, and e
 
 ## 📁 Repository Structure
 
-* docs/ - Contains our markdown learning tracks, architecture references, and setup guides.
+* docs/ - Contains our markdown learning tracks, architecture references, and setup guides. Includes [`docs/kss/`](docs/kss/README.md) — interactive Knowledge Sharing Session pages.
 * tools/ - Shared scripts for cross-compilation toolchains, QEMU runners, and hardware deployment etc.
 * shared/ - Reusable C/C++ libraries, device tree overlays, and custom Buildroot / Yocto layers etc.
 * projects/ - Active project workspaces and platform implementations.
