@@ -1,218 +1,165 @@
 # KSS Shared Components
 
-Every session page under `docs/kss/session-NN-*/index.html` is assembled from the pieces below. They live in [`kss.css`](kss.css) and [`kss.js`](kss.js). Zero dependencies; pages work from `file://` and offline.
+Every session under `docs/kss/session-NN-*/` is a **deck**: one list of steps, rendered into two windows.
 
-If you need something a session page doesn't have yet, **add it here first**, then use it from the session. Session pages should contain content, not new CSS.
+| File | Role |
+|---|---|
+| [`kss.css`](kss.css) | Tokens, base, type scale, and the `dg-*` diagram primitives every visual is built from |
+| [`deck.css`](deck.css) | Layouts: the 16:9 audience **stage** and the presenter **console**; build/morph animations |
+| [`deck-engine.js`](deck-engine.js) | Renders steps, navigation keys, two-window sync, mirror, timer, deck validation |
+| [`build_deck.py`](build_deck.py) | Generates `deck-content.js` (presenter prose) from `STORY.md` step markers |
+| [`check.py`](check.py) | Structural checks — run before committing |
+
+Zero dependencies. Pages work from `file://` for single-window use; **two-window sync needs `http://`** (`python3 -m http.server 8765 --directory docs/kss`).
+
+If a session needs something that isn't here, **add it here first** and document it below. Session folders contain content (`STORY.md`, `deck.js`), not CSS or JS.
 
 ---
 
-## Page skeleton
+## The deck contract
 
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>KSS N — Title</title>
-  <link rel="stylesheet" href="../_shared/kss.css">
-</head>
-<body>
-<div class="kss-page">
-  <aside class="kss-rail">…</aside>     <!-- sticky left rail -->
-  <main class="kss-main">
-    <header class="kss-hero">…</header>
-    <section class="kss-section" id="…">…</section>
-    …
-    <footer class="kss-footer">…</footer>
-  </main>
-</div>
-<script src="../_shared/kss.js"></script>
-</body>
-</html>
+### Files per session
+
+```
+session-NN-slug/
+├── STORY.md          ← prose, with <!-- step: id --> markers      (you write)
+├── deck.js           ← steps: title, visual, caption, rail, cues  (you write)
+├── deck-content.js   ← presenter prose per step                   (GENERATED)
+├── show.html         ← audience window                            (copy, edit <title>)
+├── present.html      ← presenter window                           (copy, edit <title>)
+└── index.html        ← launcher                                   (copy, edit text)
 ```
 
-`.kss-page` is a two-column grid (rail + main). Below 900 px it collapses to one column and the rail's hardware-state block hides.
+### `deck.js`
 
----
-
-## Typography
-
-| Class | Use for | Notes |
-|---|---|---|
-| `.t-display` | Page title (one per page) | Tight leading, negative tracking |
-| `.t-title` | Section titles (`<h2>`) | |
-| `.t-heading` | Stage names, sub-headings | |
-| `.t-lead` | Opening paragraphs, intros | Secondary colour, larger |
-| `.t-body` | Prose | Pair with `.prose` for spacing |
-| `.t-small` | Stage one-liners, captions | |
-| `.t-micro` | Eyebrow labels ("Before the chain") | Uppercase, tracked |
-
-`.prose` caps line length at `--measure` (68ch) and adds vertical rhythm. Inside `.kss-stage-inner` the cap is removed because the column is already narrow.
-
----
-
-## Side rail
-
-```html
-<aside class="kss-rail" aria-label="Session navigation">
-  <nav class="kss-rail-nav" aria-label="Sections">
-    <a href="#soc">The chip and the board</a>
-    <a href="#stage-rbl">1 · ROM Bootloader</a>   <!-- links to stage ids get highlight + open-on-click -->
-    …
-  </nav>
-
-  <div class="kss-rail-state" aria-live="polite">
-    <div class="t-micro">Hardware state</div>
-    <dl data-kss-rail>
-      <div><dt>Memory</dt><dd data-rail="memory">Select a stage</dd></div>
-      <div><dt>CPU</dt>   <dd data-rail="cpu">—</dd></div>
-      <div><dt>Code</dt>  <dd data-rail="code">—</dd></div>
-    </dl>
-  </div>
-</aside>
+```js
+KSS.defineDeck({
+  id: "session-02",                 // sync channel name; unique per session
+  title: "Your code doesn't own the hardware anymore",
+  plannedMinutes: 60,               // timer turns red past this
+  steps: [
+    {
+      id: "wall-intro",             // == <!-- step: wall-intro --> in STORY.md
+      section: "1 · The wall",      // eyebrow on stage; groups the presenter outline
+      title: "Your code has a landlord now",          // ≤ ~24 chars per line reads best
+      caption: "One sentence the audience can read in 3 s.",   // optional
+      rail: { Privilege: ["EL0", "you"], Memory: "virtual" },  // optional chips; value or [value, tone]
+      visual: { key: "wall", html: `<div class="dg">…</div>` },
+      cues: ["Ask the room: …", "WAR STORY: …"],      // optional; presenter only
+    },
+  ],
+});
 ```
 
-- `data-rail="<key>"` fields are filled from the active stage's `data-rail-<key>` attribute. Keys are free-form: a Session 2 page might use `privilege`, `address-space`, `who-owns-cpu`. Match the `dd` keys to whatever your stages declare.
-- The initial text of each `dd` is restored when no stage is open.
-- Optional `data-rail-<key>-tone="ok|blocked"` colours the value green/rose.
+Rules the engine enforces (a red banner appears in both windows if broken):
 
----
+- every step has `id`, `title`, `visual.html`
+- ids are unique
+- every step id has prose in `deck-content.js` (i.e. a marker in `STORY.md`), and vice versa
 
-## Stage chain (the core interactive)
+### `STORY.md` markers
 
-```html
-<div class="kss-chain" data-kss-chain>
+```markdown
+## 3. Stage 2 — SPL
 
-  <article class="kss-stage" id="stage-xyz"
-           data-rail-memory="Full DRAM" data-rail-memory-tone="ok"
-           data-rail-cpu="Executing from DRAM"
-           data-rail-code="Open source, configured by you">
+<!-- step: spl-intro -->
+The SPL is the first piece of software that *you* can change. …
 
-    <button class="kss-stage-head" type="button" aria-expanded="false">
-      <span class="kss-stage-num">3</span>
-      <span class="kss-stage-title">
-        <span class="t-heading">U-Boot</span>
-        <span class="t-small">The one that finds your kernel</span>
-      </span>
-      <span class="kss-stage-meta">
-        <span class="kss-tag" data-owner="open">Open source · you configure</span>
-        <svg class="kss-chevron" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-          <path d="M5 8l5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </span>
-    </button>
+**Visual:** same SoC diagram; SRAM shows "SPL"; DRAM still dark.
+**Rail state:** Memory: SRAM → DRAM · CPU: from SRAM
 
-    <div class="kss-stage-body"><div>
-      <div class="kss-stage-inner">
-        <div class="prose t-body">
-          <!-- text: what → why it exists → who writes it -->
-        </div>
-        <figure class="kss-visual">
-          <!-- diagram built from dg-* primitives -->
-          <figcaption>One sentence on what to notice.</figcaption>
-        </figure>
-      </div>
-    </div></div>
-
-  </article>
-
-</div>
+<!-- step: spl-dram -->
+The SPL has one critical job …
 ```
 
-Behaviour provided by `kss.js`:
-
-- One stage open at a time. Click the open one to close it. Others dim to 55 % but stay in place.
-- `ArrowDown`/`ArrowUp` (or `j`/`k`) step through stages — handy while presenting.
-- `#stage-xyz` in the URL opens that stage on load; the hash updates as you navigate, so you can link to a specific stage.
-- Nothing is locked during the open/close animation; a second click re-targets mid-flight.
-- Reduced motion: cross-fade only, no translate.
-
-**Ownership tags** — `data-owner` on `.kss-tag`:
-
-| Value | Colour | Meaning |
-|---|---|---|
-| `vendor` | neutral | Silicon or board vendor; you don't touch it |
-| `open` | accent (blue) | Open source; you configure or extend it |
-| `you` | warm (yellow) | You write it |
-
-Keep the tag text short; it's a hint, not a sentence. The nuanced "who writes what" story belongs in the prose.
+- A step's prose runs to the next marker, the next `##` heading, or `<!-- /steps -->`.
+- `**Visual:**` / `**Rail state:**` paragraphs are authoring notes; the generator drops them.
+- Supported markdown: `###`/`####` headings, paragraphs, `**bold**`, `*em*`, `` `code` ``, fenced code, lists, `>` quotes, pipe tables.
+- Regenerate after every edit: `python3 docs/kss/_shared/build_deck.py session-NN-slug`. `check.py` fails if you forget.
 
 ---
 
-## Diagram primitives (`dg-*`)
+## Visual primitives (`dg-*`, in `kss.css`)
 
-Compose annotated visuals from these instead of drawing SVGs. They're deliberately whiteboard-plain.
+All visuals are composed from these. They scale with `font-size`, so the same markup works on the big stage and in the presenter's mirror.
 
 ```html
-<div class="dg">                          <!-- vertical stack -->
-  <div class="dg-row">                    <!-- horizontal row -->
+<div class="dg">                                   <!-- vertical stack -->
+  <div class="dg-row">                             <!-- horizontal row -->
     <div class="dg-box" data-state="focus"><b>Title</b><small>detail</small></div>
     <div class="dg-arrow" data-dir="right">label</div>
-    <div class="dg-box" data-state="on"><b>Title</b><small>detail</small></div>
+    <div class="dg-box" data-state="on" data-grow="2"><b>Wider</b><small>flex: 2</small></div>
   </div>
-  <div class="dg-arrow">label</div>       <!-- vertical arrow (default) -->
-  <div class="dg-group" data-tone="faded">
+  <div class="dg-arrow">label</div>                <!-- vertical arrow -->
+  <div class="dg-group" data-tone="focus">
     <span class="dg-label">Group label</span>
-    …boxes…
+    …
   </div>
+  <div class="dg-chips"><span class="dg-chip">a</span><i>→</i><span class="dg-chip" data-state="pain">b</span></div>
   <div class="dg-legend"><span data-k="on">usable</span><span data-k="off">not yet</span></div>
 </div>
 ```
 
-| Element | States / attrs | Use |
+| Element | Attributes | Use |
 |---|---|---|
-| `.dg-box` | `data-state="on"` (green) · `"off"` (dashed, dim) · `"focus"` (blue) · `"you"` (yellow) | Any labelled block |
-| `.dg-arrow` | `data-dir="right"` for horizontal | Flow between boxes, with optional label text |
-| `.dg-group` | `data-tone="faded"` | Dashed container with a floating label ("Inside the SoC") |
-| `.dg-col` | — | Vertical sub-stack inside a `.dg-row` |
-| `.dg-legend` | `span[data-k]` matching box states | Key under a diagram |
-| `.dg-mem` | — | Address-space strip: alternate `.dg-mem-addr` and `.dg-mem-seg` children; seg states `focus` and `gap` |
+| `.dg-box` | `data-state="on \| off \| focus \| you \| pain \| ghost"`, `data-grow="2 \| 3"` | Any labelled block |
+| `.dg-group` | `data-tone="focus \| you \| on \| faded"` + child `.dg-label` | Dashed container ("Inside the SoC") |
+| `.dg-row`, `.dg-col`, `.dg-center` | — | Layout |
+| `.dg-arrow` | `data-dir="right \| both"` (default: down); inner text = label | Flow |
+| `.dg-chips` / `.dg-chip` | chip: `data-state` as box; `<i>` between chips for separators | Pills, loops, capability lists |
+| `.dg-mem` | children alternate `.dg-mem-addr` / `.dg-mem-seg[data-state="focus \| gap"]` | Address-space strip |
+| `.dg-term` | spans `.p` prompt · `.c` command · `.o` output · `.hl` highlight | Terminal / code block |
+| `.dg-tree` | spans `.hl` · `.dim` | Directory tree |
+| `.dg-legend` | `span[data-k]` matching states | Key under a diagram |
 
-Rule of thumb: a visual should have **one thing to notice**, named in the `figcaption`. If you need a legend with more than three entries, split the diagram.
+Colour meaning is fixed across the series — don't reassign it:
 
----
-
-## Other blocks
-
-| Class | Purpose |
-|---|---|
-| `.kss-compare` | Two side-by-side cards (chip vs board, before vs after). Each child `<div>` gets `<h4>` + `<p>`/`<ul>`. |
-| `.kss-summary` + `.kss-summary-row` | "The whole thing in one picture" — `<b>label</b><span>one line</span>` per row |
-| `.kss-loop` | Horizontal chain of `<span>` steps with `<i>→</i>` separators; `data-pain` on a step turns it rose |
-| `.kss-callout` | Side note. `data-tone="warm"` or `"neutral"` |
-| `.kss-visual` with `style="position:static"` | Use the visual frame outside a stage (it's sticky by default inside one) |
-| `.kss-footer` | Prev/next session links + link to `STORY.md` |
-
----
-
-## Accessibility & preferences
-
-Built in — nothing to do per page:
-
-- `prefers-reduced-motion` → transitions collapse to cross-fades
-- `prefers-reduced-transparency` → translucent surfaces become solid
-- `prefers-contrast: more` → stronger borders and text
-- Stage heads are real `<button>`s with `aria-expanded`/`aria-controls`
-- Rail state has `aria-live="polite"`
-- Print stylesheet expands all stages and drops the rail
+| State | Colour | Means |
+|---|---|---|
+| `focus` | blue | this stage / look here |
+| `on` | green | available, working, done |
+| `off` | dashed, dim | not available yet |
+| `you` | yellow | you write/own this |
+| `pain` | red | the problem |
+| `ghost` | dashed outline | placeholder / not yet |
 
 ---
 
-## Extending
+## Morphing between steps
 
-- **New rail keys:** just add `data-rail-<key>` to stages and a matching `<dd data-rail="<key>">`. No JS change.
-- **New diagram shape:** add a `dg-*` class to `kss.css` under section 7, document it in the table above.
-- **New interaction:** add to `kss.js` behind a `data-kss-*` attribute so pages opt in, and document the markup contract at the top of the file.
+If two consecutive steps share `visual.key`, the engine does **not** cross-fade. It swaps the HTML, then for every element with a `data-id`:
 
-Do not fork `kss.css` into a session folder. If a session genuinely needs a one-off, put a `<style>` block in that page with a comment explaining why it isn't shared.
+- same `data-id`, different `data-state`/`data-tone` → the element **transitions** from the old state to the new one and pulses (`.is-changed`)
+- `data-id` not present before → builds in (`.is-new`)
+- unchanged → nothing moves
+
+So: give boxes stable `data-id`s, write a helper that renders the whole diagram from a state map, and call it per step with different states. Session 1's `socBoard(states, tones, texts)` in `deck.js` is the pattern. Different keys → cross-fade + staggered build of every primitive.
+
+---
+
+## Stage layout facts
+
+- Design surface is **1600 × 900 px**, scaled to the window. Font base on stage is 22 px; `dg-*` sizes follow in `em`.
+- Title max ~24 characters per line, two lines max. Caption one sentence.
+- Rail chips come from `step.rail`; keys are free-form per session (Session 1: Memory / CPU / Code).
+- `B` blanks the stage (black) — use it while sharing a terminal.
+- Click right/left quarter of the stage to step (touch screens).
+
+## Presenter console slots
+
+`present.html` is markup only; the engine fills `data-p` slots: `deck-title counter sync prev next-btn blank reset-timer timer open-show next outline eyebrow title cues notes`, plus the `.mirror-wrap` container. `check.py` fails if any is missing.
+
+## Sync
+
+`BroadcastChannel("kss:" + deck.id)`. Messages: `goto`, `hello`, `state`, `ack`, `blank`. Either window can drive; the presenter header dot is green when the audience window has acknowledged the current step, amber while waiting, grey if no audience window answered, red if the browser has no channel (e.g. `file://`).
+
+---
 
 ## Checking your work
 
 ```bash
-python3 docs/kss/_shared/check.py
+python3 docs/kss/_shared/build_deck.py session-NN-slug   # after editing STORY.md
+python3 docs/kss/_shared/check.py                        # before committing
 ```
 
-Runs on every session page and on `kss.css`. It exits non-zero on: dead rail-nav links, stages missing a `data-rail-*` key, unbalanced tags, classes used but not defined, and — the one that bit us — a stylesheet whose comment ended early.
-
-> **Never type `*/` inside a CSS comment.** A glob like `session-*/index.html` ends the comment at `*/`; the browser then treats the rest of the comment plus the next selector as one invalid rule and drops it. If that rule is `:root`, every `var()` fails and the page renders as plain black-on-white text. `check.py` strips comments the way a browser does and verifies `:root` survived.
+> **Never type `*/` inside a CSS comment.** A glob like `session-*/index.html` ends the comment at `*/`; the browser then drops the next rule. If that rule is `:root`, every `var()` fails and the page renders as plain black-on-white text. `check.py` strips comments the way a browser does and verifies `:root` survived.

@@ -1,0 +1,363 @@
+@charset "utf-8";
+/* ==========================================================================
+   KSS Deck — layouts for the two windows
+     show.html     audience view: a 16:9 stage that letterboxes to the window
+     present.html  presenter console: mirror + notes + cues + next + controls
+   Requires kss.css (tokens + dg-* primitives). Driven by deck-engine.js.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   1. Audience stage
+   The stage is a fixed 1600x900 design surface scaled by the engine with
+   transform: scale(), so the composition is identical on a laptop, a
+   projector, and a Teams share. All sizes inside are in px on purpose.
+   -------------------------------------------------------------------------- */
+body[data-kss-view="show"] {
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: #000;
+}
+
+.stage-viewport {
+  width: 100vw;
+  height: 100vh;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.stage {
+  width: 1600px;
+  height: 900px;
+  flex: 0 0 auto;
+  transform-origin: center center;
+  background: var(--bg);
+  color: var(--text);
+  display: grid;
+  grid-template-rows: 64px 1fr 72px;
+  padding: 56px 88px 40px;
+  position: relative;
+  font-size: 22px;            /* base for dg-* primitives on stage */
+  line-height: 1.4;
+}
+
+/* top line: eyebrow + counter */
+.stage-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: var(--text-3);
+}
+.stage-eyebrow {
+  font-size: 18px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--accent);
+}
+.stage-counter { font-family: var(--mono); font-size: 16px; color: var(--text-3); }
+
+/* body: title over visual */
+.stage-body {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 28px;
+  min-height: 0;
+}
+.stage-title {
+  font-size: 54px;
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+  max-width: 24ch;
+}
+.stage-visual {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  align-content: center;
+}
+.stage-visual > .dg { width: 100%; max-width: 1380px; }
+.stage-caption {
+  font-size: 24px;
+  line-height: 1.4;
+  color: var(--text-2);
+  max-width: 60ch;
+  min-height: 1.4em;
+}
+.stage-caption:empty { visibility: hidden; }
+
+/* bottom: hardware-state chips + progress */
+.stage-bottom {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+}
+.stage-rail { display: flex; gap: 12px; flex-wrap: wrap; }
+.stage-rail span {
+  display: inline-flex; align-items: baseline; gap: 8px;
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 16px;
+  color: var(--text-2);
+  background: var(--surface);
+  transition: color var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out), opacity var(--dur) var(--ease-out);
+}
+.stage-rail span i { font-style: normal; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-3); }
+.stage-rail span[data-tone="ok"]      { color: var(--green); border-color: rgba(48,209,88,.4); }
+.stage-rail span[data-tone="blocked"] { color: var(--rose);  border-color: rgba(255,107,107,.4); }
+.stage-rail span[data-tone="you"]     { color: var(--warm);  border-color: rgba(255,214,10,.4); }
+.stage-rail:empty { display: none; }
+
+.stage-progress {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 4px;
+  background: var(--border);
+}
+.stage-progress > i {
+  display: block; height: 100%;
+  background: var(--accent);
+  transform-origin: left;
+  transition: transform 400ms var(--ease-out);
+}
+
+/* blank screen (B key) — for when the presenter switches to the terminal */
+.stage[data-blank="true"] > * { opacity: 0; }
+.stage[data-blank="true"]::after {
+  content: "";
+  position: absolute; inset: 0;
+  background: #000;
+}
+
+/* --------------------------------------------------------------------------
+   2. Step transitions
+   - different visual key  → old fades out, new fades in, boxes build in with
+     a stagger (js sets --i on each .dg-box/.dg-chip/.dg-mem-seg)
+   - same visual key       → DOM is replaced, then elements whose state
+     changed get .is-changed (pulse) and new ones .is-new (build in).
+     The engine applies the OLD state first and flips it on the next frame,
+     so the CSS transition on .dg-box carries the change.
+   -------------------------------------------------------------------------- */
+.stage-title, .stage-caption {
+  transition: opacity 260ms var(--ease-out), transform 260ms var(--ease-out);
+}
+.stage-visual { transition: opacity 240ms var(--ease-out); }
+
+.is-leaving .stage-title, .is-leaving .stage-caption { opacity: 0; transform: translateY(-6px); }
+.is-leaving .stage-visual { opacity: 0; }
+
+@keyframes kss-build {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes kss-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(90,200,250,0); }
+  35%  { box-shadow: 0 0 0 6px rgba(90,200,250,.35); }
+  100% { box-shadow: 0 0 0 0 rgba(90,200,250,0); }
+}
+@keyframes kss-pulse-on {
+  0%   { box-shadow: 0 0 0 0 rgba(48,209,88,0); }
+  35%  { box-shadow: 0 0 0 8px rgba(48,209,88,.4); }
+  100% { box-shadow: 0 0 0 0 rgba(48,209,88,0); }
+}
+
+.is-building .dg-box,
+.is-building .dg-chip,
+.is-building .dg-mem-seg,
+.is-building .dg-group,
+.is-building .dg-term,
+.is-building .dg-tree {
+  animation: kss-build 420ms var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+
+.is-new     { animation: kss-build 420ms var(--ease-out) both; }
+.is-changed { animation: kss-pulse 900ms var(--ease-out) 120ms; }
+.is-changed[data-state="on"] { animation-name: kss-pulse-on; }
+
+/* --------------------------------------------------------------------------
+   3. Presenter console
+   -------------------------------------------------------------------------- */
+body[data-kss-view="present"] {
+  overflow: hidden;
+  height: 100vh;
+}
+
+.console {
+  height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(380px, 42%) 1fr;
+  grid-template-rows: auto 1fr;
+  gap: 0;
+}
+
+/* header spans both columns */
+.console-head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-elevated);
+  font-size: 14px;
+  color: var(--text-2);
+}
+.console-head .deck-title { font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+.console-head .spacer { flex: 1; }
+.console-head .counter { font-family: var(--mono); color: var(--text); }
+.console-head .timer   { font-family: var(--mono); font-size: 18px; color: var(--text); min-width: 5.5ch; text-align: right; }
+.console-head .timer[data-over="true"] { color: var(--rose); }
+
+.sync {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 4px 10px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--text-3);
+}
+.sync::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); }
+.sync[data-state="live"]   { color: var(--green); border-color: rgba(48,209,88,.4); }
+.sync[data-state="live"]::before   { background: var(--green); box-shadow: 0 0 0 3px var(--green-dim); }
+.sync[data-state="stale"]  { color: var(--warm); }
+.sync[data-state="stale"]::before  { background: var(--warm); }
+.sync[data-state="none"]   { color: var(--text-3); }
+.sync[data-state="nochan"] { color: var(--rose); border-color: rgba(255,107,107,.4); }
+.sync[data-state="nochan"]::before { background: var(--rose); }
+
+.btn {
+  all: unset;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  font-size: 13px;
+  transition: background var(--dur-fast) ease, transform var(--dur-fast) ease;
+}
+.btn:hover  { background: var(--surface-strong); }
+.btn:active { transform: scale(0.97); }
+.btn[data-primary] { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+
+/* left column: mirror + next + keys */
+.console-left {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: 14px;
+  padding: 16px;
+  border-right: 1px solid var(--border);
+  min-width: 0;
+  overflow: hidden;
+}
+.mirror-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: #000;
+}
+.mirror-wrap .stage { position: absolute; top: 0; left: 0; }
+.mirror-label {
+  position: absolute; top: 8px; left: 10px; z-index: 2;
+  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--text-3); background: rgba(0,0,0,.5); padding: 2px 8px; border-radius: 999px;
+}
+
+.next-wrap {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  min-height: 0;
+  overflow: hidden;
+}
+.next-wrap .t-micro { margin-bottom: 6px; }
+.next-wrap .next-title { font-size: 17px; font-weight: 600; line-height: 1.25; letter-spacing: -0.01em; color: var(--text); }
+.next-wrap .next-eyebrow { font-size: 12px; color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
+.next-wrap .next-caption { font-size: 13px; color: var(--text-3); margin-top: 4px; }
+
+.outline {
+  min-height: 0;
+  overflow: auto;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.outline a {
+  display: grid; grid-template-columns: 2.6em 1fr; gap: 8px;
+  padding: 4px 8px; border-radius: var(--radius-xs);
+  color: var(--text-3);
+}
+.outline a:hover { background: var(--surface); text-decoration: none; color: var(--text-2); }
+.outline a[aria-current="true"] { background: var(--surface-strong); color: var(--text); }
+.outline a span:first-child { font-family: var(--mono); font-size: 11px; color: var(--text-3); padding-top: 2px; }
+.outline .sec { margin: 10px 8px 2px; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-3); }
+
+.keys { font-size: 12px; color: var(--text-3); display: flex; flex-wrap: wrap; gap: 6px 14px; }
+
+/* right column: notes */
+.console-right {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.notes-head {
+  padding: 18px 28px 0;
+}
+.notes-head .eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.notes-head .title { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; margin-top: 4px; }
+
+.cues {
+  margin: 14px 28px 0;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255,214,10,.35);
+  background: var(--warm-dim);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.cues .t-micro { color: var(--warm); margin-bottom: 6px; }
+.cues ul { padding-left: 1.1em; }
+.cues li + li { margin-top: 4px; }
+.cues:empty { display: none; }
+
+.notes {
+  padding: 18px 28px 32px;
+  overflow: auto;
+  font-size: 17px;
+  line-height: 1.6;
+}
+.notes .prose { max-width: 72ch; }
+.notes .prose > * + * { margin-top: 0.8em; }
+.notes .prose h4 { font-size: 1.05em; color: var(--text); margin-top: 1.4em; }
+.notes .prose li + li { margin-top: 0.25em; }
+
+/* responsive: narrow presenter window stacks */
+@media (max-width: 980px) {
+  .console { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; }
+  .console-left { border-right: 0; border-bottom: 1px solid var(--border); grid-template-rows: auto auto; }
+  .outline, .keys { display: none; }
+}
+
+/* error banner (deck validation) */
+.deck-error {
+  position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 50;
+  padding: 12px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--rose-dim);
+  border: 1px solid rgba(255,107,107,.5);
+  color: var(--rose);
+  font: 14px/1.4 var(--mono);
+  white-space: pre-wrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-building .dg-box, .is-building .dg-chip, .is-building .dg-mem-seg,
+  .is-building .dg-group, .is-building .dg-term, .is-building .dg-tree,
+  .is-new, .is-changed { animation: none !important; }
+  .stage-progress > i { transition: none; }
+}

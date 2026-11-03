@@ -1,6 +1,9 @@
 # KSS — Knowledge Sharing Sessions
 
-Interactive, intuition-first sessions on embedded Linux for a mixed audience (students, RTOS/firmware engineers, application and driver developers). Each session is a single web page plus a live demo on lab hardware.
+Intuition-first sessions on embedded Linux for a mixed audience (students, RTOS/firmware engineers, application and driver developers). Each session is a **two-window deck** plus a live demo on lab hardware:
+
+- **Audience window** — shared on the call. One title, one visual, one line per step. No paragraphs.
+- **Presenter window** — on the speaker's own screen. Live mirror of the audience, full notes, cues, next step, timer.
 
 The thread through the series: **"What sits between your code and the hardware, and why?"**
 
@@ -12,20 +15,17 @@ The thread through the series: **"What sits between your code and the hardware, 
 | 2 | Your code doesn't own the hardware anymore | What does the OS actually do between your code and the silicon? | Planned |
 | 3 | How Linux knows your hardware exists | How does a peripheral at a fixed address become `/dev/something`? | Planned |
 
-Open a session with any browser — no build step, no server needed:
+## Running a session
+
+Serve the folder (sync between the two windows needs `http://`; `file://` pages are isolated from each other):
 
 ```bash
 # from the repo root
-xdg-open docs/kss/session-01-boot-flow/index.html     # Linux
-open     docs/kss/session-01-boot-flow/index.html     # macOS
-```
-
-Or serve the folder so hash links and the shared assets resolve the same way they will for the audience:
-
-```bash
 python3 -m http.server 8765 --directory docs/kss
 # → http://localhost:8765/session-01-boot-flow/
 ```
+
+The launcher page explains the Teams flow: open the presenter view on your screen, open the audience window from it, share **that window** (not your screen) in Teams, drive with `→`/`←` or a clicker. `B` blanks the audience window while you switch the share to a terminal for the demo.
 
 ## How a session is organised
 
@@ -33,29 +33,35 @@ python3 -m http.server 8765 --directory docs/kss
 docs/kss/
 ├── README.md                     ← this file: series index
 ├── _shared/
-│   ├── kss.css                   ← design system (tokens, typography, stage chain, diagrams)
-│   ├── kss.js                    ← interactions (expand/collapse, rail sync, keyboard, deep links)
-│   ├── check.py                  ← structural checks for pages + stylesheet (run before committing)
-│   └── COMPONENTS.md             ← component catalogue: copy-paste markup for every block
+│   ├── kss.css                   ← tokens + dg-* diagram primitives
+│   ├── deck.css                  ← audience stage + presenter console layouts, animations
+│   ├── deck-engine.js            ← rendering, navigation, two-window sync, timer, validation
+│   ├── build_deck.py             ← STORY.md → deck-content.js (presenter prose)
+│   ├── check.py                  ← structural checks for every session (run before committing)
+│   └── COMPONENTS.md             ← the contract + primitive catalogue for building a deck
 └── session-NN-slug/
-    ├── STORY.md                  ← the reviewed narrative — source of truth for the page
-    └── index.html                ← the page, built from STORY.md using _shared components
+    ├── STORY.md                  ← the reviewed narrative with <!-- step: id --> markers — source of truth
+    ├── deck.js                   ← what the audience sees per step + presenter cues
+    ├── deck-content.js           ← GENERATED presenter prose; never hand-edited
+    ├── show.html                 ← audience window
+    ├── present.html              ← presenter window
+    └── index.html                ← launcher + Teams instructions
 ```
 
-Two rules keep this maintainable:
+Three rules keep this maintainable:
 
-1. **`STORY.md` first, `index.html` second.** The narrative is reviewed and approved as prose before any HTML exists. If the story changes, change `STORY.md`, then the page. The review log at the bottom of each story records what was cut and why, so the next session starts from those lessons.
-2. **Session folders contain content, not CSS.** Anything visual or interactive that could serve more than one session lives in `_shared/`. See [`_shared/COMPONENTS.md`](_shared/COMPONENTS.md).
+1. **Story first.** `STORY.md` is reviewed and approved as prose before `deck.js` exists. Presenter notes are generated from it, so there is exactly one copy of the prose. Each story ends with a *Review log* of what was cut and why.
+2. **One idea per step.** The audience sees a title, a visual and at most one line. If a caption needs two sentences, it's two steps.
+3. **Content in sessions, components in `_shared/`.** Session folders never carry their own CSS/JS. See [`_shared/COMPONENTS.md`](_shared/COMPONENTS.md).
 
 ## Adding a session
 
-Follow the workflow: [`.agents/workflows/kss_new_session.md`](../../.agents/workflows/kss_new_session.md).
-
-The method for writing the story — what to include, what to cut, how to split speaker vs page — is captured in the skill: [`.agents/skills/kss-storytelling/SKILL.md`](../../.agents/skills/kss-storytelling/SKILL.md).
+Workflow: [`.agents/workflows/kss_new_session.md`](../../.agents/workflows/kss_new_session.md).
+Editorial method (what goes on screen, what the speaker says, what gets cut): [`.agents/skills/kss-storytelling/SKILL.md`](../../.agents/skills/kss-storytelling/SKILL.md).
 
 ## Presenting
 
-- The page is the written half; the speaker is the verbal half. The page never carries anecdotes, lab war stories, or "why we chose this approach" — those are yours to say out loud. Each `STORY.md` has a *Who says what* table.
-- `↓` / `↑` step through stages. The URL hash follows, so you can bookmark a stage.
-- The page is high-contrast and large-type by design; it reads on a projector without zooming.
-- Print to PDF for a handout: all stages expand, the rail drops out.
+- The audience window is a fixed 16:9 stage that scales to any window, so it looks identical on your display and in the Teams share.
+- Steps that share a diagram **morph** instead of cutting — let the change land before you speak over it.
+- The presenter header dot: green = audience window in sync, amber = waiting, grey = no audience window answered, red = no sync channel (opened from `file://`).
+- Print `STORY.md` (or share the link) as the post-session reference; the audience window is deliberately not readable on its own.
