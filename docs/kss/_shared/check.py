@@ -268,8 +268,122 @@ def check_session(sdir: str, defined: set[str]) -> None:
     print(f"  steps: {len(deck_ids)}  (story markers: {len(story_ids)})")
 
 
+# --------------------------------------------------------------------------
+# JS (static — no interpreter available in every environment)
+# --------------------------------------------------------------------------
+def check_engine() -> None:
+    """Catch the two bugs that have actually bitten: a `const` read inside the
+    arguments of its own initialiser (TDZ ReferenceError when the callee calls
+    back synchronously), and unbalanced brackets."""
+    name = "deck-engine.js"
+    print(name)
+    src = open(os.path.join(HERE, name), encoding="utf-8").read()
+
+    for m in re.finditer(r"\bconst\s+(\w+)\s*=\s*(\w+)\(", src):
+        var, fn = m.group(1), m.group(2)
+        i, depth = m.end(), 1
+        while i < len(src) and depth:
+            depth += {"(": 1, ")": -1}.get(src[i], 0)
+            i += 1
+        args = re.sub(r'"[^"]*"|\'[^\']*\'', '""', src[m.end():i])
+        if re.search(rf"(?<![\w.]){var}\b", args):
+            fail(f"{name}: `const {var}` is read inside the arguments of {fn}(...) — "
+                 f"TDZ error if {fn} calls back synchronously; declare with `let` first")
+
+    err = js_bracket_error(src)
+    if err:
+        fail(f"{name}: {err}")
+
+
+def js_bracket_error(src: str) -> str | None:
+    """Single-pass scan that skips comments, strings, template literals (with
+    ${} nesting) and regex literals, then checks bracket balance."""
+    depth = {"(": 0, "{": 0, "[": 0}
+    close = {")": "(", "}": "{", "]": "["}
+    i, n, line = 0, len(src), 1
+    last_sig = ""  # last significant char, to tell regex literals from division
+    while i < n:
+        c = src[i]
+        if c == "\n":
+            line += 1
+        if src.startswith("//", i):
+            j = src.find("\n", i)
+            i = n if j < 0 else j
+            continue
+        if src.startswith("/*", i):
+            j = src.find("*/", i + 2)
+            if j < 0:
+                return "unterminated block comment"
+            line += src[i:j].count("\n")
+            i = j + 2
+            continue
+        if c in "\"'":
+            j = i + 1
+            while j < n and src[j] != c:
+                if src[j] == "\\":
+                    j += 1
+                elif src[j] == "\n":
+                    return f"line {line}: newline inside string"
+                j += 1
+            i = j + 1
+            last_sig = c
+            continue
+        if c == "`":
+            j, tdepth = i + 1, 0
+            while j < n:
+                if src[j] == "\\":
+                    j += 2
+                    continue
+                if src.startswith("${", j):
+                    tdepth += 1
+                    j += 2
+                    continue
+                if src[j] == "}" and tdepth:
+                    tdepth -= 1
+                    j += 1
+                    continue
+                if src[j] == "`" and not tdepth:
+                    break
+                if src[j] == "\n":
+                    line += 1
+                j += 1
+            i = j + 1
+            last_sig = "`"
+            continue
+        if c == "/" and last_sig in "(,=:[!&|?{};" or (c == "/" and last_sig == ""):
+            # regex literal: skip to the unescaped closing slash (not inside a class)
+            j, in_class = i + 1, False
+            while j < n and (src[j] != "/" or in_class):
+                if src[j] == "\\":
+                    j += 1
+                elif src[j] == "[":
+                    in_class = True
+                elif src[j] == "]":
+                    in_class = False
+                elif src[j] == "\n":
+                    return f"line {line}: newline inside regex literal"
+                j += 1
+            i = j + 1
+            while i < n and src[i].isalpha():  # flags
+                i += 1
+            last_sig = "/"
+            continue
+        if c in depth:
+            depth[c] += 1
+        elif c in close:
+            depth[close[c]] -= 1
+            if depth[close[c]] < 0:
+                return f"line {line}: unexpected '{c}'"
+        if not c.isspace():
+            last_sig = c
+        i += 1
+    bad = {k: v for k, v in depth.items() if v}
+    return f"unbalanced brackets at EOF: {bad}" if bad else None
+
+
 def main() -> int:
     defined = check_css("kss.css") | check_css("deck.css")
+    check_engine()
     sessions = sorted(d for d in glob.glob(os.path.join(KSS, "session-*")) if os.path.isdir(d))
     if not sessions:
         fail("no session folders found")

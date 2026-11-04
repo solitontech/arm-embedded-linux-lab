@@ -217,13 +217,18 @@
   /* ------------------------------------------------------------------ */
   /* Navigation + sync (shared by both views)                           */
   /* ------------------------------------------------------------------ */
-  function makeController({ role, onStep, onBlank }) {
+  /**
+   * NOTE: onStep is invoked synchronously inside this function for the
+   * initial paint — before the caller has received the controller. Callbacks
+   * must not read the controller variable; pass onAck/onPeer here instead.
+   */
+  function makeController({ role, onStep, onBlank, onAck, onPeer }) {
     const total = deck.steps.length;
     let index = clamp(indexFromHash(), 0, total - 1);
     let blank = false;
     let channel = null;
     const me = role + "-" + Math.random().toString(36).slice(2, 7);
-    const listeners = { ack: [], peer: [] };
+    const listeners = { ack: onAck ? [onAck] : [], peer: onPeer ? [onPeer] : [] };
 
     try {
       channel = new BroadcastChannel("kss:" + deck.id);
@@ -245,11 +250,15 @@
 
     function go(i, { broadcast = true } = {}) {
       i = clamp(i, 0, total - 1);
+      if (i === index) {
+        // nothing to repaint; still let a peer know where we are
+        if (role === "show" && channel) channel.postMessage({ t: "ack", i: index, from: me });
+        return;
+      }
       const prev = deck.steps[index];
-      const changed = i !== index;
       index = i;
-      history.replaceState(null, "", `#${index + 1}`);
-      onStep(deck.steps[index], index, total, changed ? prev : null);
+      try { history.replaceState(null, "", `#${index + 1}`); } catch (e) { /* file:// in some browsers */ }
+      onStep(deck.steps[index], index, total, prev);
       if (broadcast && channel) channel.postMessage({ t: "goto", i: index, from: me });
       if (role === "show" && channel) channel.postMessage({ t: "ack", i: index, from: me });
     }
@@ -385,10 +394,23 @@
 
     // sync indicator
     let ackTimer = null;
+    let hasChannel = false;          // set after the controller exists; read by expectAck()
     function setSync(state) { if (elSync) elSync.dataset.state = state; }
+    function expectAck() {
+      if (!hasChannel) return;
+      setSync("stale");
+      clearTimeout(ackTimer);
+      ackTimer = setTimeout(() => { if (elSync && elSync.dataset.state === "stale") setSync("none"); }, 1200);
+    }
 
-    const ctl = makeController({
+    // `let`, not `const`: makeController paints synchronously before returning,
+    // and the outline click handlers close over this binding.
+    let ctl = null;
+    ctl = makeController({
       role: "present",
+      onAck: (i) => { if (ctl && i === ctl.index) { clearTimeout(ackTimer); setSync("live"); } },
+      onPeer: () => setSync("live"),
+      onBlank: (on) => { mirror.dataset.blank = on ? "true" : "false"; },
       onStep: (step, i, total, prev, opts) => {
         if (!startedAt && i > 0) startedAt = Date.now();
         paint(mirror, step, i, total, prev, opts);
@@ -412,19 +434,12 @@
           const cur = elOutline.querySelector("a[aria-current]"); if (cur) cur.scrollIntoView({ block: "nearest" });
         }
         if (elNotes) elNotes.scrollTop = 0;
-
-        // expect an ack from the audience window
-        if (ctl && ctl.hasChannel) {
-          setSync("stale");
-          clearTimeout(ackTimer);
-          ackTimer = setTimeout(() => { if (elSync && elSync.dataset.state === "stale") setSync("none"); }, 1200);
-        }
+        expectAck();   // no-op during the initial paint (hasChannel still false)
       },
     });
 
-    if (!ctl.hasChannel) setSync("nochan");
-    ctl.on("ack", (i) => { if (i === ctl.index) { clearTimeout(ackTimer); setSync("live"); } });
-    ctl.on("peer", () => setSync("live"));
+    hasChannel = ctl.hasChannel;
+    if (!hasChannel) setSync("nochan");
 
     // buttons
     $("[data-p='open-show']")?.addEventListener("click", () => {
@@ -444,7 +459,19 @@
     const view = document.body.dataset.kssView;
     const errs = validate(deck);
     if (errs.length) { showErrors(errs); if (!deck || !deck.steps || !deck.steps.length) return; }
-    if (view === "show") bootShow();
-    else if (view === "present") bootPresent();
+    try {
+      if (view === "show") bootShow();
+      else if (view === "present") bootPresent();
+    } catch (e) {
+      // A boot exception would otherwise leave half-wired controls with no visible cause.
+      showErrors([`${view} view failed to start: ${e && e.stack ? e.stack.split("\n").slice(0, 3).join(" ← ") : e}`]);
+      throw e;
+    }
+  });
+
+  // Runtime errors after boot (e.g. inside a key handler) also surface on the page.
+  window.addEventListener("error", (ev) => {
+    if (document.querySelector(".deck-error")) return;
+    showErrors([`runtime error: ${ev.message} (${(ev.filename || "").split("/").pop()}:${ev.lineno})`]);
   });
 })();

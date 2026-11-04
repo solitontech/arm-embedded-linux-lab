@@ -138,6 +138,13 @@ body[data-kss-view="show"] {
   position: absolute; inset: 0;
   background: #000;
 }
+/* …but the presenter's mirror says so, instead of looking broken */
+.mirror-wrap .stage[data-blank="true"]::after {
+  content: "AUDIENCE SCREEN BLANKED  ·  B to restore";
+  display: grid; place-items: center;
+  color: var(--text-3);
+  font-size: 40px; letter-spacing: 0.08em;
+}
 
 /* --------------------------------------------------------------------------
    2. Step transitions
