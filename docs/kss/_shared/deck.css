@@ -14,24 +14,29 @@
    -------------------------------------------------------------------------- */
 body[data-kss-view="show"] {
   overflow: hidden;
-  display: grid;
-  place-items: center;
   background: #000;
 }
 
 .stage-viewport {
+  position: relative;
   width: 100vw;
   height: 100vh;
-  display: grid;
-  place-items: center;
   overflow: hidden;
 }
 
+/* The engine positions the stage with
+     transform: translate(tx, ty) scale(s)
+   from the TOP-LEFT corner, where tx/ty center it in its container.
+   Do not rely on flex/grid centering: a 1600px item makes an auto track
+   1600px wide, so the stage would sit at (0,0) and scaling about its
+   centre would shift and clip it. */
 .stage {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 1600px;
   height: 900px;
-  flex: 0 0 auto;
-  transform-origin: center center;
+  transform-origin: 0 0;
   background: var(--bg);
   color: var(--text);
   display: grid;
@@ -70,7 +75,8 @@ body[data-kss-view="show"] {
   font-weight: 700;
   line-height: 1.08;
   letter-spacing: -0.025em;
-  max-width: 24ch;
+  max-width: 1180px;        /* two lines max at 54px on a 1424px content width */
+  text-wrap: balance;
 }
 .stage-visual {
   min-height: 0;
@@ -260,7 +266,6 @@ body[data-kss-view="present"] {
   overflow: hidden;
   background: #000;
 }
-.mirror-wrap .stage { position: absolute; top: 0; left: 0; }
 .mirror-label {
   position: absolute; top: 8px; left: 10px; z-index: 2;
   font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;

@@ -190,11 +190,28 @@
     }, 180);
   }
 
-  function fitStage(stage, viewport) {
-    const w = viewport.clientWidth, h = viewport.clientHeight;
+  /**
+   * Scale the 1600x900 stage to fit `container` and center it.
+   * The stage is absolutely positioned at (0,0) with transform-origin 0 0,
+   * so translate() must supply the centering offset explicitly.
+   */
+  function fitStage(stage, container) {
+    const w = container.clientWidth, h = container.clientHeight;
     if (!w || !h) return;
     const s = Math.min(w / STAGE_W, h / STAGE_H);
-    stage.style.transform = `scale(${s})`;
+    const tx = (w - STAGE_W * s) / 2;
+    const ty = (h - STAGE_H * s) / 2;
+    stage.style.transform = `translate(${tx}px, ${ty}px) scale(${s})`;
+  }
+
+  /** Refit on window resize and whenever the container itself changes size. */
+  function keepFitted(stage, container) {
+    const fit = () => fitStage(stage, container);
+    window.addEventListener("resize", fit);
+    if (typeof ResizeObserver === "function") new ResizeObserver(fit).observe(container);
+    fit();
+    requestAnimationFrame(fit);
+    return fit;
   }
 
   /* ------------------------------------------------------------------ */
@@ -297,9 +314,7 @@
     const viewport = document.querySelector(".stage-viewport") || document.body;
     const stage = buildStage();
     viewport.appendChild(stage);
-    const fit = () => fitStage(stage, viewport);
-    window.addEventListener("resize", fit);
-    fit();
+    keepFitted(stage, viewport);
     document.title = `${deck.title} — audience`;
 
     makeController({
@@ -327,11 +342,7 @@
     const mirrorWrap = $(".mirror-wrap");
     const mirror = buildStage();
     mirrorWrap.appendChild(mirror);
-    const fitMirror = () => {
-      const w = mirrorWrap.clientWidth;
-      if (w) mirror.style.transform = `scale(${w / STAGE_W})`;
-    };
-    window.addEventListener("resize", fitMirror);
+    const fitMirror = keepFitted(mirror, mirrorWrap);
 
     const elTitle = $("[data-p='title']"), elEyebrow = $("[data-p='eyebrow']"),
           elNotes = $("[data-p='notes']"), elCues = $("[data-p='cues']"),

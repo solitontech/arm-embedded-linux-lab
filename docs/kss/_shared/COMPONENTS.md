@@ -140,6 +140,7 @@ So: give boxes stable `data-id`s, write a helper that renders the whole diagram 
 ## Stage layout facts
 
 - Design surface is **1600 × 900 px**, scaled to the window. Font base on stage is 22 px; `dg-*` sizes follow in `em`.
+- The engine fits it with `transform: translate(tx, ty) scale(s)` from the **top-left** corner (`transform-origin: 0 0`) and computes `tx/ty` to center. Don't try to center the stage with flex/grid: a 1600 px item makes an `auto` track 1600 px wide, so the stage lands at (0,0) and scaling about its center shifts and clips it. Same function fits the presenter mirror.
 - Title max ~24 characters per line, two lines max. Caption one sentence.
 - Rail chips come from `step.rail`; keys are free-form per session (Session 1: Memory / CPU / Code).
 - `B` blanks the stage (black) — use it while sharing a terminal.
