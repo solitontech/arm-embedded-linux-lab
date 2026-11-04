@@ -77,6 +77,58 @@
 </div>`;
   }
 
+  // The lab network picture (host + Docker services ⇄ Pi). One helper renders the
+  // whole picture so consecutive lab-* steps morph. `s` maps data-id → data-state,
+  // `tones` maps group → data-tone, `arrows` is the list of arrows present, and
+  // `under` is an optional row beneath the diagram (file chain or kernel cmdline).
+  function lab({ s = {}, tones = {}, arrows = [], ex = {}, under = "" } = {}) {
+    const st = (id) => (s[id] ? ` data-state="${s[id]}"` : "");
+    const tn = (id) => (tones[id] ? ` data-tone="${tones[id]}"` : "");
+    const t = (id, dflt) => (ex[id] !== undefined ? ex[id] : dflt);
+    const arrowDefs = {
+      eth:  ["right", "Ethernet · 192.168.1.0/24"],
+      dhcp: ["right", "DHCP — IP + where to fetch"],
+      tftp: ["right", "TFTP — boot files"],
+      nfs:  ["both",  "NFS — the root filesystem"],
+    };
+    return `
+<div class="dg">
+  <div class="dg-row">
+    <div class="dg-group" data-id="g-host" data-grow="3"${tn("host")}>
+      <span class="dg-label">Development host · 192.168.1.220</span>
+      <div class="dg-group" data-id="g-docker"${tn("docker")}>
+        <span class="dg-label">Docker · host networking · repo at /workspace</span>
+        <div class="dg-col">
+          <div class="dg-box" data-id="svc-dhcp"${st("svc-dhcp")}><b>dnsmasq</b><small>${t("svc-dhcp", "DHCP · port 67")}</small></div>
+          <div class="dg-box" data-id="svc-tftp"${st("svc-tftp")}><b>tftpd-hpa</b><small>${t("svc-tftp", "TFTP · port 69 · /workspace/tftp")}</small></div>
+          <div class="dg-box" data-id="svc-nfs"${st("svc-nfs")}><b>nfs-kernel-server</b><small>${t("svc-nfs", "NFS · port 2049 · /workspace/nfs/rpi4-rootfs")}</small></div>
+        </div>
+      </div>
+    </div>
+    <div class="dg-col" data-id="col-links" style="flex:2; justify-content:center">
+      ${arrows.map((a) => `<div class="dg-arrow" data-id="ar-${a}" data-dir="${arrowDefs[a][0]}">${arrowDefs[a][1]}</div>`).join("")}
+    </div>
+    <div class="dg-group" data-id="g-pi" data-grow="2"${tn("pi")}>
+      <span class="dg-label">Raspberry Pi 4 · 192.168.1.150</span>
+      <div class="dg-col">
+        <div class="dg-box" data-id="pi-fw"${st("pi-fw")}><b>GPU firmware</b><small>${t("pi-fw", "ROM + SPL roles")}</small></div>
+        <div class="dg-box" data-id="pi-uboot"${st("pi-uboot")}><b>U-Boot</b><small>${t("pi-uboot", "finds the kernel")}</small></div>
+        <div class="dg-box" data-id="pi-kernel"${st("pi-kernel")}><b>Kernel</b><small>${t("pi-kernel", "the OS takes over")}</small></div>
+        <div class="dg-box" data-id="pi-root"${st("pi-root")}><b>Rootfs ( / )</b><small>${t("pi-root", "your application")}</small></div>
+      </div>
+    </div>
+  </div>
+  <div class="dg-row dg-center" data-id="under" style="min-height:3em">${under}</div>
+</div>`;
+  }
+
+  const labFiles = `
+  <div class="dg-chips" data-id="under-files" style="justify-content:center">
+    <span class="dg-chip">start4.elf</span><i>→</i><span class="dg-chip">config.txt</span><i>→</i><span class="dg-chip">u-boot.bin</span><i>→</i><span class="dg-chip">boot.scr</span><i>→</i><span class="dg-chip" data-state="focus">Image</span>
+  </div>`;
+  const labCmdline = `
+  <div data-id="under-cmdline" style="flex:1"><div class="dg-term"><span class="p">boot.scr →</span> <span class="c">bootargs</span>  root=/dev/nfs <span class="hl">nfsroot=192.168.1.220:/workspace/nfs/rpi4-rootfs</span>,tcp,v3</div></div>`;
+
   const ownerBox = (id, title, small, state) =>
     `<div class="dg-box" data-id="${id}"${state ? ` data-state="${state}"` : ""}><b>${title}</b><small>${small}</small></div>`;
 
@@ -682,37 +734,81 @@
           "Same five stages. Only the SOURCE of stages 3–5 moved from the SD card to your desk.",
         ],
       },
+      /* ----- Lab tour: one morphing picture (key "lab") ---------------- */
       {
-        id: "flow-lab",
-        section: "Development workflow",
-        title: "How it works in our lab",
-        caption: "One Docker container, three services, one command: ./lab docker run",
-        visual: { key: "lab", html: `
-<div class="dg">
-  <div class="dg-group" data-tone="you">
-    <span class="dg-label">Your development machine</span>
-    <div class="dg-group">
-      <span class="dg-label">Docker container</span>
-      <div class="dg-row">
-        <div class="dg-box"><b>dnsmasq</b><small>DHCP — "here is your IP; TFTP is at …"</small></div>
-        <div class="dg-box"><b>tftpd-hpa</b><small>TFTP — serves <code>Image</code>, <code>.dtb</code>, <code>boot.scr</code></small></div>
-        <div class="dg-box"><b>nfs-kernel-server</b><small>NFS — exports the rootfs directory</small></div>
-      </div>
-    </div>
-  </div>
-  <div class="dg-arrow">Ethernet</div>
-  <div class="dg-group" data-tone="focus">
-    <span class="dg-label">Board</span>
-    <div class="dg-row">
-      <div class="dg-box" data-state="focus"><b>U-Boot</b><small>DHCP → IP · TFTP → kernel + DTB</small></div>
-      <div class="dg-box" data-state="focus"><b>Kernel</b><small>NFS → mounts / from your machine</small></div>
-      <div class="dg-box" data-state="you"><b>Your app</b><small>runs from the NFS rootfs</small></div>
-    </div>
-  </div>
-</div>` },
+        id: "lab-map",
+        section: "Our lab",
+        title: "Our lab: one host, one Pi, one cable",
+        caption: "Everything the Pi boots from lives on the host.",
+        visual: { key: "lab", html: lab({
+          s: { "svc-dhcp": "ghost", "svc-tftp": "ghost", "svc-nfs": "ghost", "pi-fw": "ghost", "pi-uboot": "ghost", "pi-kernel": "ghost", "pi-root": "ghost" },
+          tones: { host: "you", pi: "focus", docker: "faded" },
+          arrows: ["eth"] }) },
         cues: [
-          "Why Docker: same on macOS / Linux / Windows. Honest caveat: host networking + firewall rules are a one-time per-machine setup.",
-          "On the Pi the SD card can go entirely — the EEPROM fetches even the firmware over TFTP. Mention, don't explain.",
+          "Ask the room: where does a board boot from when there is no SD card? Let them guess before the next step.",
+          "CONTEXT (verbal): the Pi needs its EEPROM set to network boot once — mention it, do not explain it. Skill: eeprom-netboot.",
+          "Transition: the host side is one Docker container.",
+        ],
+      },
+      {
+        id: "lab-docker",
+        section: "Our lab",
+        title: "One container runs every service the Pi needs",
+        caption: "Host networking: the services answer at the host's own IP.",
+        visual: { key: "lab", html: lab({
+          s: { "svc-dhcp": "focus", "svc-tftp": "focus", "svc-nfs": "focus", "pi-fw": "ghost", "pi-uboot": "ghost", "pi-kernel": "ghost", "pi-root": "ghost" },
+          tones: { host: "you", pi: "faded", docker: "focus" },
+          arrows: ["eth"] }) },
+        cues: [
+          "CONTEXT (verbal): why Docker — same on macOS, Linux and Windows. Honest caveat: host networking and firewall rules are a one-time per-machine setup.",
+          "The repo is mounted at /workspace — a file edited on the host IS the file the services hand out. Plant this for the NFS demo.",
+          "Start it with ./lab docker run; check with ./lab docker status.",
+        ],
+      },
+      {
+        id: "lab-dhcp",
+        section: "Our lab",
+        title: "1 · DHCP: an address and a pointer",
+        caption: "dnsmasq hands out an IP and says where the boot files are.",
+        visual: { key: "lab", html: lab({
+          s: { "svc-dhcp": "focus", "svc-tftp": "on", "svc-nfs": "on", "pi-fw": "focus", "pi-uboot": "ghost", "pi-kernel": "ghost", "pi-root": "ghost" },
+          tones: { host: "you", pi: "focus", docker: "" },
+          ex: { "pi-fw": "asks: who am I?" },
+          arrows: ["eth", "dhcp"] }) },
+        cues: [
+          "DEMO: power-cycle the Pi now if you want the DHCP lines on the serial console while this is on screen.",
+          "DHCP only — TFTP is a separate service so the two never fight over port 69.",
+        ],
+      },
+      {
+        id: "lab-tftp",
+        section: "Our lab",
+        title: "2 · TFTP: the boot files arrive in order",
+        caption: "Firmware, U-Boot, boot script, kernel — straight from the host's tftp folder.",
+        visual: { key: "lab", html: lab({
+          s: { "svc-dhcp": "on", "svc-tftp": "focus", "svc-nfs": "on", "pi-fw": "on", "pi-uboot": "on", "pi-kernel": "focus", "pi-root": "ghost" },
+          tones: { host: "you", pi: "focus", docker: "" },
+          ex: { "pi-fw": "start4.elf · config.txt", "pi-uboot": "u-boot.bin · boot.scr", "pi-kernel": "Image" },
+          arrows: ["eth", "dhcp", "tftp"], under: labFiles }) },
+        cues: [
+          "Trace the chain left to right: this is the five-stage relay, delivered over a cable.",
+          "BRIDGE (verbal): start4.elf is the RBL + SPL slots from the RPi4 footnote — the Pi's GPU does what the ARM-side ROM does elsewhere.",
+          "The DTB is not a download here: the GPU firmware hands U-Boot its DTB with config.txt overlays (camera) already applied.",
+        ],
+      },
+      {
+        id: "lab-nfs",
+        section: "Our lab",
+        title: "3 · NFS: the root filesystem stays on the host",
+        caption: "The kernel mounts / over the network. Edit on the host, the Pi sees it.",
+        visual: { key: "lab", html: lab({
+          s: { "svc-dhcp": "on", "svc-tftp": "on", "svc-nfs": "focus", "pi-fw": "on", "pi-uboot": "on", "pi-kernel": "on", "pi-root": "focus" },
+          tones: { host: "you", pi: "focus", docker: "" },
+          ex: { "pi-root": "mounted from the host" },
+          arrows: ["eth", "dhcp", "tftp", "nfs"], under: labCmdline }) },
+        cues: [
+          "DEMO: this is the setup for the edit-on-host demo — touch a file in the NFS rootfs directory on the host, ls it on the Pi, no reboot.",
+          "Transition: now watch the real boot on the serial console. Press B, switch the Teams share to the terminal.",
         ],
       },
       {

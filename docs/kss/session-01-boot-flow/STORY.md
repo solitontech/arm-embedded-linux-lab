@@ -334,22 +334,56 @@ Minutes per cycle, dozens of cycles a day.
 
 **Visual:** host ⇄ board with two labelled arrows: TFTP (kernel + DTB) and NFS (rootfs).
 
-<!-- step: flow-lab -->
-### How this works in our lab
+<!-- step: lab-map -->
+### Our lab at a glance
 
-A Docker container on your development machine runs three services:
+Two machines and one Ethernet cable. The **development host** (here `192.168.1.220`, on interface `enp2s0`) holds everything the board boots from. The **Raspberry Pi 4** (`192.168.1.150`) holds nothing of its own: once its EEPROM is set to network boot it needs no SD card, and fetches its firmware, kernel and root filesystem from the host on every power-on.
 
-| Service | Role |
-|---|---|
-| **dnsmasq** | DHCP — gives the board an IP address and tells it where the TFTP server is |
-| **tftpd-hpa** | TFTP — serves the kernel `Image`, the `.dtb`, and the boot script |
-| **nfs-kernel-server** | NFS — exports the rootfs directory the kernel mounts as `/` |
+**Visual:** host box and Pi box, one Ethernet arrow between them; the Pi's stages are dim outlines.
 
-Started with one command: `./lab docker run`. The board connects over Ethernet, gets an IP from DHCP, fetches boot files over TFTP, and mounts its rootfs over NFS.
+<!-- step: lab-docker -->
+### One container runs every service the Pi needs
 
-Why Docker: the same container works on macOS, Linux and Windows. One container, three services, one command. (Host networking and firewall rules still need a one-time setup per machine — see the lab docs.)
+On the host, one Docker container (`./lab docker run`) runs the three network services. It uses **host networking**, so the services answer on the host's own IP — the Pi just talks to `192.168.1.220`, with no separate Docker address to route to. The repository is mounted into the container at `/workspace`, so a file edited on the host is the same file the services hand out.
 
-**Visual:** host → Docker (dnsmasq · tftpd-hpa · nfs-kernel-server) → board, with DHCP / TFTP / NFS arrows.
+| Service | Port | Role |
+|---|---|---|
+| **dnsmasq** | 67 | DHCP — gives the board an IP address and tells it where the TFTP server is |
+| **tftpd-hpa** | 69 | TFTP — serves the boot files from `/workspace/tftp` |
+| **nfs-kernel-server** | 2049 | NFS — exports `/workspace/nfs/rpi4-rootfs` to the lab subnet |
+
+Why Docker: the same container works on macOS, Linux and Windows. Host networking and firewall rules still need a one-time setup per machine — see the lab docs.
+
+**Visual:** the three services appear inside a Docker group on the host.
+
+<!-- step: lab-dhcp -->
+### 1 · DHCP — an address and a pointer
+
+Power on. The Pi's EEPROM broadcasts a DHCP request. dnsmasq answers with an address from its pool (`192.168.1.150`–`.160`) and tells the Pi where boot files live: the TFTP server at `192.168.1.220`. dnsmasq does DHCP only; TFTP is a separate service so the two never contend for port 69.
+
+**Visual:** the DHCP arrow builds in from the host to the Pi; dnsmasq lights up.
+
+<!-- step: lab-tftp -->
+### 2 · TFTP — the boot files arrive in order
+
+The Pi now fetches its boot files from the host's `tftp/` folder, one after another:
+
+1. `start4.elf` (+ `fixup4.dat`) — the GPU firmware, which on the Pi plays the ROM bootloader and SPL roles
+2. `config.txt` — tells the firmware to run `u-boot.bin` instead of Linux
+3. `u-boot.bin` — U-Boot
+4. `boot.scr` — the boot script U-Boot runs; it sets the IP addresses and fetches the kernel
+5. `Image` — the Linux kernel
+
+The device tree is not a separate download in this setup: the GPU firmware hands U-Boot its DTB with the `config.txt` overlays (for example the camera) already applied.
+
+**Visual:** the TFTP arrow builds in; the file chain appears under the diagram; the Pi's GPU firmware, U-Boot and kernel light up as their files arrive.
+
+<!-- step: lab-nfs -->
+### 3 · NFS — the root filesystem stays on the host
+
+The boot script gives the kernel a command line with `root=/dev/nfs` and `nfsroot=192.168.1.220:/workspace/nfs/rpi4-rootfs`. The kernel brings up the network, mounts that exported directory as `/`, and runs `init` from it. The directory is an ordinary folder on the host: put a new binary in it and it is on the board's `/` immediately — no reboot, no SD card.
+
+**Visual:** the NFS arrow builds in; the `nfsroot=` command-line line replaces the file chain; the Pi's rootfs lights up.
 
 <!-- step: flow-demo -->
 ### Live demo — what to watch on the serial console
