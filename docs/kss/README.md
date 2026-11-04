@@ -36,6 +36,7 @@ docs/kss/
 │   ├── kss.css                   ← tokens + dg-* diagram primitives
 │   ├── deck.css                  ← audience stage + presenter console layouts, animations
 │   ├── deck-engine.js            ← rendering, navigation, two-window sync, timer, validation
+│   ├── new_session.py            ← scaffold a session folder (story + deck skeletons, pages)
 │   ├── build_deck.py             ← STORY.md → deck-content.js (presenter prose)
 │   ├── check.py                  ← structural checks for every session (run before committing)
 │   └── COMPONENTS.md             ← the contract + primitive catalogue for building a deck
@@ -56,8 +57,16 @@ Three rules keep this maintainable:
 
 ## Adding a session
 
-Workflow: [`.agents/workflows/kss_new_session.md`](../../.agents/workflows/kss_new_session.md).
-Editorial method (what goes on screen, what the speaker says, what gets cut): [`.agents/skills/kss-storytelling/SKILL.md`](../../.agents/skills/kss-storytelling/SKILL.md).
+```bash
+python3 docs/kss/_shared/new_session.py 02 userspace-kernel-boundary \
+    --title "Your code doesn't own the hardware anymore" --rail Privilege,Memory,Who
+```
+
+Then follow the workflow: [`.agents/workflows/kss_new_session.md`](../../.agents/workflows/kss_new_session.md).
+
+Two skills carry the method:
+- [`kss-storytelling`](../../.agents/skills/kss-storytelling/SKILL.md) — the editorial half: what goes on the audience screen, in the presenter notes, or in spoken cues; the stage pattern; the cut rules.
+- [`kss-deck-builder`](../../.agents/skills/kss-deck-builder/SKILL.md) — the build half: story beat → deck step, which diagram shape fits which concept, morphing, rail conventions, cue prefixes.
 
 ## Presenting
 

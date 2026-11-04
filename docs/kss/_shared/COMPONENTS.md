@@ -7,8 +7,9 @@ Every session under `docs/kss/session-NN-*/` is a **deck**: one list of steps, r
 | [`kss.css`](kss.css) | Tokens, base, type scale, and the `dg-*` diagram primitives every visual is built from |
 | [`deck.css`](deck.css) | Layouts: the 16:9 audience **stage** and the presenter **console**; build/morph animations |
 | [`deck-engine.js`](deck-engine.js) | Renders steps, navigation keys, two-window sync, mirror, timer, deck validation |
+| [`new_session.py`](new_session.py) | Scaffolds `session-NN-slug/` — story + deck skeletons with `EXAMPLE` beats, pages copied with titles substituted |
 | [`build_deck.py`](build_deck.py) | Generates `deck-content.js` (presenter prose) from `STORY.md` step markers |
-| [`check.py`](check.py) | Structural checks — run before committing |
+| [`check.py`](check.py) | Structural checks — run before committing; warns while scaffold placeholders remain |
 
 Zero dependencies. Pages work from `file://` for single-window use; **two-window sync needs `http://`** (`python3 -m http.server 8765 --directory docs/kss`).
 
@@ -159,8 +160,11 @@ So: give boxes stable `data-id`s, write a helper that renders the whole diagram 
 ## Checking your work
 
 ```bash
-python3 docs/kss/_shared/build_deck.py session-NN-slug   # after editing STORY.md
-python3 docs/kss/_shared/check.py                        # before committing
+python3 docs/kss/_shared/new_session.py NN slug --title "…" --rail Key1,Key2,Key3   # once, to start
+python3 docs/kss/_shared/build_deck.py session-NN-slug                              # after editing STORY.md
+python3 docs/kss/_shared/check.py                                                   # before committing
 ```
+
+How to go from an approved story to steps — the beat→step template, which diagram shape fits which concept, the morph recipe — is in the [`kss-deck-builder`](../../../.agents/skills/kss-deck-builder/SKILL.md) skill.
 
 > **Never type `*/` inside a CSS comment.** A glob like `session-*/index.html` ends the comment at `*/`; the browser then drops the next rule. If that rule is `:root`, every `var()` fails and the page renders as plain black-on-white text. `check.py` strips comments the way a browser does and verifies `:root` survived.

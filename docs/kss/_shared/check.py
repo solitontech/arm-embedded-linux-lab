@@ -246,6 +246,16 @@ def check_session(sdir: str, defined: set[str]) -> None:
     if r.returncode != 0:
         fail(f"{rel}: {r.stdout.strip() or r.stderr.strip()}")
 
+    # scaffold placeholders left behind (new_session.py tags them EXAMPLE / EDIT ME)
+    leftovers = []
+    for fname in ("STORY.md", "deck.js", "index.html"):
+        txt = open(os.path.join(sdir, fname), encoding="utf-8").read()
+        n = len(re.findall(r"\bEXAMPLE\b|EDIT ME", txt))
+        if n:
+            leftovers.append(f"{fname} ({n})")
+    if leftovers:
+        print(f"  WARN: scaffold placeholders still present: {', '.join(leftovers)}")
+
     # classes used inside deck.js visuals exist
     used = set()
     for m in re.findall(r'class="([^"]+)"', deck_src):

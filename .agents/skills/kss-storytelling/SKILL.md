@@ -19,6 +19,7 @@ Produce Knowledge Sharing Session content that builds *intuition* rather than tr
 - One finished story end-to-end including its *Review log*: [`docs/kss/session-01-boot-flow/STORY.md`](../../../docs/kss/session-01-boot-flow/STORY.md)
 - The deck contract and primitives: [`docs/kss/_shared/COMPONENTS.md`](../../../docs/kss/_shared/COMPONENTS.md)
 - Mechanics of adding a session: [`.agents/workflows/kss_new_session.md`](../../workflows/kss_new_session.md)
+- The build half of the method: [`kss-deck-builder`](../kss-deck-builder/SKILL.md) — invoke it alongside this skill when a story is approved
 
 ---
 
@@ -88,11 +89,11 @@ Write the prose with `<!-- step: id -->` markers between beats and `**Visual:**`
 Append to the *Review log* (feedback → change). Future sessions read it.
 
 ### Step 9: Build the deck from the approved story
-- One `deck.js` step per marker, same ids, same order
-- Visuals from `dg-*` primitives only; a helper per morphing diagram
-- Cues: seed from the review conversation (every "I'll say that vocally" is a cue); mark them as the presenter's to edit
-- Generate the presenter prose: `python3 docs/kss/_shared/build_deck.py session-NN-slug`
-- Follow the workflow for files, the launcher, and the series index
+Hand over to the [`kss-deck-builder`](../kss-deck-builder/SKILL.md) skill — it carries the beat→step template, the visual pattern library (concept → diagram shape, with Session 1 reference steps), the morph recipe, rail conventions per session, and the cue prefixes. In short:
+- `python3 docs/kss/_shared/new_session.py NN slug --title "…"` for a new session
+- One `deck.js` step per marker, same ids, same order; title = the claim, caption = the consequence, visual = the one thing to notice
+- Cues: every "I'll say that vocally" from the review becomes a cue; they're the presenter's to edit
+- `python3 docs/kss/_shared/build_deck.py session-NN-slug` then `python3 docs/kss/_shared/check.py`
 
 ### Step 10: Verify
 - Step through the audience window alone: does the sequence of titles tell the story with no narration?

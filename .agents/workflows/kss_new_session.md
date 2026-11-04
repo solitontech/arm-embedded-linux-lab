@@ -10,20 +10,22 @@ You are adding Session N to the KSS series in `docs/kss/` — a reviewed narrati
 ## Prerequisites
 - Read [`docs/kss/README.md`](../../docs/kss/README.md) for the series thread and the session index.
 - Read the previous session's `STORY.md` end-to-end, including its *Review log*, and step through its deck once with both windows open.
-- Invoke the [`kss-storytelling`](../skills/kss-storytelling/SKILL.md) skill — it holds the editorial rules; this workflow only sequences the steps.
+- Invoke two skills: [`kss-storytelling`](../skills/kss-storytelling/SKILL.md) (what goes on screen / in notes / in cues, and what gets cut) and [`kss-deck-builder`](../skills/kss-deck-builder/SKILL.md) (beat→step template, visual pattern library, morph recipe). This workflow only sequences the steps.
 - Read [`docs/kss/_shared/COMPONENTS.md`](../../docs/kss/_shared/COMPONENTS.md) for the deck contract and primitives.
 - Work on a `kss/*` branch, not `main`.
 
 ## Steps
 
-1. **Create the folder**
-   Two-digit number, kebab-case slug describing the topic (not the title).
+1. **Scaffold the session**
+   Two-digit number, kebab-case slug describing the topic (not the title). Pick the 2–3 rail keys that will *change* across this session.
    ```bash
-   mkdir -p docs/kss/session-02-userspace-kernel-boundary
+   python3 docs/kss/_shared/new_session.py 02 userspace-kernel-boundary \
+       --title "Your code doesn't own the hardware anymore" --rail Privilege,Memory,Who
    ```
+   This creates the folder with a `STORY.md` skeleton (markers in place), a `deck.js` skeleton (rail presets, a morphing helper, three `EXAMPLE` steps), the generated `deck-content.js`, and `show.html` / `present.html` / `index.html` copied from the newest session with titles substituted. It already opens in both windows — serve and click through once so you know the baseline works.
 
 2. **Write `STORY.md` with step markers — and stop there**
-   Use the previous session's `STORY.md` as the template. It must contain, in order:
+   Replace the `EXAMPLE` beats. The file must contain, in order:
    - Header: status (`Draft`), audience, goal, format
    - *How this file drives the deck* (copy verbatim) and the *Who says what* table
    - Opening question
@@ -44,21 +46,12 @@ You are adding Session N to the KSS series in `docs/kss/` — a reviewed narrati
    Re-run after every later edit to `STORY.md`. `check.py` fails if the generated file is stale.
 
 5. **Write `deck.js`**
-   Copy the previous session's `deck.js` and replace content. Rules:
-   - One step per `STORY.md` marker — same `id`, same order
-   - `section` eyebrow per stage; `title` ≤ ~2 lines; `caption` ≤ 1 sentence or empty
-   - Visuals from `dg-*` primitives only. For diagrams that evolve across steps, write a helper that renders from a state map and give boxes stable `data-id`s so the engine morphs them
-   - `rail` chips: 2–3 keys that change across the session
-   - `cues`: lift the `_(cue)_` items from the story review; seed "ask the room" and demo prompts; leave them clearly editable
-   - Set `id` (unique per session), `title`, `plannedMinutes`
+   Replace the scaffold's `EXAMPLE` steps, one per `STORY.md` marker — same `id`, same order. Follow the `kss-deck-builder` skill: fill the 5-line template (title = claim, caption = consequence, visual = the one thing to notice, rail, cues) per beat *before* writing HTML; pick shapes from its pattern library; morph where the subject doesn't change. Rename the scaffold's `mainDiagram()` helper and `data-id`s for this session's main picture.
 
    If a primitive you need doesn't exist, add it to `docs/kss/_shared/kss.css` (or an opt-in behaviour to `deck-engine.js`) and document it in `COMPONENTS.md` in the same commit. Never add CSS/JS to the session folder.
 
-6. **Copy the three pages**
-   ```bash
-   cp docs/kss/session-01-boot-flow/{show,present,index}.html docs/kss/session-02-userspace-kernel-boundary/
-   ```
-   Edit only: `<title>` in `show.html` and `present.html`; the title, lead, and `target="kss-…-session-NN"` names in `index.html`. The script order in `show.html`/`present.html` is fixed (`deck-engine.js`, `deck-content.js`, `deck.js`).
+6. **Finish the launcher**
+   `index.html` was copied with the title substituted and the lead paragraph set to `EDIT ME`. Write the one-sentence lead; leave the Teams instructions. The script order in `show.html`/`present.html` is fixed (`deck-engine.js`, `deck-content.js`, `deck.js`) — don't touch those two files.
 
 7. **Update the series index**
    In `docs/kss/README.md`, set the session's row to `Ready` and link `index.html` and `STORY.md`. Update the "Next" step of the previous session's `deck.js` if it names this session.
@@ -69,6 +62,7 @@ You are adding Session N to the KSS series in `docs/kss/` — a reviewed narrati
    python3 -m http.server 8765 --directory docs/kss
    # open http://localhost:8765/session-02-…/  → presenter view → "Open audience window"
    ```
+   - `check.py` prints no `WARN: scaffold placeholders still present` — every `EXAMPLE` / `EDIT ME` is gone
    - No red deck-error banner in either window
    - Step with `→`: the audience window follows; the header dot goes green
    - Morphing diagrams transition instead of cutting; nothing on the stage is clipped at 1600×900
@@ -80,10 +74,10 @@ You are adding Session N to the KSS series in `docs/kss/` — a reviewed narrati
    One commit for the session (story, deck, generated content, pages, README row). Shared-component changes go in a separate preceding commit.
 
 ## Files Touched
-- `[CREATE]` `docs/kss/session-NN-slug/STORY.md`
-- `[CREATE]` `docs/kss/session-NN-slug/deck.js`
+- `[CREATE]` `docs/kss/session-NN-slug/STORY.md` (scaffolded, then written)
+- `[CREATE]` `docs/kss/session-NN-slug/deck.js` (scaffolded, then written)
 - `[CREATE]` `docs/kss/session-NN-slug/deck-content.js` (generated)
-- `[CREATE]` `docs/kss/session-NN-slug/show.html`, `present.html`, `index.html` (copied)
+- `[CREATE]` `docs/kss/session-NN-slug/show.html`, `present.html`, `index.html` (scaffolded; only the launcher lead is edited)
 - `[MODIFY]` `docs/kss/README.md` — session index row
 - `[MODIFY, if needed]` previous session's `deck.js` — "Next" step
 - `[MODIFY, if needed]` `docs/kss/_shared/kss.css`, `deck.css`, `deck-engine.js`, `COMPONENTS.md`

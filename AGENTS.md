@@ -100,7 +100,7 @@ Whenever any infrastructure file changes, the corresponding skill and/or workflo
 | EEPROM tooling (`tools/eeprom/`) | `.agents/skills/eeprom-netboot/SKILL.md` |
 | Shared C++ library (`shared/lib/`) | `.agents/workflows/shared_library.md` |
 | KSS shared engine/styles (`docs/kss/_shared/*.css`, `deck-engine.js`) | `docs/kss/_shared/COMPONENTS.md` |
-| KSS tooling (`docs/kss/_shared/build_deck.py`, `check.py`) | `docs/kss/_shared/COMPONENTS.md` · `.agents/workflows/kss_new_session.md` |
+| KSS tooling (`docs/kss/_shared/new_session.py`, `build_deck.py`, `check.py`) | `docs/kss/_shared/COMPONENTS.md` · `.agents/workflows/kss_new_session.md` · `.agents/skills/kss-deck-builder/SKILL.md` |
 | New KSS session (`docs/kss/session-NN-*/`) | `docs/kss/README.md` session index · `.agents/workflows/kss_new_session.md` |
 
 If you create a new infrastructure file or tool, also create a new skill or workflow documenting it.
@@ -108,7 +108,7 @@ If you create a new infrastructure file or tool, also create a new skill or work
 ## KSS — Knowledge Sharing Sessions (`docs/kss/`)
 
 Two-window teaching decks for a mixed embedded audience: an audience window (one visual per step, shared on the call) and a presenter window (notes, cues, mirror). Three rules:
-- **Story before deck.** Every session has a reviewed `STORY.md` with `<!-- step: id -->` markers. Presenter notes are *generated* from it (`build_deck.py`); `deck.js` must not make claims the story doesn't. Editorial method: `.agents/skills/kss-storytelling/SKILL.md`.
+- **Story before deck.** Every session has a reviewed `STORY.md` with `<!-- step: id -->` markers. Presenter notes are *generated* from it (`build_deck.py`); `deck.js` must not make claims the story doesn't. Editorial method: `.agents/skills/kss-storytelling/SKILL.md`; build method (beat → step, diagram shapes, morphing): `.agents/skills/kss-deck-builder/SKILL.md`.
 - **No paragraphs on the audience screen.** Title, one visual, at most one caption line per step.
 - **Content in sessions, components in `_shared/`.** Session folders never carry their own CSS/JS. Run `python3 docs/kss/_shared/check.py` before committing.
 
