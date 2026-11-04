@@ -39,6 +39,20 @@ This is the story of how an ARM Cortex-A system boots — told in five stages, e
 
 **Visual:** the five stages as an outline chain, all dim. Nothing lit yet.
 
+<!-- step: open-today -->
+Here is what today covers. First the hardware you need to picture: what an SoC is, and who builds what around it. Then the five stages in order — ROM bootloader, SPL, U-Boot, kernel with Device Tree, root filesystem — each with what it is, why it exists, and who writes it.
+
+After the chain, the practical half: how developers boot over the network during development instead of re-flashing an SD card, and how our Raspberry Pi 4 maps onto the generic story.
+
+**Visual:** four agenda chips in order — SoC & board → five stages → network-boot workflow → our RPi4.
+
+<!-- step: open-series -->
+This is the first of a series. Each session peels back one layer between your code and the hardware.
+
+Today: **what boots, in what order, and who wrote each stage.** Next: **session 2, your code doesn't own the hardware anymore** — what the OS does between your code and the silicon: processes, virtual memory, system calls. Then: **session 3, how Linux knows your hardware exists** — how a peripheral at a fixed address becomes a device you can open from user space.
+
+**Visual:** three session boxes in a row, session 1 highlighted, 2 and 3 dim.
+
 ---
 
 ## 1. Before the chain — what is an SoC, and who builds what?

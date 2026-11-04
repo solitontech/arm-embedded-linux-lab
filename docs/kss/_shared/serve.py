@@ -46,20 +46,18 @@ class Server(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 
 def bind(port: int, handler) -> Server:
-    """Bind the preferred port, or the next free one."""
-    for candidate in range(port, port + 20):
-        try:
-            return Server(("127.0.0.1", candidate), handler)
-        except OSError:
-            continue
-    sys.exit(f"No free port in {port}-{port + 19}")
+    """Bind exactly this port. No silent fallback: a forwarded port must stay valid."""
+    try:
+        return Server(("127.0.0.1", port), handler)
+    except OSError as e:
+        sys.exit(f"Port {port} is unavailable ({e}). Stop the other server, or pass --port N.")
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("session", nargs="?", default="1", help="session number or name (default: 1)")
     ap.add_argument("page", nargs="?", default="index", choices=PAGES, help="page to open (default: index)")
-    ap.add_argument("--port", type=int, default=8765, help="preferred port (default: 8765)")
+    ap.add_argument("--port", type=int, default=8000, help="port to serve on (default: 8000)")
     ap.add_argument("--no-open", action="store_true", help="do not open a browser")
     args = ap.parse_args()
 

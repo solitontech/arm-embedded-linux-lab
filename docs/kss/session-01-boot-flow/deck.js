@@ -127,6 +127,48 @@
           "Promise: by the end they can look at any embedded Linux board and ask the right questions at each handoff.",
         ],
       },
+      {
+        id: "open-today",
+        section: "Session 1",
+        title: "Today: four parts",
+        caption: "The mental model first, then the workflow, then our board.",
+        visual: { key: "agenda", html: `
+<div class="dg">
+  <div class="dg-row">
+    <div class="dg-box" data-state="focus"><b>1 · SoC &amp; board</b><small>what the hardware is, who builds what</small></div>
+    <div class="dg-arrow" data-dir="right"></div>
+    <div class="dg-box" data-state="focus"><b>2 · Five stages</b><small>ROM → SPL → U-Boot → kernel → rootfs</small></div>
+    <div class="dg-arrow" data-dir="right"></div>
+    <div class="dg-box" data-state="focus"><b>3 · Network boot</b><small>why we never re-flash the SD card</small></div>
+    <div class="dg-arrow" data-dir="right"></div>
+    <div class="dg-box" data-state="focus"><b>4 · Our RPi4</b><small>the generic story on real hardware</small></div>
+  </div>
+</div>` },
+        cues: [
+          "Set the time expectation (about an hour) and say questions are welcome at each stage boundary.",
+          "Flag the live demo: serial console on the RPi4 near the end.",
+        ],
+      },
+      {
+        id: "open-series",
+        section: "Session 1",
+        title: "Where this fits: a three-session series",
+        caption: "Each session peels back one layer between your code and the hardware.",
+        visual: { key: "series", html: `
+<div class="dg">
+  <div class="dg-row">
+    <div class="dg-box" data-state="focus"><b>1 · From power-on to a shell</b><small>today — what boots, in what order, who wrote it</small></div>
+    <div class="dg-arrow" data-dir="right"></div>
+    <div class="dg-box" data-state="ghost"><b>2 · Your code doesn't own the hardware</b><small>processes, virtual memory, syscalls</small></div>
+    <div class="dg-arrow" data-dir="right"></div>
+    <div class="dg-box" data-state="ghost"><b>3 · How Linux knows your hardware exists</b><small>Device Tree → driver → /dev</small></div>
+  </div>
+</div>` },
+        cues: [
+          "Tie it to the series question: what sits between your code and the hardware, and why? Today is the bottom of that stack.",
+          "Tell RTOS and app folks what they get: sessions 2 and 3 are where their day-to-day code comes in.",
+        ],
+      },
 
       /* ===== SoC & board ================================================= */
       {
