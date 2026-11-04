@@ -21,9 +21,11 @@ Serve the folder (sync between the two windows needs `http://`; `file://` pages 
 
 ```bash
 # from the repo root
-python3 -m http.server 8765 --directory docs/kss
-# → http://localhost:8765/session-01-boot-flow/
+python3 docs/kss/_shared/serve.py              # serve + open session 1 launcher
+python3 docs/kss/_shared/serve.py 1 present    # session 1, presenter view
 ```
+
+Runs in the foreground (Ctrl+C stops it) on `127.0.0.1`, picking the next free port if 8765 is taken. Over VS Code Remote-SSH, run it in the integrated terminal: VS Code forwards the printed `localhost` URL, so Ctrl+click opens it in your local browser.
 
 The launcher page explains the Teams flow: open the presenter view on your screen, open the audience window from it, share **that window** (not your screen) in Teams, drive with `→`/`←` or a clicker. `B` blanks the audience window while you switch the share to a terminal for the demo.
 
@@ -38,6 +40,7 @@ docs/kss/
 │   ├── deck-engine.js            ← rendering, navigation, two-window sync, timer, validation
 │   ├── new_session.py            ← scaffold a session folder (story + deck skeletons, pages)
 │   ├── build_deck.py             ← STORY.md → deck-content.js (presenter prose)
+│   ├── serve.py                  ← serve the decks locally and open a session's page
 │   ├── check.py                  ← structural checks for every session (run before committing)
 │   └── COMPONENTS.md             ← the contract + primitive catalogue for building a deck
 └── session-NN-slug/
