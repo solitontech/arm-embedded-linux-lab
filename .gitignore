@@ -65,6 +65,8 @@ tftp/*
 
 # IDE & Editor files
 .vscode/
+# ...except editor configs shipped inside project templates
+!shared/templates/**/.vscode/
 .idea/
 .devin/
 *.swp
