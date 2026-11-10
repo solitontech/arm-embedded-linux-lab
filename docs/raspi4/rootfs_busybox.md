@@ -257,6 +257,22 @@ ntpd -q -n -p 192.168.1.1 2>/dev/null
 
 Update the `-p` argument in `nfs/rpi4-rootfs/etc/init.d/rcS` accordingly.
 
+## 8. Following the Kernel Log (`dmesg -w`)
+
+BusyBox `dmesg` only supports `-c`, `-n`, `-s` and `-r`: there is no follow mode. The rootfs ships a small wrapper, `nfs/rpi4-rootfs/usr/bin/dmesg`, that shadows it (`/usr/bin` comes before `/bin` in `PATH`) and adds util-linux style options:
+
+| Command | Behaviour |
+|---|---|
+| `dmesg -w` / `--follow` | print the ring buffer, then follow new messages |
+| `dmesg -W` / `--follow-new` | follow new messages only |
+| anything else | passed unchanged to BusyBox `/bin/dmesg` |
+
+It follows `/dev/kmsg`, which replays the whole buffer and then blocks for new records, and formats each record like `dmesg` (`[ 1024.846040] message`). Notes:
+
+- History comes from `dmesg`, so it respects `dmesg -c` (cleared messages are not replayed); the live stream filters on the kernel timestamp captured at start.
+- BusyBox `awk` clamps `%d` at 2^31, so the script formats the start time with `%.0f`.
+- Stop following with `Ctrl+C`.
+
 ---
 
 **Previous:** [Kernel Cross-Compilation](kernel_build.md) | **Next:** [U-Boot, TFTP & NFS Boot](uboot_tftp_boot.md)

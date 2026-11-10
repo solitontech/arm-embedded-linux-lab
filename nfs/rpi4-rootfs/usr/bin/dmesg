@@ -1,0 +1,32 @@
+#!/bin/sh
+# dmesg wrapper: adds util-linux style follow options to BusyBox dmesg, which has none.
+#   dmesg -w | --follow        print the buffer, then follow new messages
+#   dmesg -W | --follow-new    follow new messages only
+# Everything else is passed straight to BusyBox's dmesg (/bin/dmesg).
+REAL=/bin/dmesg
+
+case "$1" in
+    -w|--follow)     history=1 ;;
+    -W|--follow-new) history=0 ;;
+    *) exec "$REAL" "$@" ;;
+esac
+
+# /dev/kmsg replays the whole ring buffer first and then blocks for new records.
+# Anything stamped before "start" is history, so skip it in the follow stream.
+# (%.0f, not %d: BusyBox awk clamps %d at 2^31, i.e. ~35 minutes of uptime in us)
+start=$(awk '{ printf "%.0f", $1 * 1000000 }' /proc/uptime)
+[ "$history" = 1 ] && "$REAL"
+
+# Record format: "level,seq,timestamp_us,flags;message"; lines starting with a
+# space are key=value continuations and are skipped.
+exec awk -v start="$start" '
+    /^ / { next }
+    {
+        i = index($0, ";")
+        if (!i) next
+        split(substr($0, 1, i - 1), h, ",")
+        ts = h[3] + 0
+        if (ts < start) next
+        printf "[%5d.%06d] %s\n", int(ts / 1000000), ts % 1000000, substr($0, i + 1)
+        fflush()
+    }' /dev/kmsg

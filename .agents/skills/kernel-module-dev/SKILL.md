@@ -39,6 +39,10 @@ flowchart LR
 
 Red squiggles on `<linux/...>` includes mean the editor lacks kernel include paths (the Docker build is unaffected). One shared, committed config serves every module: [.vscode/c_cpp_properties.json](../../../.vscode/c_cpp_properties.json) at the repo root (open the repo root in VS Code; no per-module copy). It points at the kernel source in `shared/kernel/rpi-linux` and the build tree in `shared/kernel/build/rpi4`, so it needs KDIR first. It sets `compilerPath` empty because the host has no cross-compiler; the include paths, defines (`__KERNEL__`, `MODULE`, `KBUILD_MODNAME`) and force-includes (`kconfig.h`, `compiler_types.h`) replicate what Kbuild passes. For another board add a second named configuration to the same file. For clangd instead run `make -C projects/<name> compdb HOST_ROOT=<host repo path>` in Docker.
 
+## Watching kernel messages
+
+The board's BusyBox `dmesg` has no follow mode, so the rootfs ships a wrapper ([rootfs doc](../../../docs/raspi4/rootfs_busybox.md#8-following-the-kernel-log-dmesg--w)): `dmesg -w` prints the buffer then follows; `dmesg -W` follows new messages only. Over SSH: `./lab ssh -- dmesg -W` (Ctrl+C to stop). The serial console (`./lab console`) also shows kernel messages live.
+
 ## Gotchas
 
 - Vermagic must match the board exactly (`modinfo <name>.ko | grep vermagic` vs `uname -r`/`uname -v`). The `-dirty` suffix is reproduced through `CONFIG_LOCALVERSION`, not git.
