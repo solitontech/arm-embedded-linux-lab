@@ -32,7 +32,7 @@ flowchart LR
    `./lab docker exec make -C shared/kernel BOARD=rpi4 kdir-from-image KERNEL_RELEASE_SUFFIX=-gbba53a117a4a-dirty`
    Confirm `shared/kernel/build/rpi4/include/config/kernel.release` equals `uname -r` exactly.
 4. **Create a module**: `cp -r shared/templates/kmod_project projects/<name>`; set `MODULE_NAME`.
-5. **Build + deploy to the NFS rootfs**: `./lab docker exec make -C projects/<name> deploy`.
+5. **Build + deploy to the NFS rootfs**: `./lab docker exec make -C projects/<name> deploy`. Build output (including `<name>.ko`) lands in `projects/<name>/build/<board>/`, never next to your sources; the Makefile stages sources there because Kbuild on 6.6 cannot build external modules out-of-tree itself (`MO=` needs 6.13+).
 6. **Load on the board**: `./lab ssh -- insmod /lib/modules/<ver>/extra/<name>.ko`, check `dmesg | tail`, unload with `rmmod <name>`.
 
 ## Editor IntelliSense
