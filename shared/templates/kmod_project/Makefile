@@ -13,10 +13,13 @@ obj-m := $(MODULE_NAME).o
 ifeq ($(KERNELRELEASE),)
 BOARD ?= rpi4
 
-# Board profile supplies ARCH, CROSS_COMPILE and KDIR
-include $(abspath $(CURDIR)/../../shared/build_system/boards/$(BOARD).mk)
+# Repo root = nearest parent containing shared/build_system, so the project can
+# sit at any depth (projects/<name>, projects/<group>/<name>, ...)
+REPO_ROOT ?= $(shell d="$(CURDIR)"; while [ "$$d" != "/" ] && [ ! -d "$$d/shared/build_system" ]; do d=$$(dirname "$$d"); done; echo "$$d")
 
-REPO_ROOT := $(abspath $(CURDIR)/../..)
+# Board profile supplies ARCH, CROSS_COMPILE and KDIR
+include $(REPO_ROOT)/shared/build_system/boards/$(BOARD).mk
+
 NFS_ROOT  ?= $(REPO_ROOT)/nfs/$(BOARD)-rootfs
 # Module.symvers only exists after a full kernel link. Without it modpost cannot
 # resolve kernel symbols at build time, so unresolved symbols are downgraded to

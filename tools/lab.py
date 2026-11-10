@@ -1040,7 +1040,9 @@ def main():
     p_docker = subparsers.add_parser("docker", help="Enter the Docker development environment")
     p_docker.add_argument("action", nargs="?", default=None, help="Docker action (run, start, build, stop, attach, exec, status). 'start' runs detached (no TTY). Default: run")
     p_docker.add_argument("--board", help="Board profile to read HOST_INTERFACE/HOST_IP from (auto-detected if only one board exists)")
-    p_docker.add_argument("extra", nargs="*", help="Extra arguments passed to docker helper")
+    # REMAINDER (not "*") so option-like args after the action, e.g.
+    # `lab docker exec make -C dir`, reach the helper instead of lab's parser.
+    p_docker.add_argument("extra", nargs=argparse.REMAINDER, help="Extra arguments passed to docker helper")
     p_docker.set_defaults(func=cmd_docker)
 
     # doctor
