@@ -476,9 +476,9 @@ def cmd_docker(args: argparse.Namespace):
     docker_script = REPO_ROOT / "tools" / "docker" / "run.sh"
     action = args.action or "run"
 
-    # For 'run', auto-populate DNSMASQ_INTERFACE and HOST_IP from board env
+    # For 'run'/'start', auto-populate DNSMASQ_INTERFACE and HOST_IP from board env
     # so dnsmasq starts inside Docker without manual env var juggling.
-    if action == "run":
+    if action in ("run", "start"):
         board = args.board
         if not board:
             target_boards = [b for b in get_boards().keys() if b != "host"]
@@ -1038,7 +1038,7 @@ def main():
 
     # docker
     p_docker = subparsers.add_parser("docker", help="Enter the Docker development environment")
-    p_docker.add_argument("action", nargs="?", default=None, help="Docker action (run, build, stop, attach, exec, status). Default: run")
+    p_docker.add_argument("action", nargs="?", default=None, help="Docker action (run, start, build, stop, attach, exec, status). 'start' runs detached (no TTY). Default: run")
     p_docker.add_argument("--board", help="Board profile to read HOST_INTERFACE/HOST_IP from (auto-detected if only one board exists)")
     p_docker.add_argument("extra", nargs="*", help="Extra arguments passed to docker helper")
     p_docker.set_defaults(func=cmd_docker)

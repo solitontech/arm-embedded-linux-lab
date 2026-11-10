@@ -59,7 +59,8 @@ tiered verification (Tier 1 host-side via Docker, Tier 2 bench via serial).
 - **`lab_bsp_deploy_sd(board)`** — Deploy to mounted SD card
 
 ### Build & Deploy
-- **`lab_docker_exec(command, timeout=120)`** — Run command in Docker (Tier 1)
+- **`lab_docker_start()`** — Start the Docker container detached (runs `./lab docker start`; idempotent). Call before `lab_docker_exec` if the container is down
+- **`lab_docker_exec(command, timeout=120, as_root=False)`** — Run command in Docker (Tier 1) as non-root `labuser` (host UID); `as_root=True` only for privileged ops
 - **`lab_tftp_list(subdir=None)`** — List TFTP directory
 - **`lab_nfs_list(board, path="/")`** — List NFS rootfs
 - **`lab_nfs_write(board, path, content, mode="644")`** — Write to NFS rootfs

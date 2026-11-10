@@ -23,6 +23,7 @@ Enables automated building, cross-compilation, deployment (SSH, TFTP, NFS), and 
 | `console` | `./lab console --board rpi4` | Connect to physical UART serial boot console |
 | `ssh` | `./lab ssh --board rpi4` | SSH into the target board |
 | `docker` | `./lab docker run --board rpi4` | Enter Docker dev environment (auto-configures DHCP from board env) |
+| `docker` | `./lab docker start` | Start the container detached (no TTY; used by the MCP `lab_docker_start` tool) |
 | `gdb` | `./lab gdb myapp --board rpi4` | Connect cross-gdb to target gdbserver session |
 | `doctor` | `./lab doctor` | Run environment diagnostics inside Docker (toolchains, serial, TFTP, NTP, NFS server, network) |
 | `mcp` | `./lab mcp start` | Manage MCP server — Hardware Tool Bridge (`setup`, `start`, `stop`, `status`, `logs`). `setup` generates `lab-mcp.service` from the template with repo-specific paths. |

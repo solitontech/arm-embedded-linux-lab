@@ -363,17 +363,31 @@ def lab_bsp_deploy_sd(board: str) -> str:
 # ===========================================================================
 
 @mcp.tool()
-def lab_docker_exec(command: str, timeout: int = 120) -> str:
+def lab_docker_start() -> str:
+    """Start the Docker development container detached (no TTY needed).
+
+    Runs `./lab docker start`, which injects HOST_INTERFACE/HOST_IP from the
+    board profile and starts TFTP/NFS/DHCP services. Idempotent: returns
+    "already running" if the container is up.
+    """
+    return json.dumps(docker_bridge.start(), indent=2)
+
+
+@mcp.tool()
+def lab_docker_exec(command: str, timeout: int = 120, as_root: bool = False) -> str:
     """Run a command inside the Docker development container (Tier 1).
 
     Use for cross-compilation, host-side unit tests, kernel builds, etc.
-    The container must be running (start with: ./lab docker).
+    The container must be running (start with lab_docker_start or: ./lab docker start).
 
     Args:
         command: Shell command to execute inside the container
         timeout: Max seconds to wait (default: 120)
+        as_root: Run as root instead of the default non-root labuser (host UID).
+                 Only needed for privileged operations; root-created files in the
+                 bind-mounted repo end up root-owned on the host.
     """
-    result = docker_bridge.exec(command, timeout)
+    result = docker_bridge.exec(command, timeout, as_root)
     return json.dumps(result, indent=2)
 
 

@@ -4,6 +4,7 @@
 # Usage:
 #   ./tools/docker/run.sh build          Build the Docker image
 #   ./tools/docker/run.sh run            Start an interactive container
+#   ./tools/docker/run.sh start          Start the container detached (no TTY needed; for agents/MCP)
 #   ./tools/docker/run.sh stop           Stop and remove the running container
 #   ./tools/docker/run.sh exec <cmd>     Run a command inside a running container
 #   ./tools/docker/run.sh push           Push image to registry (set REGISTRY env var)
@@ -145,13 +146,22 @@ cmd_build() {
     ok "Image built: ${full_name}"
 }
 
+cmd_start() {
+    DETACH=1 cmd_run
+}
+
 cmd_run() {
     check_docker
+    local detach="${DETACH:-}"
     local full_name="${IMAGE_NAME}:${IMAGE_TAG}"
     [[ -n "$REGISTRY" ]] && full_name="${REGISTRY}/${full_name}"
 
     # If already running, seamlessly attach instead of failing with a name conflict
     if docker ps --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}$"; then
+        if [[ -n "$detach" ]]; then
+            ok "Container '${CONTAINER_NAME}' is already running."
+            return 0
+        fi
         info "Container '${CONTAINER_NAME}' is already running. Attaching to existing session..."
         docker exec -it "${CONTAINER_NAME}" /bin/bash
         return 0
@@ -231,9 +241,12 @@ cmd_run() {
     fi
 
     info "Starting container '${CONTAINER_NAME}' with repo mounted at /workspace..."
+    # Detached mode keeps a TTY (-t) so the default /bin/bash CMD stays alive.
+    local run_mode=(-it)
+    [[ -n "$detach" ]] && run_mode=(-dt)
     docker run \
         --rm \
-        -it \
+        "${run_mode[@]}" \
         --privileged \
         --network host \
         --name "${CONTAINER_NAME}" \
@@ -244,6 +257,11 @@ cmd_run() {
         ${HOST_IP:+-e "HOST_IP=${HOST_IP}"} \
         ${device_flags[@]+"${device_flags[@]}"} \
         "${full_name}"
+
+    if [[ -n "$detach" ]]; then
+        ok "Container '${CONTAINER_NAME}' started in background (stop with: ./lab docker stop)."
+        return 0
+    fi
 
     # Container exited — clean up any host socat bridges
     if [[ -f "${SOCAT_PID_FILE}" ]]; then
@@ -323,6 +341,7 @@ case "$COMMAND" in
     install-docker|install) cmd_install_docker ;;
     build)  cmd_build ;;
     run)    cmd_run ;;
+    start)  cmd_start ;;
     stop)   cmd_stop ;;
     status) cmd_status ;;
     attach) cmd_attach ;;
