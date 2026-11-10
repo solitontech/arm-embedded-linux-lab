@@ -37,6 +37,8 @@ jobs:
             -std=c++20 \
             -mcpu=cortex-a72 \
             -Wall -Wextra \
+            -Ishared/lib/include \
+            -Ishared/lib/vendor \
             shared/templates/new_project/src/main.cpp \
             -o /tmp/visiond_smoke_test
 
