@@ -27,6 +27,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     flex \
     bc \
     libssl-dev \
+    libelf-dev \
+    libncurses-dev \
+    kmod \
+    cpio \
+    xz-utils \
     swig \
     device-tree-compiler \
     lld \

@@ -16,6 +16,8 @@ shared/kernel/build/
 modules.order
 Module.symvers
 
+# NFS rootfs — kernel modules deployed by `make deploy` in kmod projects
+nfs/*/lib/modules/
 # NFS rootfs — ignore all modules except committed camera drivers
 shared/nfs/*/lib/modules/
 !shared/nfs/*/lib/modules/*/kernel/

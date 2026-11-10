@@ -14,6 +14,10 @@ BOARD_CFLAGS      := $(CPU_FLAGS)
 BOARD_CXXFLAGS    := $(CPU_FLAGS)
 BOARD_LDFLAGS     := 
 
+# Kernel build tree used as KDIR for out-of-tree modules (see shared/kernel/Makefile)
+_RPI4_MK_DIR      := $(dir $(lastword $(MAKEFILE_LIST)))
+KDIR              ?= $(abspath $(_RPI4_MK_DIR)../../kernel/build/rpi4)
+
 # Bootloader Configuration
 UBOOT_DEFCONFIG   := rpi_4_defconfig
 

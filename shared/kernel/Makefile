@@ -19,7 +19,7 @@ KERNEL_SRC := $(REPO_ROOT)/shared/kernel/rpi-linux
 BUILD_DIR  := $(REPO_ROOT)/shared/kernel/build/$(BOARD)
 BSP_DIR    := $(REPO_ROOT)/shared/bsp/$(BOARD)
 TFTP_DIR   := $(REPO_ROOT)/tftp
-NFS_DIR    := $(REPO_ROOT)/shared/nfs/$(BOARD)-rootfs
+NFS_DIR    := $(REPO_ROOT)/nfs/$(BOARD)-rootfs
 
 NPROC := $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)
 
@@ -34,7 +34,7 @@ endif
 # Optional config fragments (e.g. camera_kconfig.cfg)
 CONFIG_FRAGMENTS := $(wildcard $(BSP_DIR)/*_kconfig.cfg)
 
-.PHONY: all defconfig menuconfig build modules_install dtbs \
+.PHONY: all defconfig menuconfig build modules_install dtbs modules-prepare kdir-from-image \
         deploy-tftp deploy-modules clean distclean help
 
 all: build
@@ -46,6 +46,7 @@ help:
 	@echo "  make defconfig [BOARD=<board>]      Generate .config from board defconfig"
 	@echo "  make menuconfig [BOARD=<board>]     Interactive kernel configuration"
 	@echo "  make dtbs [BOARD=<board>]           Build Device Tree Blobs only"
+	@echo "  make modules-prepare [BOARD=<board>] Prepare tree for out-of-tree module builds (KDIR)"
 	@echo "  make deploy-tftp [BOARD=<board>]    Copy Image + DTB to TFTP directory"
 	@echo "  make deploy-modules [BOARD=<board>] Install modules to NFS rootfs"
 	@echo "  make clean [BOARD=<board>]          Clean build artifacts"
@@ -77,6 +78,30 @@ build: $(BUILD_DIR)/.config
 
 dtbs: $(BUILD_DIR)/.config
 	$(KERNEL_MAKE) dtbs
+
+# Prepare the build tree so out-of-tree modules can build against it
+# (KDIR = $(BUILD_DIR)). Run `make build` once first for a complete
+# Module.symvers; see .agents/skills/kernel-module-dev/SKILL.md.
+modules-prepare: $(BUILD_DIR)/.config
+	$(KERNEL_MAKE) modules_prepare
+	@echo "==> KDIR ready: $(BUILD_DIR)"
+
+# Build a KDIR that matches an already-built kernel (no full build): take the
+# embedded .config from a booted Image (needs CONFIG_IKCONFIG), pin the release
+# string via CONFIG_LOCALVERSION so vermagic matches the running kernel, then
+# modules_prepare. Check out KERNEL_SRC at the commit shown by `uname -r`
+# (-g<sha>) first. Example:
+#   make kdir-from-image KERNEL_RELEASE_SUFFIX=-gbba53a117a4a-dirty
+KERNEL_IMAGE ?= $(TFTP_DIR)/Image
+kdir-from-image:
+	@test -n "$(KERNEL_RELEASE_SUFFIX)" || { echo "Set KERNEL_RELEASE_SUFFIX (e.g. -gbba53a117a4a-dirty, from 'uname -r' on the board)"; exit 1; }
+	@test -d "$(BUILD_DIR)" && echo "==> Reusing/overwriting $(BUILD_DIR)/.config" || mkdir -p $(BUILD_DIR)
+	sh $(KERNEL_SRC)/scripts/extract-ikconfig $(KERNEL_IMAGE) > $(BUILD_DIR)/.config
+	cd $(KERNEL_SRC) && scripts/config --file $(BUILD_DIR)/.config \
+	  --set-str LOCALVERSION "$(KERNEL_RELEASE_SUFFIX)" --disable LOCALVERSION_AUTO
+	$(KERNEL_MAKE) olddefconfig
+	$(KERNEL_MAKE) modules_prepare
+	@echo "==> KDIR ready: $(BUILD_DIR) (release: $$(cat $(BUILD_DIR)/include/config/kernel.release))"
 
 # Deploy kernel + DTB to TFTP directory (Docker serves this)
 deploy-tftp: build

@@ -38,6 +38,7 @@ Provide a reproducible cross-compilation environment without requiring developer
 | `iproute2` | Advanced IP networking tools (`ip`, `ss`, etc.) |
 | `bison`, `flex`, `bc` | Parser generators and math utilities for kernel & U-Boot |
 | `libssl-dev`, `swig` | Cryptographic and interface compiler libraries |
+| `libelf-dev`, `libncurses-dev`, `kmod`, `cpio`, `xz-utils` | Kernel/module build deps (objtool, menuconfig, `depmod`, initramfs/compression) |
 | `device-tree-compiler` | `dtc` for compiling Device Tree blobs (`.dtb`) and overlays |
 | `lld` | High-performance LLVM linker (avoids binutils ld.bfd emulation bugs on Apple Silicon) |
 | `u-boot-tools` | `mkimage` and `dumpimage` for compiling U-Boot script images (`boot.scr`) and FIT images |
@@ -66,6 +67,8 @@ The host UID/GID are passed as build args to avoid file permission issues.
 ./tools/docker/run.sh run
 ```
 The repository root is bind-mounted at `/workspace` inside the container. All source edits on the host are immediately visible inside the container and vice-versa.
+
+**Non-interactive (agents / MCP):** `./lab docker start` runs the same container detached, with no TTY needed. It is idempotent and is what the MCP `lab_docker_start` tool calls. Attach later with `./lab docker attach`.
 
 ### Step 4: Stop or Close Existing Container Environments
 To kill or close existing running container sessions and clean up host bridges:
