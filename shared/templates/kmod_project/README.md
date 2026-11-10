@@ -5,10 +5,10 @@ Full procedure: [kernel module workflow](../../../.agents/workflows/new_kernel_m
 
 ## Editor setup (IntelliSense)
 
-The template ships `.vscode/c_cpp_properties.json` with kernel include paths
-(relative to the repo root, so open the repo root in VS Code, or copy the file to the
-repo's `.vscode/`). It needs the kernel tree built first:
-`./lab docker exec make -C shared/kernel BOARD=rpi4 build modules-prepare`.
-`KBUILD_MODNAME` is a generic placeholder (only used by IntelliSense for `pr_fmt`).
+Kernel include paths, defines and force-includes live in one shared config for all
+modules: [`.vscode/c_cpp_properties.json`](../../../.vscode/c_cpp_properties.json) at the repo
+root. Open the repo root in VS Code and nothing needs to be copied per module. It needs the
+kernel build tree first (see the [kernel-module-dev skill](../../../.agents/skills/kernel-module-dev/SKILL.md)).
+`KBUILD_MODNAME` there is a generic placeholder (only used by IntelliSense for `pr_fmt`).
 
 For clangd instead: `./lab docker exec make -C projects/<name> compdb HOST_ROOT=<host repo path>`.

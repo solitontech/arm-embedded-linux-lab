@@ -64,9 +64,10 @@ tftp/*
 !tftp/.gitkeep
 
 # IDE & Editor files
-.vscode/
-# ...except editor configs shipped inside project templates
-!shared/templates/**/.vscode/
+**/.vscode/*
+# ...except the shared C/C++ IntelliSense config for kernel modules (repo root only)
+!/.vscode/
+!/.vscode/c_cpp_properties.json
 .idea/
 .devin/
 *.swp

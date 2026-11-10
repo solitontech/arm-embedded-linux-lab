@@ -1,0 +1,43 @@
+{
+  "version": 4,
+  "configurations": [
+    {
+      "name": "Linux kernel (arm64)",
+      "compilerPath": "",
+      "includePath": [
+        "${workspaceFolder}/shared/kernel/rpi-linux",
+        "${workspaceFolder}/shared/kernel/rpi-linux/include",
+        "${workspaceFolder}/shared/kernel/rpi-linux/arch/arm64/include",
+        "${workspaceFolder}/shared/kernel/rpi-linux/include/uapi",
+        "${workspaceFolder}/shared/kernel/rpi-linux/arch/arm64/include/uapi",
+        "${workspaceFolder}/shared/kernel/build/rpi4",
+        "${workspaceFolder}/shared/kernel/build/rpi4/include",
+        "${workspaceFolder}/shared/kernel/build/rpi4/include/generated",
+        "${workspaceFolder}/shared/kernel/build/rpi4/arch/arm64/include",
+        "${workspaceFolder}/shared/kernel/build/rpi4/arch/arm64/include/generated",
+        "${workspaceFolder}/shared/kernel/build/rpi4/include/generated/uapi",
+        "${workspaceFolder}/shared/kernel/build/rpi4/arch/arm64/include/generated/uapi"
+      ],
+      "forcedInclude": [
+        "${workspaceFolder}/shared/kernel/rpi-linux/include/linux/compiler-version.h",
+        "${workspaceFolder}/shared/kernel/rpi-linux/include/linux/kconfig.h",
+        "${workspaceFolder}/shared/kernel/rpi-linux/include/linux/compiler_types.h"
+      ],
+      "defines": [
+        "__KERNEL__",
+        "MODULE",
+        "KBUILD_MODNAME=\"kmod\"",
+        "KBUILD_BASENAME=\"kmod\"",
+        "__ARM_ARCH=8",
+        "CONFIG_ARM64=y"
+      ],
+      "intelliSenseMode": "linux-clang-arm64",
+      "browse": {
+        "path": [
+          "${workspaceFolder}/shared/kernel/rpi-linux"
+        ],
+        "limitSymbolsToIncludedHeaders": true
+      }
+    }
+  ]
+}
