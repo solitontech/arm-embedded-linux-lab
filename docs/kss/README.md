@@ -17,8 +17,8 @@ flowchart LR
 | # | Title | Core question | Status |
 |---|---|---|---|
 | 1 | [From power-on to a shell](session-01-boot-flow/index.html) · [story](session-01-boot-flow/STORY.md) | What runs before `main()`, who wrote it, and why there are five stages instead of one | Ready |
-| 2 | [Your code doesn't own the hardware anymore](session-02-userspace-kernel-boundary/index.html) · [story](session-02-userspace-kernel-boundary/STORY.md) | What does the OS actually do between your code and the silicon? | Story drafted, deck not built |
-| 3 | [How Linux knows your hardware exists](session-03-device-tree-to-dev/index.html) · [story](session-03-device-tree-to-dev/STORY.md) | How does a peripheral at a fixed address become `/dev/something`? | Story drafted, deck not built |
+| 2 | [Your code doesn't own the hardware anymore](session-02-userspace-kernel-boundary/index.html) · [story](session-02-userspace-kernel-boundary/STORY.md) | What does the OS actually do between your code and the silicon? | Deck built, not yet rehearsed |
+| 3 | [How Linux knows your hardware exists](session-03-device-tree-to-dev/index.html) · [story](session-03-device-tree-to-dev/STORY.md) | How does a peripheral at a fixed address become `/dev/something`? | Deck built, not yet rehearsed |
 
 The series is shaped by a pre-session audience form (summary in [session 1's story](session-01-boot-flow/STORY.md)): mostly newcomers, top asks are *how a board boots* and *how the kernel talks to hardware*. Topics asked for but not yet scheduled — bringing up a new board, Yocto/Buildroot images, cross-compiling and deploying an application, networking — are listed as *later* on the closing slide.
 
