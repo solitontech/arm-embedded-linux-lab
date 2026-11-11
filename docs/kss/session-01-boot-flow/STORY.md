@@ -7,6 +7,17 @@
 **Goal:** An intuitive mental model of how a generic ARM Cortex-A Linux system boots, and why developers boot over the network during development.
 **Format:** Two windows — [audience view](show.html) shared on the call, [presenter view](present.html) on the speaker's screen — plus a live RPi4 serial-console demo. Launcher: [index.html](index.html).
 
+## Audience input (pre-session form)
+
+Peers answered a short form before the session. Reading of the responses, which shaped the beats marked ★ below:
+
+- **Mostly newcomers.** The majority have never touched embedded Linux or have used a board without looking inside; only a handful have built an image or BSP.
+- **Top asks:** *how a board boots, from power-on to a shell* and *how the kernel talks to hardware*. Next: why a board won't boot, bringing up a new board, drivers, networking, building an image (Yocto/Buildroot), cross-compiling.
+- **What makes it worth their time:** a clear reusable mental model, a map of what to learn next, live demos on real hardware, real mistakes and how they were fixed, hands-on steps to repeat.
+- **Series:** nearly everyone would attend regularly.
+
+Consequence: keep the depth at mental-model level, make the "what's next" explicit, and add failure symptoms and a repeatable recipe.
+
 ## How this file drives the deck
 
 - `<!-- step: id -->` marks the start of one beat. The prose that follows, up to the next marker or the next `##` heading, becomes the **presenter's notes** for that beat.
@@ -33,6 +44,13 @@ The audience never sees paragraphs. The page never carries anecdotes. Those are 
 Imagine you plug a power cable into an embedded board. A second later, you see a blinking cursor on a serial terminal. Linux is running. A shell is waiting for your command.
 
 But what happened in that one second? What ran first? Who decided what to run? And where was all of this code sitting before power existed?
+
+<!-- step: open-asked -->
+★ You filled in a short form before today, and this session is shaped by it. Most of you haven't looked inside a board yet, so this is a mental model, not a deep dive. The two things you asked for most: **how a board boots from power-on to a shell**, and **how the kernel talks to hardware**.
+
+Today answers the first, and shows you why a board fails to boot and how to bring one up over the network. The second is the next two sessions. Topics a few of you asked for that are further out — building an image with Yocto or Buildroot, cross-compiling and deploying your own application, networking — are on the map at the end, and your votes decide the order.
+
+**Visual:** one row per ask — the ask on the left, where it is answered on the right: *today*, *sessions 2–3*, or *later*.
 
 <!-- step: open-relay -->
 This is the story of how an ARM Cortex-A system boots — told in five stages, each handing off to the next, like a relay race where every runner exists because the previous one physically couldn't go any further.
@@ -312,6 +330,16 @@ The rootfs is separate from the kernel: you can update your application without 
 
 **Visual:** the five rows build in one after another.
 
+<!-- step: breaks -->
+★ Each stage fails in its own recognisable way, and the serial console tells you which. This is the practical payoff of knowing the chain: the last thing you see is the stage that broke.
+
+- **Total silence** — nothing on the console. The ROM Bootloader or SPL never got going: wrong boot media or boot pins, no valid image where the ROM looks, or DRAM initialisation failing.
+- **U-Boot prompt or an error** — U-Boot is alive but could not find or load the kernel: missing file, wrong path, TFTP or network error, bad environment variables.
+- **`Starting kernel ...` and then nothing** — the kernel is running but you see no output: usually a wrong `console=` argument or a Device Tree that doesn't match the board.
+- **Kernel panic** — the kernel booted but could not mount the root filesystem, or found no `init`: wrong `root=`, NFS not reachable, missing driver, empty or broken rootfs.
+
+**Visual:** one row per symptom, ordered by stage — what you see on the console → which stage → where to look first.
+
 ---
 
 ## 8. Development workflow — "throw away the SD card"
@@ -396,6 +424,11 @@ The boot script gives the kernel a command line with `root=/dev/nfs` and `nfsroo
 
 **Visual:** the five things to watch, as a checklist the audience keeps in view while the terminal is shared.
 
+<!-- step: flow-repeat -->
+★ Everything in the demo is repeatable from the lab repository: start the Docker services, build, deploy, reboot, watch the console. The step-by-step guides live in the Raspberry Pi 4 docs — [U-Boot TFTP boot](../../raspi4/uboot_tftp_boot.md), [network boot deep dive](../../raspi4/netboot_deep_dive.md) and [BusyBox rootfs](../../raspi4/rootfs_busybox.md) — and the `./lab` CLI wraps the commands.
+
+**Visual:** the four `./lab` commands in a terminal, and the three guides as chips.
+
 ---
 
 ## 9. Footnote — how our RPi4 maps to this
@@ -412,11 +445,11 @@ From U-Boot onward, everything is identical to the flow above. Most production A
 ## 10. Close
 
 <!-- step: end -->
-The thread through this series: *what sits between your code and the hardware, and why?*
+★ The thread through this series: *what sits between your code and the hardware, and why?*
 
-Next time: **your code doesn't own the hardware anymore** — what the OS actually does between your code and the silicon.
+Here is the map, built from your answers. **Done:** the boot chain. **Next:** session 2 — your code doesn't own the hardware anymore (processes, virtual memory, syscalls) — and session 3 — how Linux knows your hardware exists (Device Tree, drivers, `/dev`), which is how the kernel talks to hardware. **Later, not yet scheduled:** bringing up a new board, building an image with Yocto or Buildroot, cross-compiling and deploying your own application, networking. Tell us which you want first.
 
-**Visual:** the series question, three session boxes, session 2 highlighted.
+**Visual:** the series as a map — session 1 done, 2 next, 3 after, and a *later* group of the topics you asked for.
 
 <!-- /steps -->
 
@@ -435,4 +468,5 @@ Changes made during story review, kept so future sessions can learn from them:
 | "Talk about env variables" | Added *Environment variables* sub-section to U-Boot |
 | "Rationale for customising U-Boot is missing — mirror the SPL pattern" | Added *Why you customise U-Boot*: generic tool → your specifics |
 | "Buildroot/Yocto build kernel and DTS too, right?" | Clarified they are full-system build tools |
+| Pre-session form: mostly newcomers; top asks are how a board boots and how the kernel talks to hardware; want a map, demos, real mistakes, repeatable steps | Added `open-asked` (what you asked for → where it's answered), `breaks` (failure symptom per stage), `flow-repeat` (repeat it yourself); turned `end` into a map with a *later* group |
 | "The page is too text-heavy to present; segregate presenter and viewer" | Split into audience view (visual per beat) and presenter view (this prose + cues); story gained `<!-- step -->` markers; one beat per screen |

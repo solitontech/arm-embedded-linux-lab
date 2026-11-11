@@ -15,6 +15,8 @@ The thread through the series: **"What sits between your code and the hardware, 
 | 2 | Your code doesn't own the hardware anymore | What does the OS actually do between your code and the silicon? | Planned |
 | 3 | How Linux knows your hardware exists | How does a peripheral at a fixed address become `/dev/something`? | Planned |
 
+The series is shaped by a pre-session audience form (summary in [session 1's story](session-01-boot-flow/STORY.md)): mostly newcomers, top asks are *how a board boots* and *how the kernel talks to hardware*. Topics asked for but not yet scheduled — bringing up a new board, Yocto/Buildroot images, cross-compiling and deploying an application, networking — are listed as *later* on the closing slide.
+
 ## Running a session
 
 Serve the folder (sync between the two windows needs `http://`; `file://` pages are isolated from each other):

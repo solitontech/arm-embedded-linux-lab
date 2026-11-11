@@ -169,6 +169,25 @@
         ],
       },
       {
+        id: "open-asked",
+        section: "Session 1",
+        title: "You told us what you want to understand",
+        caption: "Most of you are new to this, so: a mental model and a live demo, not a deep dive.",
+        visual: { key: "asked", html: `
+<div class="dg">
+  <div class="dg-row"><div class="dg-box" data-state="ghost"><b>How a board boots, power-on to a shell</b></div><div class="dg-box" data-grow="2" data-state="on"><b>Today</b><small>the five-stage chain</small></div></div>
+  <div class="dg-row"><div class="dg-box" data-state="ghost"><b>Why a board won't boot</b></div><div class="dg-box" data-grow="2" data-state="on"><b>Today</b><small>the symptom each stage leaves behind</small></div></div>
+  <div class="dg-row"><div class="dg-box" data-state="ghost"><b>Bringing up a board, the practical way</b></div><div class="dg-box" data-grow="2" data-state="on"><b>Today</b><small>network boot, live on the RPi4</small></div></div>
+  <div class="dg-row"><div class="dg-box" data-state="ghost"><b>How the kernel talks to hardware</b></div><div class="dg-box" data-grow="2" data-state="focus"><b>Sessions 2 and 3</b><small>syscalls, then Device Tree → driver → /dev</small></div></div>
+  <div class="dg-row"><div class="dg-box" data-state="ghost"><b>Yocto · cross-compiling · networking</b></div><div class="dg-box" data-grow="2" data-state="ghost"><b>Later</b><small>not scheduled yet — your votes decide</small></div></div>
+</div>` },
+        cues: [
+          "Say it plainly: the form came back mostly from people who haven't looked inside a board. That is who this is built for.",
+          "The two biggest asks were how a board boots and how the kernel talks to hardware. Today is the first; sessions 2 and 3 are the second.",
+          "Ask the room: anything you filled in that you don't see here? Note it, it feeds the 'later' list on the last slide.",
+        ],
+      },
+      {
         id: "open-relay",
         section: "Session 1",
         title: "Five stages, one relay race",
@@ -694,6 +713,24 @@
         ],
       },
 
+      {
+        id: "breaks",
+        section: "The whole chain",
+        title: "The last thing you see is the stage that broke",
+        caption: "Read the console from the bottom up.",
+        visual: { key: "breaks", html: `
+<div class="dg">
+  <div class="dg-row"><div class="dg-box" data-state="ghost"><b>Total silence</b></div><div class="dg-box" data-grow="3" data-state="ghost">Nothing on the console. <b>ROM or SPL</b> never got going — boot media, boot pins, or DRAM init.</div></div>
+  <div class="dg-row"><div class="dg-box" data-state="ghost"><b>U-Boot prompt or error</b></div><div class="dg-box" data-grow="3" data-state="ghost"><b>U-Boot</b> is alive but can't find or load the kernel — file, path, TFTP, environment.</div></div>
+  <div class="dg-row"><div class="dg-box" data-state="ghost"><b>Starting kernel … then nothing</b></div><div class="dg-box" data-grow="3" data-state="ghost"><b>Kernel</b> is running but silent — wrong <code>console=</code> or a Device Tree that doesn't match the board.</div></div>
+  <div class="dg-row"><div class="dg-box" data-state="ghost"><b>Kernel panic</b></div><div class="dg-box" data-grow="3" data-state="ghost"><b>Rootfs</b> — can't mount <code>root=</code>, NFS unreachable, or no <code>init</code>.</div></div>
+</div>` },
+        cues: [
+          "WAR STORY (optional): pick one real failure from the lab and name which of these four it was.",
+          "Ask the room: which of these have you stared at without knowing which stage to blame?",
+        ],
+      },
+
       /* ===== Workflow ==================================================== */
       {
         id: "flow-pain",
@@ -837,6 +874,28 @@
         ],
       },
 
+      {
+        id: "flow-repeat",
+        section: "Live demo",
+        title: "You can repeat this yourself",
+        caption: "Same four commands, same board, from the lab repository.",
+        visual: { key: "repeat", html: `
+<div class="dg">
+  <div class="dg-row">
+    <div class="dg-box" data-grow="2"><div class="dg-term"><span class="p">$</span> <span class="c">./lab docker run</span>
+<span class="p">$</span> <span class="c">./lab build</span>
+<span class="p">$</span> <span class="c">./lab deploy</span>
+<span class="p">$</span> <span class="c">./lab reboot</span></div></div>
+    <div class="dg-col" data-grow="2" style="justify-content:center">
+      <div class="dg-chips"><span class="dg-chip">U-Boot TFTP boot</span><span class="dg-chip">Network boot deep dive</span><span class="dg-chip">BusyBox rootfs</span></div>
+    </div>
+  </div>
+</div>` },
+        cues: [
+          "Point them at docs/raspi4 for the step-by-step guides; the ./lab CLI wraps the commands. Share the links in the call chat.",
+        ],
+      },
+
       /* ===== Footnote & close =========================================== */
       {
         id: "rpi4",
@@ -869,20 +928,29 @@
       {
         id: "end",
         section: "Next",
-        title: "Session 2: your code doesn't own the hardware anymore",
-        caption: "The thread: what sits between your code and the hardware, and why?",
+        title: "Where we go from here",
+        caption: "Built from your answers. Tell us which 'later' topic you want first.",
         visual: { key: "end", html: `
 <div class="dg">
   <div class="dg-row">
     <div class="dg-box" data-state="on"><b>1 · From power-on to a shell</b><small>today</small></div>
     <div class="dg-arrow" data-dir="right"></div>
-    <div class="dg-box" data-state="focus"><b>2 · Your code doesn't own the hardware</b><small>processes, virtual memory, syscalls — what the OS does between you and the silicon</small></div>
+    <div class="dg-box" data-state="focus"><b>2 · Your code doesn't own the hardware</b><small>processes, virtual memory, syscalls</small></div>
     <div class="dg-arrow" data-dir="right"></div>
     <div class="dg-box" data-state="ghost"><b>3 · How Linux knows your hardware exists</b><small>Device Tree → driver → /dev</small></div>
   </div>
+  <div class="dg-group">
+    <span class="dg-label">Later — not scheduled, shaped by your votes</span>
+    <div class="dg-row">
+      <div class="dg-box" data-state="ghost"><b>Bring up a new board</b></div>
+      <div class="dg-box" data-state="ghost"><b>Build an image</b><small>Yocto · Buildroot</small></div>
+      <div class="dg-box" data-state="ghost"><b>Cross-compile &amp; deploy your app</b></div>
+      <div class="dg-box" data-state="ghost"><b>Networking</b></div>
+    </div>
+  </div>
 </div>` },
         cues: [
-          "One sentence of pull for next time, then questions.",
+          "One sentence of pull for session 2, then ask which 'later' topic they want first, then questions.",
         ],
       },
     ],
