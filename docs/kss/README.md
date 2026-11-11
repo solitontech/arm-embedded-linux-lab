@@ -7,13 +7,18 @@ Intuition-first sessions on embedded Linux for a mixed audience (students, RTOS/
 
 The thread through the series: **"What sits between your code and the hardware, and why?"**
 
+```mermaid
+flowchart LR
+  S1["1 · Power-on to a shell"] --> S2["2 · Your code doesn't own the hardware"] --> S3["3 · How Linux knows your hardware exists"]
+```
+
 ## Sessions
 
 | # | Title | Core question | Status |
 |---|---|---|---|
 | 1 | [From power-on to a shell](session-01-boot-flow/index.html) · [story](session-01-boot-flow/STORY.md) | What runs before `main()`, who wrote it, and why there are five stages instead of one | Ready |
-| 2 | Your code doesn't own the hardware anymore | What does the OS actually do between your code and the silicon? | Planned |
-| 3 | How Linux knows your hardware exists | How does a peripheral at a fixed address become `/dev/something`? | Planned |
+| 2 | [Your code doesn't own the hardware anymore](session-02-userspace-kernel-boundary/index.html) · [story](session-02-userspace-kernel-boundary/STORY.md) | What does the OS actually do between your code and the silicon? | Scaffolded |
+| 3 | [How Linux knows your hardware exists](session-03-device-tree-to-dev/index.html) · [story](session-03-device-tree-to-dev/STORY.md) | How does a peripheral at a fixed address become `/dev/something`? | Scaffolded |
 
 The series is shaped by a pre-session audience form (summary in [session 1's story](session-01-boot-flow/STORY.md)): mostly newcomers, top asks are *how a board boots* and *how the kernel talks to hardware*. Topics asked for but not yet scheduled — bringing up a new board, Yocto/Buildroot images, cross-compiling and deploying an application, networking — are listed as *later* on the closing slide.
 

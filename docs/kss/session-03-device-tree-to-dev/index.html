@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KSS 3 — How Linux knows your hardware exists</title>
+<link rel="stylesheet" href="../_shared/kss.css">
+<style>
+  /* Launcher-only layout; everything else comes from kss.css */
+  .launch { max-width: 860px; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+  .launch .t-micro { margin-bottom: 1rem; }
+  .launch .t-display { margin-bottom: 0.75rem; }
+  .launch .t-lead { margin-bottom: 2.5rem; }
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2.5rem; }
+  @media (max-width: 700px) { .cards { grid-template-columns: 1fr; } }
+  .card {
+    display: block; padding: 1.4rem 1.5rem;
+    border: 1px solid var(--border-strong); border-radius: var(--radius);
+    background: var(--surface); color: var(--text);
+    transition: background var(--dur-fast) ease, transform var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  }
+  .card:hover { background: var(--surface-strong); text-decoration: none; border-color: var(--accent); }
+  .card:active { transform: scale(0.99); }
+  .card .t-micro { margin-bottom: 0.4rem; }
+  .card h2 { font-size: 1.25rem; font-weight: 650; letter-spacing: -0.012em; margin-bottom: 0.35rem; }
+  .card p { color: var(--text-2); font-size: 0.95rem; }
+  .card[data-kind="show"] .t-micro { color: var(--accent); }
+  .card[data-kind="present"] .t-micro { color: var(--warm); }
+  .steps { border-top: 1px solid var(--border); padding-top: 1.75rem; }
+  .steps ol { padding-left: 1.3em; }
+  .steps li { margin-bottom: 0.55rem; color: var(--text-2); }
+  .steps li b { color: var(--text); font-weight: 600; }
+  .warn { margin-top: 1.5rem; padding: 0.9rem 1.1rem; border-left: 3px solid var(--warm); background: var(--warm-dim); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; color: var(--text-2); font-size: 0.95rem; }
+  .warn code { font-size: 0.85em; }
+  .warn[data-ok="true"] { display: none; }
+</style>
+</head>
+<body>
+<main class="launch">
+  <div class="t-micro">KSS · Session 3 · Embedded Linux</div>
+  <h1 class="t-display">How Linux knows your hardware exists</h1>
+  <p class="t-lead">How a peripheral at a fixed address becomes a device you can open from user space: Device Tree, driver, /dev.</p>
+
+  <div class="cards">
+    <a class="card" data-kind="present" href="present.html" target="kss-present-session-03">
+      <div class="t-micro">1 · Open first · your screen</div>
+      <h2>Presenter view</h2>
+      <p>Live mirror of the audience, full notes for the current step, your cues, next step, timer, and controls. Keep this window private.</p>
+    </a>
+    <a class="card" data-kind="show" href="show.html" target="kss-show-session-03">
+      <div class="t-micro">2 · Share this one on Teams</div>
+      <h2>Audience view</h2>
+      <p>One title, one visual, one line per step. Follows the presenter window automatically. Press <kbd>F</kbd> for fullscreen.</p>
+    </a>
+  </div>
+
+  <div class="warn" id="origin-warn">
+    The two windows stay in sync only when served over <code>http://</code>. Opened from a file path, each window runs alone (navigation still works in each).
+    From the repo root: <code>python3 -m http.server 8765 --directory docs/kss</code> then open <code>http://localhost:8765/session-03-device-tree-to-dev/</code>.
+  </div>
+
+  <section class="steps">
+    <h2 class="t-heading" style="margin-bottom:0.9rem">Presenting on Teams</h2>
+    <ol>
+      <li><b>Open the presenter view</b> on your own display. Click <em>Open audience window</em> in its header (or use the card above).</li>
+      <li><b>Move the audience window to your second display</b> (or just keep it behind). Press <kbd>F</kbd> in it for fullscreen.</li>
+      <li>In Teams, <b>Share → Window → "… — audience"</b>. Never share your whole screen; the presenter view would leak.</li>
+      <li>Drive from the presenter window: <kbd>→</kbd> / <kbd>←</kbd> or a clicker. The audience window follows; the header dot turns green when it has caught up.</li>
+      <li>For the live demo press <kbd>B</kbd> to blank the audience window, switch the Teams share to your terminal, then come back.</li>
+    </ol>
+  </section>
+
+  <p class="t-small" style="margin-top:2.5rem">Story source: <a href="STORY.md">STORY.md</a> · Series index: <a href="../README.md">docs/kss</a></p>
+  <p class="t-small" style="margin-top:0.5rem">Previous: <a href="../session-02-userspace-kernel-boundary/index.html">2 · Your code doesn't own the hardware anymore</a></p>
+</main>
+<script>
+  // Hide the http:// note when it doesn't apply.
+  if (location.protocol.startsWith("http")) document.getElementById("origin-warn").dataset.ok = "true";
+</script>
+</body>
+</html>

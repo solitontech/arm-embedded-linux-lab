@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KSS 3 — presenter</title>
+<link rel="stylesheet" href="../_shared/kss.css">
+<link rel="stylesheet" href="../_shared/deck.css">
+</head>
+<body data-kss-view="present">
+  <!-- Keep THIS window on your own screen. Do not share it. -->
+  <div class="console">
+
+    <header class="console-head">
+      <span class="deck-title" data-p="deck-title">…</span>
+      <span class="counter" data-p="counter">– / –</span>
+      <span class="sync" data-p="sync" data-state="none" title="Audience window sync status">audience</span>
+      <span class="spacer"></span>
+      <button class="btn" data-p="prev" title="Previous (←)">←</button>
+      <button class="btn" data-p="next-btn" title="Next (→ / space)">→</button>
+      <button class="btn" data-p="blank" title="Blank the audience screen (B)">Blank</button>
+      <button class="btn" data-p="reset-timer" title="Reset timer (R)">Reset</button>
+      <span class="timer" data-p="timer">00:00</span>
+      <button class="btn" data-primary data-p="open-show" title="Open the audience window — share that one on Teams">Open audience window</button>
+    </header>
+
+    <aside class="console-left">
+      <div class="mirror-wrap">
+        <span class="mirror-label">Audience sees</span>
+        <!-- scaled stage injected here -->
+      </div>
+      <div class="next-wrap" data-p="next"></div>
+      <nav class="outline" data-p="outline" aria-label="Steps"></nav>
+      <div class="keys">
+        <span><kbd>→</kbd> <kbd>Space</kbd> next</span>
+        <span><kbd>←</kbd> prev</span>
+        <span><kbd>B</kbd> blank</span>
+        <span><kbd>F</kbd> fullscreen</span>
+        <span><kbd>R</kbd> reset timer</span>
+        <span><kbd>Home</kbd>/<kbd>End</kbd></span>
+      </div>
+    </aside>
+
+    <main class="console-right">
+      <div class="notes-head">
+        <div class="eyebrow" data-p="eyebrow"></div>
+        <h1 class="title" data-p="title"></h1>
+      </div>
+      <div class="cues" data-p="cues"></div>
+      <div class="notes"><div class="prose" data-p="notes"></div></div>
+    </main>
+
+  </div>
+
+  <script src="../_shared/deck-engine.js"></script>
+  <script src="deck-content.js"></script>
+  <script src="deck.js"></script>
+</body>
+</html>
