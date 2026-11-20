@@ -108,4 +108,5 @@ tiered verification (Tier 1 host-side via Docker, Tier 2 bench via serial).
 - Serial logs persist across server restarts (disk-backed ring buffer)
 - The boot analyzer includes `rule_suggestion` in each error — use it to update AGENT_RULES.md
 - Only one process can hold a serial port — use release/acquire for manual access
+- **Always `lab_serial_release` before opening picocom/`./lab console`.** If the MCP still holds the port, both read it and bytes are split between them, giving dropped/garbled console output (e.g. `ls` showing missing characters). `./lab console` warns when another process holds the port.
 - The server binds to 127.0.0.1 only — use SSH tunneling for remote access

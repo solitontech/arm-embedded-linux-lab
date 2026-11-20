@@ -107,6 +107,9 @@ Hand over to the [`kss-deck-builder`](../kss-deck-builder/SKILL.md) skill — it
 ## Notes
 - **Abstract the board, keep the demo concrete.** Teach the generic flow even when lab hardware deviates; put the lab board's quirks in one footnote step near the end. Session 1 did this for the RPi4's GPU-first boot.
 - **Repetition is a feature.** Same four beats, same "generic → your specifics" shape, same colours. Don't vary structure for novelty.
+- **Plan for the newcomer.** Assume someone in the room has never seen the domain. Define every term inline on first use, and send a glossary pre-read two days ahead (`RESOURCES.md` → *Pre-read*). Add one small hands-on challenge the audience can take away.
+- **A demo needs a fallback.** Rehearse the full cold path the day before, record a successful run, and put the time box ("one retry, then the recording") in the demo step's cues. The full list is in [`SESSION_CHECKLIST.md`](../../../docs/kss/_shared/SESSION_CHECKLIST.md).
+- **Say where the resources are during the session**, then publish them the same day in `RESOURCES.md`.
 - **The demo is a step.** Give the audience a frame of what to watch *before* switching the share to a terminal, blank the stage (`B`), demo, come back to the same frame.
 - **Density checks:** more than ~12 words in a title, more than one sentence in a caption, or a diagram with more than ~8 boxes → split the step.
 - Visual/interaction rules (feedback on press, interruptible transitions, reduced-motion fallbacks, typography) come from the `design` skill and are baked into `_shared/kss.css` and `_shared/deck.css`.

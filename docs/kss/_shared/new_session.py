@@ -10,6 +10,7 @@ Creates docs/kss/session-02-userspace-kernel-boundary/ with:
     STORY.md          header, who-says-what table, 3 example beats with markers
     deck.js           deck skeleton: rail presets, one morphing helper, 3 example
                       steps matching the STORY.md markers, cues placeholders
+    RESOURCES.md      pre-read, resources, try-it-yourself, recording (to be filled)
     deck-content.js   generated from STORY.md (so the deck opens immediately)
     show.html, present.html, index.html   copied from the newest existing
                       session with titles/targets substituted
@@ -30,6 +31,37 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 KSS = os.path.dirname(HERE)
+
+RESOURCES_TMPL = """# KSS #{num} — Resources
+
+Everything referenced in *{title}*, in one place. Share the link to this file in the session and again after it.
+
+## Pre-read
+
+EDIT ME — a short glossary of the terms this session uses, sent at least two days before. See [the session checklist](../_shared/SESSION_CHECKLIST.md).
+
+## Recording
+
+EDIT ME — link to the recording once it exists.
+
+## The session
+
+| What | Where |
+|---|---|
+| Slide deck (runs on a local server, not a static file) | [launcher](index.html) · [how to run it](../README.md#running-a-session) |
+
+## Try it yourself
+
+EDIT ME — one small hands-on challenge: change one thing, predict the result, check it.
+
+## Repeat the demo
+
+EDIT ME — links to the guides that reproduce the demo.
+
+## Go deeper
+
+EDIT ME — official documentation and one or two further resources.
+"""
 
 
 def newest_session() -> str | None:
@@ -235,6 +267,9 @@ def main() -> int:
         f.write(DECK_TMPL.format(num=num, title=a.title, title_js=title_js, minutes=a.minutes,
                                  rail_start=rail_start, rail_end=rail_end))
 
+    with open(os.path.join(sdir, "RESOURCES.md"), "w", encoding="utf-8") as f:
+        f.write(RESOURCES_TMPL.format(num=int(num), title=a.title))
+
     # copy the three pages, substituting session-specific strings
     src_title = None
     for page in ("show.html", "present.html", "index.html"):
@@ -261,6 +296,7 @@ def main() -> int:
 created docs/kss/{folder}/
   STORY.md         3 EXAMPLE beats with markers — replace with the reviewed story
   deck.js          3 EXAMPLE steps + a morphing helper — replace per marker
+  RESOURCES.md     pre-read, recording, try-it-yourself — fill in before the session
   deck-content.js  generated
   show.html, present.html, index.html   copied from {src_name}
 
@@ -269,6 +305,7 @@ next:
   write STORY.md → review → python3 docs/kss/_shared/build_deck.py {folder} → write deck.js
   python3 docs/kss/_shared/check.py
   add a row to docs/kss/README.md
+  work through docs/kss/_shared/SESSION_CHECKLIST.md (pre-read, demo fallback, same-day resources)
 """)
     return 0
 

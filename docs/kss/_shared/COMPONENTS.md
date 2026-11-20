@@ -7,8 +7,9 @@ Every session under `docs/kss/session-NN-*/` is a **deck**: one list of steps, r
 | [`kss.css`](kss.css) | Tokens, base, type scale, and the `dg-*` diagram primitives every visual is built from |
 | [`deck.css`](deck.css) | Layouts: the 16:9 audience **stage** and the presenter **console**; build/morph animations |
 | [`deck-engine.js`](deck-engine.js) | Renders steps, navigation keys, two-window sync, mirror, timer, deck validation |
-| [`new_session.py`](new_session.py) | Scaffolds `session-NN-slug/` — story + deck skeletons with `EXAMPLE` beats, pages copied with titles substituted |
+| [`new_session.py`](new_session.py) | Scaffolds `session-NN-slug/` — story + deck skeletons with `EXAMPLE` beats, a `RESOURCES.md` skeleton, pages copied with titles substituted |
 | [`build_deck.py`](build_deck.py) | Generates `deck-content.js` (presenter prose) from `STORY.md` step markers |
+| [`SESSION_CHECKLIST.md`](SESSION_CHECKLIST.md) | Lessons for every session: newcomer pre-read, demo rehearsal and fallback, same-day resources |
 | [`check.py`](check.py) | Structural checks — run before committing; warns while scaffold placeholders remain |
 
 Zero dependencies. Pages work from `file://` for single-window use; **two-window sync needs `http://`** (`python3 -m http.server 8765 --directory docs/kss`).

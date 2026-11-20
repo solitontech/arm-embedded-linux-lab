@@ -16,7 +16,7 @@ flowchart LR
 
 | # | Title | Core question | Status |
 |---|---|---|---|
-| 1 | [From power-on to a shell](session-01-boot-flow/index.html) · [story](session-01-boot-flow/STORY.md) | What runs before `main()`, who wrote it, and why there are five stages instead of one | Ready |
+| 1 | [From power-on to a shell](session-01-boot-flow/index.html) · [story](session-01-boot-flow/STORY.md) · [resources & recording](session-01-boot-flow/RESOURCES.md) | What runs before `main()`, who wrote it, and why there are five stages instead of one | Ready |
 | 2 | [Your code doesn't own the hardware anymore](session-02-userspace-kernel-boundary/index.html) · [story](session-02-userspace-kernel-boundary/STORY.md) | What does the OS actually do between your code and the silicon? | Deck built, not yet rehearsed |
 | 3 | [How Linux knows your hardware exists](session-03-device-tree-to-dev/index.html) · [story](session-03-device-tree-to-dev/STORY.md) | How does a peripheral at a fixed address become `/dev/something`? | Deck built, not yet rehearsed |
 
@@ -49,8 +49,10 @@ docs/kss/
 │   ├── build_deck.py             ← STORY.md → deck-content.js (presenter prose)
 │   ├── serve.py                  ← serve the decks locally and open a session's page
 │   ├── check.py                  ← structural checks for every session (run before committing)
-│   └── COMPONENTS.md             ← the contract + primitive catalogue for building a deck
+│   ├── COMPONENTS.md             ← the contract + primitive catalogue for building a deck
+│   └── SESSION_CHECKLIST.md      ← lessons: pre-read, demo fallback, same-day resources
 └── session-NN-slug/
+    ├── RESOURCES.md              ← pre-read, recording, try-it-yourself, further reading
     ├── STORY.md                  ← the reviewed narrative with <!-- step: id --> markers — source of truth
     ├── deck.js                   ← what the audience sees per step + presenter cues
     ├── deck-content.js           ← GENERATED presenter prose; never hand-edited
