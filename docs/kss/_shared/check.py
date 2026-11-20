@@ -248,7 +248,10 @@ def check_session(sdir: str, defined: set[str]) -> None:
 
     # scaffold placeholders left behind (new_session.py tags them EXAMPLE / EDIT ME)
     leftovers = []
-    for fname in ("STORY.md", "deck.js", "index.html"):
+    for fname in ("STORY.md", "deck.js", "index.html", "RESOURCES.md"):
+        if not os.path.exists(os.path.join(sdir, fname)):
+            print(f"  WARN: {fname} missing (see _shared/SESSION_CHECKLIST.md)")
+            continue
         txt = open(os.path.join(sdir, fname), encoding="utf-8").read()
         n = len(re.findall(r"\bEXAMPLE\b|EDIT ME", txt))
         if n:

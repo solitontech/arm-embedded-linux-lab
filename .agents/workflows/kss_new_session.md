@@ -12,6 +12,7 @@ You are adding Session N to the KSS series in `docs/kss/` — a reviewed narrati
 - Read the previous session's `STORY.md` end-to-end, including its *Review log*, and step through its deck once with both windows open.
 - Invoke two skills: [`kss-storytelling`](../skills/kss-storytelling/SKILL.md) (what goes on screen / in notes / in cues, and what gets cut) and [`kss-deck-builder`](../skills/kss-deck-builder/SKILL.md) (beat→step template, visual pattern library, morph recipe). This workflow only sequences the steps.
 - Read [`docs/kss/_shared/COMPONENTS.md`](../../docs/kss/_shared/COMPONENTS.md) for the deck contract and primitives.
+- Read [`docs/kss/_shared/SESSION_CHECKLIST.md`](../../docs/kss/_shared/SESSION_CHECKLIST.md) — lessons from earlier sessions (newcomer pre-read, demo fallback, same-day resources). Work through it alongside the steps below.
 - Work on a `kss/*` branch, not `main`.
 
 ## Steps
@@ -62,7 +63,7 @@ You are adding Session N to the KSS series in `docs/kss/` — a reviewed narrati
    python3 -m http.server 8765 --directory docs/kss
    # open http://localhost:8765/session-02-…/  → presenter view → "Open audience window"
    ```
-   - `check.py` prints no `WARN: scaffold placeholders still present` — every `EXAMPLE` / `EDIT ME` is gone
+   - `check.py` prints no `WARN: scaffold placeholders still present` (this includes `RESOURCES.md`) — every `EXAMPLE` / `EDIT ME` is gone
    - No red deck-error banner in either window
    - Step with `→`: the audience window follows; the header dot goes green
    - Morphing diagrams transition instead of cutting; nothing on the stage is clipped at 1600×900
@@ -70,13 +71,17 @@ You are adding Session N to the KSS series in `docs/kss/` — a reviewed narrati
    - `B` blanks, `F` fullscreens, `#12` in the URL opens step 12
    - Rehearse once against `plannedMinutes`
 
-9. **Commit**
+9. **Prepare the session around the deck**
+   Fill in the scaffolded `RESOURCES.md` (pre-read glossary, try-it-yourself challenge, demo guides, further reading). Send the pre-read at least two days ahead. Rehearse the demo's full cold path the day before and record a fallback (see the checklist). After the call, add the recording link and anything promised during the session, and share the file the same day.
+
+10. **Commit**
    One commit for the session (story, deck, generated content, pages, README row). Shared-component changes go in a separate preceding commit.
 
 ## Files Touched
 - `[CREATE]` `docs/kss/session-NN-slug/STORY.md` (scaffolded, then written)
 - `[CREATE]` `docs/kss/session-NN-slug/deck.js` (scaffolded, then written)
 - `[CREATE]` `docs/kss/session-NN-slug/deck-content.js` (generated)
+- `[CREATE]` `docs/kss/session-NN-slug/RESOURCES.md` (scaffolded, then filled in)
 - `[CREATE]` `docs/kss/session-NN-slug/show.html`, `present.html`, `index.html` (scaffolded; only the launcher lead is edited)
 - `[MODIFY]` `docs/kss/README.md` — session index row
 - `[MODIFY, if needed]` previous session's `deck.js` — "Next" step
