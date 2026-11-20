@@ -16,7 +16,7 @@ flowchart LR
 
 | # | Title | Core question | Status |
 |---|---|---|---|
-| 1 | [From power-on to a shell](session-01-boot-flow/index.html) · [story](session-01-boot-flow/STORY.md) | What runs before `main()`, who wrote it, and why there are five stages instead of one | Ready |
+| 1 | [From power-on to a shell](session-01-boot-flow/index.html) · [story](session-01-boot-flow/STORY.md) · [resources & recording](session-01-boot-flow/RESOURCES.md) | What runs before `main()`, who wrote it, and why there are five stages instead of one | Ready |
 | 2 | [Your code doesn't own the hardware anymore](session-02-userspace-kernel-boundary/index.html) · [story](session-02-userspace-kernel-boundary/STORY.md) | What does the OS actually do between your code and the silicon? | Deck built, not yet rehearsed |
 | 3 | [How Linux knows your hardware exists](session-03-device-tree-to-dev/index.html) · [story](session-03-device-tree-to-dev/STORY.md) | How does a peripheral at a fixed address become `/dev/something`? | Deck built, not yet rehearsed |
 
