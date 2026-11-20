@@ -37,12 +37,19 @@ if [ ! -e "$SERIAL_PORT" ]; then
   exit 1
 fi
 
-# Free serial device from any stale process holding an exclusive lock
+# Free serial device from stale terminal programs, and warn about other holders.
+# Other readers (e.g. the lab MCP server) split incoming bytes with us, which
+# shows up as dropped/garbled characters. We never kill them blindly.
+pkill -9 -f "picocom.*${SERIAL_PORT}" >/dev/null 2>&1 || true
+pkill -9 -f "minicom.*${SERIAL_PORT}" >/dev/null 2>&1 || true
 if command -v fuser >/dev/null 2>&1; then
-  fuser -k -9 "$SERIAL_PORT" >/dev/null 2>&1 || true
-else
-  pkill -9 -f "picocom.*${SERIAL_PORT}" >/dev/null 2>&1 || true
-  pkill -9 -f "minicom.*${SERIAL_PORT}" >/dev/null 2>&1 || true
+  HOLDERS="$(fuser "$SERIAL_PORT" 2>/dev/null | tr -s ' ' || true)"
+  if [ -n "${HOLDERS// /}" ]; then
+    echo "[WARN] ${SERIAL_PORT} is still open by PID(s):${HOLDERS}"
+    echo "[WARN] Two readers on one port cause missing/garbled characters."
+    echo "[WARN] If this is the lab MCP server, call lab_serial_release(board=\"${BOARD}\") first"
+    echo "[WARN] (and lab_serial_acquire afterwards to resume MCP monitoring)."
+  fi
 fi
 
 echo "[INFO] Connecting to ${BOARD} on ${SERIAL_PORT} (${SERIAL_BAUD} baud)..."

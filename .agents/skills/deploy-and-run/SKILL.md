@@ -57,6 +57,7 @@ lab run <project-name> --board <board-name>
 lab console --board <board-name>
 lab gdb <project-name> --board <board-name>
 ```
+If the lab MCP server holds the serial port, release it first (`lab_serial_release`), otherwise console output is garbled. `lab console` warns when another process holds the port.
 
 ## Notes
 - Use `./lab <command>` as the primary entry point for all operations.
